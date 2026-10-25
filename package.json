@@ -1,0 +1,198 @@
+{
+  "name": "noambrowser",
+  "version": "2.0.0",
+  "description": "NoamBrowser — a private web browser with built-in ad blocking and VPN",
+  "main": "src/main.js",
+  "scripts": {
+    "start": "electron . --no-sandbox",
+    "engine": "node scripts/build-engine.js",
+    "icons": "node scripts/make-icon.js",
+    "dist": "electron-builder --win --x64",
+    "dist:mac": "electron-builder --mac && bash scripts/mac-finish.sh"
+  },
+  "keywords": [],
+  "author": "Noam",
+  "license": "MIT",
+  "devDependencies": {
+    "@fontsource-variable/manrope": "^5.3.0",
+    "@resvg/resvg-js": "^2.6.2",
+    "electron": "^44.9.3",
+    "electron-builder": "^26.15.3",
+    "png-to-ico": "^3.0.2",
+    "resedit": "^3.1.0",
+    "@browsermt/bergamot-translator": "^0.4.9"
+  },
+  "dependencies": {
+    "@ghostery/adblocker": "^2.20.1",
+    "@ghostery/adblocker-electron": "^2.20.1",
+    "@mozilla/readability": "^0.6.0",
+    "electron-updater": "^6.8.11",
+    "tldts-experimental": "^7.4.19"
+  },
+  "productName": "NoamBrowser",
+  "build": {
+    "appId": "com.noam.browser",
+    "productName": "NoamBrowser",
+    "copyright": "Copyright © 2026 Noam",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "src/**/*",
+      "vendor/lists/engine.bin",
+      "package.json",
+      "!src/test-hooks.js"
+    ],
+    "asar": true,
+    "compression": "maximum",
+    "afterPack": "scripts/after-pack.js",
+    "protocols": [
+      {
+        "name": "Web page",
+        "schemes": [
+          "http",
+          "https"
+        ]
+      }
+    ],
+    "fileAssociations": [
+      {
+        "ext": [
+          "htm",
+          "html"
+        ],
+        "name": "HTML document",
+        "role": "Viewer"
+      }
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.ico",
+      "signAndEditExecutable": false,
+      "executableName": "NoamBrowser",
+      "extraResources": [
+        {
+          "from": "vendor/wireproxy/wireproxy.exe",
+          "to": "wireproxy/wireproxy.exe"
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "NoamBrowser",
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico",
+      "artifactName": "NoamBrowser-Setup-${version}.exe",
+      "runAfterFinish": true,
+      "deleteAppDataOnUninstall": false
+    },
+    "portable": {
+      "artifactName": "NoamBrowser.exe"
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "ntoder",
+        "repo": "NoamBrowser",
+        "releaseType": "release"
+      }
+    ],
+    "mac": {
+      "target": [
+        {
+          "target": "dir",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.png",
+      "category": "public.app-category.productivity",
+      "identity": null,
+      "hardenedRuntime": false,
+      "darkModeSupport": true,
+      "extraResources": [
+        {
+          "from": "vendor/wireproxy/darwin-${arch}/wireproxy",
+          "to": "wireproxy/wireproxy"
+        }
+      ],
+      "extendInfo": {
+        "NSCameraUsageDescription": "Websites you allow can use your camera.",
+        "NSMicrophoneUsageDescription": "Websites you allow can use your microphone.",
+        "NSLocationUsageDescription": "Websites you allow can see your location."
+      }
+    },
+    "linux": {
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "deb",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.png",
+      "category": "Network;WebBrowser",
+      "executableName": "noambrowser",
+      "maintainer": "Noam <noam@noambrowser.local>",
+      "synopsis": "Private browser with built-in ad blocker and VPN",
+      "mimeTypes": [
+        "text/html",
+        "x-scheme-handler/http",
+        "x-scheme-handler/https"
+      ],
+      "desktop": {
+        "entry": {
+          "StartupWMClass": "NoamBrowser",
+          "Keywords": "browser;web;internet;privacy;vpn;"
+        }
+      },
+      "extraResources": [
+        {
+          "from": "vendor/wireproxy/linux-x64/wireproxy",
+          "to": "wireproxy/wireproxy"
+        }
+      ]
+    },
+    "appImage": {
+      "artifactName": "NoamBrowser-${version}-x86_64.AppImage"
+    },
+    "deb": {
+      "artifactName": "noambrowser_${version}_amd64.deb"
+    },
+    "asarUnpack": [
+      "src/translate/**"
+    ]
+  },
+  "homepage": "https://github.com/ntoder/NoamBrowser",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ntoder/NoamBrowser.git"
+  }
+}

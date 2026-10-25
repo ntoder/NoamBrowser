@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Downloads</title><link rel="stylesheet" href="pages.css"><link rel="stylesheet" href="assets/themes.css">
+<style>
+  .row .main { flex-direction: column; align-items: flex-start; gap: 0; }
+  .bar { width: 100%; height: 4px; border-radius: 2px; background: var(--surface-3); margin-top: 6px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--accent); }
+  .row .act { opacity: 1; }
+  .row.failed .t { color: var(--muted); text-decoration: line-through; }
+</style></head>
+<body>
+<div class="page">
+  <div class="page-head"><h1>Downloads</h1><button id="clear" class="btn">Clear list</button></div>
+  <div id="list"></div>
+</div>
+<script src="assets/apply-theme.js"></script>
+<script src="common.js"></script>
+<script src="downloads.js"></script>
+</body>
+</html>

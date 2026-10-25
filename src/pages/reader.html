@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Reader</title><link rel="stylesheet" href="pages.css"><link rel="stylesheet" href="assets/themes.css">
+<style>
+  :root { --r-size: 20px; --r-width: 680px; }
+  body { background: var(--r-bg, var(--bg)); color: var(--r-fg, var(--text)); }
+  body.sepia { --r-bg: #F4ECD8; --r-fg: #3B2F1E; --r-muted: #7A6A52; --r-link: #8A4B12; }
+  body.paper { --r-bg: #FFFFFF; --r-fg: #1B1B1B; --r-muted: #6B6B6B; --r-link: #1A5DD0; }
+  body.night { --r-bg: #121212; --r-fg: #DADADA; --r-muted: #8E8E8E; --r-link: #8AB4FF; }
+  .bar { position: sticky; top: 0; z-index: 2; display: flex; gap: 6px; align-items: center; justify-content: center; padding: 10px; background: color-mix(in srgb, var(--r-bg, var(--bg)) 86%, transparent); backdrop-filter: blur(12px); }
+  .bar button { height: 32px; min-width: 34px; padding: 0 10px; border-radius: 10px; background: color-mix(in srgb, var(--r-fg, var(--text)) 8%, transparent); color: inherit; font-weight: 700; font-size: 13px; }
+  .bar button:hover { background: color-mix(in srgb, var(--r-fg, var(--text)) 14%, transparent); }
+  .bar button[aria-pressed="true"] { outline: 2px solid var(--accent); }
+  .bar .sw { width: 22px; height: 22px; min-width: 22px; padding: 0; border-radius: 50%; border: 1px solid rgba(127,127,127,.4); }
+  .bar .sep { width: 1px; height: 20px; background: rgba(127,127,127,.3); margin: 0 6px; }
+  article { max-width: var(--r-width); margin: 0 auto; padding: 28px 24px 120px; font-family: var(--r-font, 'Iowan Old Style', Georgia, 'Times New Roman', serif); font-size: var(--r-size); line-height: 1.7; }
+  body.sans article { --r-font: var(--font); line-height: 1.6; }
+  .site { color: var(--r-muted, var(--muted)); font: 600 14px var(--font); margin-bottom: 10px; }
+  h1.title { font: 800 clamp(28px, 4vw, 40px)/1.15 var(--font); letter-spacing: -.02em; margin: 0 0 12px; }
+  .meta { color: var(--r-muted, var(--muted)); font: 500 14px var(--font); margin-bottom: 34px; }
+  article img, article video, article figure { max-width: 100%; height: auto; border-radius: 8px; }
+  article figure { margin: 26px 0; }
+  article > div > :first-child, article > div > div > :first-child { margin-top: 0; }
+  article figcaption { font: 500 13px var(--font); color: var(--r-muted, var(--muted)); margin-top: 6px; }
+  article a { color: var(--r-link, var(--accent)); }
+  article pre, article code { font-family: 'Cascadia Code', Consolas, monospace; font-size: .85em; }
+  article pre { overflow: auto; padding: 14px; border-radius: 10px; background: rgba(127,127,127,.12); }
+  article blockquote { margin: 1.2em 0; padding-left: 18px; border-left: 3px solid var(--accent); color: var(--r-muted, var(--muted)); }
+  article table { border-collapse: collapse; font: 15px var(--font); }
+  article td, article th { border: 1px solid rgba(127,127,127,.3); padding: 6px 10px; }
+  .empty { max-width: 520px; margin: 80px auto; text-align: center; color: var(--muted); }
+  [dir="rtl"] article blockquote { border-left: 0; border-right: 3px solid var(--accent); padding-left: 0; padding-right: 18px; }
+</style></head>
+<body>
+  <div class="bar" id="bar">
+    <button id="smaller" title="Smaller text">A−</button>
+    <button id="bigger" title="Bigger text">A+</button>
+    <span class="sep"></span>
+    <button id="font" title="Switch font">Serif</button>
+    <button id="narrow" title="Line width">Width</button>
+    <span class="sep"></span>
+    <button class="sw" data-t="auto" title="Match browser theme" style="background:linear-gradient(135deg,#eee 50%,#222 50%)"></button>
+    <button class="sw" data-t="paper" title="White" style="background:#fff"></button>
+    <button class="sw" data-t="sepia" title="Sepia" style="background:#F4ECD8"></button>
+    <button class="sw" data-t="night" title="Night" style="background:#121212"></button>
+    <span class="sep"></span>
+    <button id="listen" title="Read aloud">Listen</button>
+    <button id="original" title="Back to the original page">Original page</button>
+  </div>
+  <article id="art"></article>
+<script src="assets/apply-theme.js"></script>
+<script src="common.js"></script>
+<script src="reader.js"></script>
+</body>
+</html>

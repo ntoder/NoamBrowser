@@ -1,0 +1,149 @@
+/* NoamBrowser — appearance variants, Liquid Glass and motion. */
+:root { --rk: 1; --glass: .6; --spring: cubic-bezier(.2, 1.18, .32, 1); --ease-out: cubic-bezier(.16, 1, .3, 1); }
+
+/* ---------- corner roundness ---------- */
+#omnibox { border-radius: calc(17px * var(--rk)); }
+#omnibox.focus.open { border-radius: calc(17px * var(--rk)) calc(17px * var(--rk)) 0 0; }
+#suggest { border-radius: 0 0 calc(16px * var(--rk)) calc(16px * var(--rk)); }
+.panel { border-radius: calc(16px * var(--rk)); }
+.status-pill { border-radius: calc(15px * var(--rk)); }
+.icon-btn { border-radius: calc(9px * var(--rk)); }
+.tab { border-radius: calc(10px * var(--rk)) calc(10px * var(--rk)) 0 0; }
+.btn { border-radius: calc(10px * var(--rk)); }
+
+/* ---------- chrome art (gradient presets) ---------- */
+#titlebar { background: var(--chrome-art, transparent); background-size: 300% 300%; }
+:root[data-preset="aurora"] #titlebar, :root[data-preset="neon"] #titlebar { animation: drift 18s ease-in-out infinite alternate; }
+:root[data-preset="snow"] #titlebar { background-size: 100% 100%; }
+@keyframes drift { from { background-position: 0% 50%; } to { background-position: 100% 50%; } }
+:root[data-preset="neon"] .tab.active { box-shadow: inset 0 -2px 0 var(--accent), 0 0 18px -6px var(--accent); }
+:root[data-preset="neon"] #omnibox.focus { box-shadow: 0 0 0 2px var(--accent), 0 0 28px -4px var(--accent); }
+:root[data-preset="neon"] .vpn.on { box-shadow: 0 0 16px -2px var(--safe); }
+
+/* ---------- tab styles ---------- */
+:root[data-tabs="pills"] #titlebar { align-items: center; }
+:root[data-tabs="pills"] #tabstrip { align-items: center; gap: 5px; height: 40px; }
+:root[data-tabs="pills"] .tab { height: 30px; border-radius: calc(15px * var(--rk)); }
+:root[data-tabs="pills"] .tab.active { box-shadow: 0 1px 2px rgba(0,0,0,.12), 0 4px 14px -6px rgba(0,0,0,.35); }
+:root[data-tabs="pills"] .tab.active::before, :root[data-tabs="pills"] .tab.active::after,
+:root[data-tabs="pills"] .tab + .tab::before { display: none; }
+:root[data-tabs="pills"] #newtab { margin: 0 0 0 4px; }
+:root[data-tabs="pills"] #toolbar { border-top: 1px solid var(--line); }
+
+:root[data-tabs="minimal"] .tab { border-radius: 0; background: none !important; }
+:root[data-tabs="minimal"] .tab.active::before, :root[data-tabs="minimal"] .tab.active::after, :root[data-tabs="minimal"] .tab + .tab::before { display: none; }
+:root[data-tabs="minimal"] .tab::after { content: ''; position: absolute; left: 12px; right: 12px; bottom: 0; height: 2.5px; border-radius: 2px; background: var(--accent); transform: scaleX(0); transition: transform .3s var(--spring); }
+:root[data-tabs="minimal"] .tab.active::after { transform: scaleX(1); width: auto; background: var(--accent); }
+:root[data-tabs="minimal"] .tab.active { color: var(--text); }
+
+:root[data-tabs="floating"] #titlebar { padding-top: 4px; }
+:root[data-tabs="floating"] #tabstrip { gap: 6px; padding-bottom: 4px; height: 38px; align-items: center; }
+:root[data-tabs="floating"] .tab { height: 30px; border-radius: calc(9px * var(--rk)); background: color-mix(in srgb, var(--surface) 35%, transparent); }
+:root[data-tabs="floating"] .tab.active { background: var(--surface); box-shadow: 0 6px 18px -8px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.08); }
+:root[data-tabs="floating"] .tab.active::before, :root[data-tabs="floating"] .tab.active::after, :root[data-tabs="floating"] .tab + .tab::before { display: none; }
+
+/* ---------- density ---------- */
+:root[data-density="compact"] #titlebar { height: 34px; }
+:root[data-density="compact"] #tabstrip { height: 30px; }
+:root[data-density="compact"] .tab { height: 30px; font-size: 12px; }
+:root[data-density="compact"] #toolbar { height: 38px; }
+:root[data-density="compact"] #omnibox { height: 28px; }
+:root[data-density="compact"] .status-pill { height: 26px; }
+:root[data-density="compact"] .icon-btn { height: 28px; min-width: 28px; }
+:root[data-density="compact"] #bookmarks-bar { height: 26px; }
+:root[data-density="compact"] .wc { height: 34px; }
+:root[data-density="compact"] #suggest { top: 28px; }
+:root[data-density="spacious"] #titlebar { height: 46px; }
+:root[data-density="spacious"] #tabstrip { height: 38px; }
+:root[data-density="spacious"] .tab { height: 38px; }
+:root[data-density="spacious"] #toolbar { height: 54px; }
+:root[data-density="spacious"] #omnibox { height: 40px; }
+:root[data-density="spacious"] #suggest { top: 40px; }
+:root[data-density="spacious"] .wc { height: 46px; }
+
+/* ---------- Liquid Glass ---------- */
+:root[data-glass] body { background: transparent; }
+:root[data-glass] #app {
+  background:
+    radial-gradient(120% 140% at 0% 0%, color-mix(in srgb, var(--accent) calc(var(--glass) * 22%), transparent), transparent 55%),
+    color-mix(in srgb, var(--bg) calc(100% - var(--glass) * 75%), transparent);
+}
+:root[data-glass] #titlebar { background: transparent; }
+:root[data-glass] #toolbar, :root[data-glass] #bookmarks-bar, :root[data-glass] .tab.active {
+  background: color-mix(in srgb, var(--surface) calc(100% - var(--glass) * 70%), transparent);
+}
+:root[data-glass] .tab.active::before { background: radial-gradient(circle at 0 0, transparent 9.5px, color-mix(in srgb, var(--surface) calc(100% - var(--glass) * 70%), transparent) 10px); }
+:root[data-glass] .tab.active::after { background: radial-gradient(circle at 100% 0, transparent 9.5px, color-mix(in srgb, var(--surface) calc(100% - var(--glass) * 70%), transparent) 10px); }
+:root[data-glass] #omnibox {
+  background: linear-gradient(180deg, rgba(255,255,255,.16), rgba(255,255,255,.04));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.35), inset 0 -1px 0 rgba(0,0,0,.12), 0 6px 20px -10px rgba(0,0,0,.45);
+  backdrop-filter: blur(calc(20px * var(--glass))) saturate(1.6);
+}
+:root[data-glass] .status-pill, :root[data-glass] .icon-btn:hover:not(:disabled), :root[data-glass] .tab.active {
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.28), inset 0 -1px 0 rgba(0,0,0,.10);
+}
+:root[data-glass] .panel, :root[data-glass] #findbar, :root[data-glass] #permission-bar, :root[data-glass] #suggest {
+  background: color-mix(in srgb, var(--surface) calc(100% - var(--glass) * 55%), transparent);
+  backdrop-filter: blur(calc(34px * var(--glass) + 6px)) saturate(1.8);
+  border: 1px solid rgba(255,255,255,.18);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.35), 0 24px 60px -18px rgba(0,0,0,.6);
+}
+/* specular sheen that slides across glass panels as they open */
+:root[data-glass] .panel::before {
+  content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+  background: linear-gradient(115deg, transparent 30%, rgba(255,255,255,.16) 45%, transparent 60%);
+  background-size: 250% 100%; background-position: 120% 0;
+}
+:root[data-glass]:not([data-anim="off"]) .panel:not([hidden])::before { animation: sheen 1.1s var(--ease-out) .05s both; }
+@keyframes sheen { to { background-position: -30% 0; } }
+
+/* ---------- motion ---------- */
+:root:not([data-anim="off"]) .icon-btn, :root:not([data-anim="off"]) .status-pill, :root:not([data-anim="off"]) .btn, :root:not([data-anim="off"]) .wc {
+  transition: transform .18s var(--spring), background .15s, color .15s, box-shadow .2s;
+}
+:root:not([data-anim="off"]) .icon-btn:active:not(:disabled), :root:not([data-anim="off"]) .status-pill:active, :root:not([data-anim="off"]) .btn:active { transform: scale(.92); }
+:root:not([data-anim="off"]) #omnibox { transition: background .2s, box-shadow .25s, transform .3s var(--spring); }
+:root:not([data-anim="off"]) #omnibox.focus { transform: scale(1.006); }
+
+/* tab open / close */
+:root:not([data-anim="off"]) .tab.entering { animation: tabIn .42s var(--spring) both; }
+:root:not([data-anim="off"]) .tab.leaving { animation: tabOut .24s var(--ease-out) both; pointer-events: none; }
+@keyframes tabIn { from { max-width: 0; min-width: 0; padding: 0; opacity: 0; transform: translateY(8px) scale(.9); } 60% { opacity: 1; } to { max-width: 260px; } }
+@keyframes tabOut { to { max-width: 0; min-width: 0; padding: 0; opacity: 0; transform: scale(.85); } }
+:root:not([data-anim="off"]) .tab { transition: flex-basis .3s var(--ease-out), width .3s var(--ease-out), background .15s, color .15s; }
+
+/* switching tabs / opening pages: the page settles in like a card */
+:root:not([data-anim="off"]) #views webview.view-in { animation: viewIn .38s var(--ease-out) both; }
+:root:not([data-anim="off"]) #views webview.view-new { animation: viewNew .55s var(--spring) both; }
+@keyframes viewIn { from { opacity: .0; transform: scale(.985); } }
+@keyframes viewNew { from { opacity: 0; transform: translateY(18px) scale(.965); border-radius: 18px; } 70% { border-radius: 4px; } }
+:root[data-anim="extra"] #views webview.view-commit { animation: commit .45s var(--ease-out) both; }
+@keyframes commit { from { opacity: .35; filter: blur(3px); } }
+
+/* panels spring from their button */
+:root:not([data-anim="off"]) .panel { animation: panelIn .36s var(--spring) both; }
+#shield-panel, #vpn-panel, #dl-panel { transform-origin: 85% top; }
+@keyframes panelIn { from { opacity: 0; transform: translateY(-10px) scale(.9); } }
+:root:not([data-anim="off"]) #suggest:not([hidden]) { animation: dropIn .22s var(--ease-out) both; }
+:root:not([data-anim="off"]) #findbar:not([hidden]), :root:not([data-anim="off"]) #permission-bar:not([hidden]) { animation: dropIn .34s var(--spring) both; }
+:root:not([data-anim="off"]) #toast:not([hidden]) { animation: toastIn .42s var(--spring) both; }
+@keyframes dropIn { from { opacity: 0; transform: translateY(-8px); } }
+#permission-bar { --tx: -50%; }
+@keyframes toastIn { from { opacity: 0; transform: translate(-50%, 20px) scale(.9); } to { transform: translate(-50%, 0); } }
+
+/* VPN turning on: a ring ripples out from the pill */
+.vpn { position: relative; }
+:root:not([data-anim="off"]) .vpn.just-on::after { content: ''; position: absolute; inset: 0; border-radius: inherit; box-shadow: 0 0 0 0 var(--safe); animation: ripple 1s var(--ease-out) both; }
+:root:not([data-anim="off"]) .vpn.just-on { animation: pillPop .5s var(--spring); }
+@keyframes ripple { to { box-shadow: 0 0 0 16px transparent; } }
+@keyframes pillPop { 40% { transform: scale(1.12); } }
+
+/* window opening: chrome slides into place once */
+:root:not([data-anim="off"]) body.booting #toolbar { animation: chromeIn .6s var(--ease-out) both; }
+:root:not([data-anim="off"]) body.booting #titlebar { animation: chromeIn .6s var(--ease-out) both; }
+@keyframes chromeIn { from { opacity: 0; transform: translateY(-8px); } }
+
+:root[data-anim="off"] *, :root[data-anim="off"] *::before, :root[data-anim="off"] *::after { animation: none !important; transition: none !important; }
+
+:root[data-glass] #content { background: transparent; }
+:root[data-glass] #views webview.internal { background: transparent; }

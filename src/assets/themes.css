@@ -1,0 +1,83 @@
+/* NoamBrowser theme presets — shared by the browser chrome and built-in pages.
+   Each preset overrides the same tokens ui.css / pages.css use. */
+
+:root[data-preset="aurora"] {
+  --bg: #0E0B1F; --surface: #19143A; --surface-2: #241D52; --surface-3: #30276B;
+  --line: rgba(220, 210, 255, .10); --text: #F1EDFF; --muted: #A79FD0;
+  --accent: #8EF3E1; --accent-soft: rgba(142, 243, 225, .16); --safe: #6CF5B5; --safe-soft: rgba(108, 245, 181, .16);
+  --chrome-art: linear-gradient(115deg, #3A1D8F 0%, #0E6E8C 35%, #6B2CA8 65%, #0F3F8C 100%);
+  color-scheme: dark;
+}
+:root[data-preset="sunset"] {
+  --bg: #1F0E14; --surface: #2E1520; --surface-2: #3D1C2A; --surface-3: #4F2436;
+  --line: rgba(255, 220, 210, .10); --text: #FFEDE6; --muted: #D9A5A0;
+  --accent: #FF9466; --accent-soft: rgba(255, 148, 102, .18); --safe: #FFD166; --safe-soft: rgba(255, 209, 102, .16);
+  --chrome-art: linear-gradient(110deg, #FF5F6D 0%, #C2346B 40%, #6A1B5D 100%);
+  color-scheme: dark;
+}
+:root[data-preset="ocean"] {
+  --bg: #061826; --surface: #0B2438; --surface-2: #11314B; --surface-3: #183F5E;
+  --line: rgba(200, 235, 255, .10); --text: #E6F6FF; --muted: #8DB4CC;
+  --accent: #4FC3F7; --accent-soft: rgba(79, 195, 247, .18); --safe: #5EEAD4; --safe-soft: rgba(94, 234, 212, .15);
+  --chrome-art: linear-gradient(120deg, #023E73 0%, #0A6F8F 50%, #034A6B 100%);
+  color-scheme: dark;
+}
+:root[data-preset="forest"] {
+  --bg: #0C1A12; --surface: #13261B; --surface-2: #1B3324; --surface-3: #24422F;
+  --line: rgba(210, 255, 225, .09); --text: #E8F7EC; --muted: #93B9A0;
+  --accent: #9BE15D; --accent-soft: rgba(155, 225, 93, .16); --safe: #6EE7A7; --safe-soft: rgba(110, 231, 167, .15);
+  --chrome-art: linear-gradient(120deg, #133A22 0%, #2D5A27 50%, #10301F 100%);
+  color-scheme: dark;
+}
+:root[data-preset="neon"] {
+  --bg: #07060C; --surface: #110F1C; --surface-2: #1A1730; --surface-3: #25204A;
+  --line: rgba(255, 80, 230, .16); --text: #F7F2FF; --muted: #9C95C4;
+  --accent: #FF3DD8; --accent-soft: rgba(255, 61, 216, .18); --safe: #22F2FF; --safe-soft: rgba(34, 242, 255, .15);
+  --chrome-art: linear-gradient(90deg, #FF3DD8 0%, #7B2CFF 50%, #22F2FF 100%);
+  color-scheme: dark;
+}
+:root[data-preset="snow"] {
+  --bg: #E7EEF6; --surface: #FFFFFF; --surface-2: #EEF3F9; --surface-3: #DDE6F1;
+  --line: rgba(20, 40, 70, .10); --text: #0F1E33; --muted: #5E6F87;
+  --accent: #2F6BFF; --accent-soft: rgba(47, 107, 255, .13); --safe: #0B9E6B; --safe-soft: rgba(11, 158, 107, .12);
+  --chrome-art: linear-gradient(120deg, #DCE8FF 0%, #F2F7FF 50%, #D8EEF7 100%);
+  color-scheme: light;
+}
+:root[data-preset="mono"] {
+  --bg: #111111; --surface: #1B1B1B; --surface-2: #262626; --surface-3: #333333;
+  --line: rgba(255, 255, 255, .09); --text: #F2F2F2; --muted: #9A9A9A;
+  --accent: #FFFFFF; --accent-soft: rgba(255, 255, 255, .12); --safe: #D9D9D9; --safe-soft: rgba(255, 255, 255, .10);
+  color-scheme: dark;
+}
+:root[data-preset="glass"] {
+  --bg: rgba(20, 18, 36, .35); --surface: rgba(34, 30, 60, .55); --surface-2: rgba(255, 255, 255, .09); --surface-3: rgba(255, 255, 255, .16);
+  --line: rgba(255, 255, 255, .12); --text: #FFFFFF; --muted: rgba(255, 255, 255, .68);
+  --accent: #B8A8FF; --accent-soft: rgba(184, 168, 255, .22); --safe: #6CF5B5; --safe-soft: rgba(108, 245, 181, .18);
+  color-scheme: dark;
+}
+
+/* Custom accent colour overrides any preset's accent */
+:root[data-custom-accent] { --accent: var(--custom-accent); --accent-soft: color-mix(in srgb, var(--custom-accent) 18%, transparent); }
+
+/* Accent choices (after presets so the user's pick wins) */
+:root[data-accent="violet"] { --accent: #6A55F5; --accent-soft: rgba(106,85,245,.14); }
+:root[data-theme="dark"][data-accent="violet"] { --accent: #9A8BFF; --accent-soft: rgba(154,139,255,.18); }
+:root[data-accent="ocean"] { --accent: #2F7FE0; --accent-soft: rgba(47,127,224,.15); }
+:root[data-theme="dark"][data-accent="ocean"] { --accent: #6AB0FF; --accent-soft: rgba(106,176,255,.18); }
+:root[data-accent="rose"] { --accent: #D2416E; --accent-soft: rgba(210,65,110,.14); }
+:root[data-theme="dark"][data-accent="rose"] { --accent: #FF7FA6; --accent-soft: rgba(255,127,166,.18); }
+:root[data-accent="mint"] { --accent: #0E9C86; --accent-soft: rgba(14,156,134,.14); }
+:root[data-theme="dark"][data-accent="mint"] { --accent: #4FE0C6; --accent-soft: rgba(79,224,198,.16); }
+:root[data-accent="amber"] { --accent: #C77700; --accent-soft: rgba(199,119,0,.14); }
+:root[data-theme="dark"][data-accent="amber"] { --accent: #FFC04D; --accent-soft: rgba(255,192,77,.17); }
+:root[data-accent="lime"] { --accent: #4C9A0E; --accent-soft: rgba(76,154,14,.14); }
+:root[data-theme="dark"][data-accent="lime"] { --accent: #B6F24A; --accent-soft: rgba(182,242,74,.16); }
+:root[data-accent="coral"] { --accent: #E5533D; --accent-soft: rgba(229,83,61,.14); }
+:root[data-theme="dark"][data-accent="coral"] { --accent: #FF8A70; --accent-soft: rgba(255,138,112,.18); }
+:root[data-custom-accent] { --accent: var(--custom-accent) !important; --accent-soft: color-mix(in srgb, var(--custom-accent) 18%, transparent) !important; }
+
+/* Fonts */
+:root[data-font="system"] { --font: 'Segoe UI Variable Text', 'Segoe UI', -apple-system, BlinkMacSystemFont, system-ui, sans-serif; }
+:root[data-font="rounded"] { --font: 'SF Pro Rounded', 'Arial Rounded MT Bold', 'Nunito', 'Manrope', system-ui, sans-serif; }
+:root[data-font="serif"] { --font: 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, serif; }
+:root[data-font="mono"] { --font: 'Cascadia Code', 'SF Mono', Consolas, 'JetBrains Mono', monospace; }

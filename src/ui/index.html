@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self' file:; img-src 'self' file: https: http: data: noam:; style-src 'self' file: 'unsafe-inline'; font-src 'self' file:; script-src 'self' file:">
+<title>NoamBrowser</title>
+<link rel="stylesheet" href="ui.css">
+<link rel="stylesheet" href="../assets/themes.css">
+<link rel="stylesheet" href="fx.css">
+<link rel="stylesheet" href="features.css">
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-back" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></symbol>
+    <symbol id="i-fwd" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></symbol>
+    <symbol id="i-reload" viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.4-5.7"/><path d="M20 4v5h-5"/></symbol>
+    <symbol id="i-stop" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+    <symbol id="i-home" viewBox="0 0 24 24"><path d="M4 11l8-7 8 7"/><path d="M6 10v10h12V10"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="i-close" viewBox="0 0 24 24"><path d="M7 7l10 10M17 7L7 17"/></symbol>
+    <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></symbol>
+    <symbol id="i-warn" viewBox="0 0 24 24"><path d="M12 4l9 16H3z"/><path d="M12 10v4M12 17v.5"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5"/></symbol>
+    <symbol id="i-star" viewBox="0 0 24 24"><path d="M12 4l2.4 5 5.4.6-4 3.7 1.1 5.4L12 16l-4.9 2.7 1.1-5.4-4-3.7 5.4-.6z"/></symbol>
+    <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3c2.6 1.6 5.3 2.2 8 2.2 0 7.3-2.6 12-8 15.8C6.6 17.2 4 12.5 4 5.2c2.7 0 5.4-.6 8-2.2z"/></symbol>
+    <symbol id="i-shield-off" viewBox="0 0 24 24"><path d="M12 3c2.6 1.6 5.3 2.2 8 2.2 0 7.3-2.6 12-8 15.8C6.6 17.2 4 12.5 4 5.2c2.7 0 5.4-.6 8-2.2z"/><path d="M4 4l16 16"/></symbol>
+    <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.6 2.4 3.8 5.2 3.8 8.5S14.6 18.1 12 20.5C9.4 18.1 8.2 15.3 8.2 12S9.4 5.9 12 3.5z"/></symbol>
+    <symbol id="i-menu" viewBox="0 0 24 24"><circle cx="12" cy="5.5" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="12" cy="18.5" r="1.2"/></symbol>
+    <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></symbol>
+    <symbol id="i-mask" viewBox="0 0 24 24"><path d="M3 9c3-1.5 6-1.5 9 0 3-1.5 6-1.5 9 0-.5 5-3 7-5.5 7-2 0-2.5-1.5-3.5-1.5S10.5 16 8.5 16C6 16 3.5 14 3 9z"/><circle cx="8" cy="11" r="1.2"/><circle cx="16" cy="11" r="1.2"/></symbol>
+    <symbol id="i-speaker" viewBox="0 0 24 24"><path d="M4 10v4h4l5 4V6L8 10z"/><path d="M16.5 9a4 4 0 0 1 0 6M18.8 6.5a7.5 7.5 0 0 1 0 11"/></symbol>
+    <symbol id="i-muted" viewBox="0 0 24 24"><path d="M4 10v4h4l5 4V6L8 10z"/><path d="M17 10l4 4M21 10l-4 4"/></symbol>
+    <symbol id="i-up" viewBox="0 0 24 24"><path d="M6 15l6-6 6 6"/></symbol>
+    <symbol id="i-down" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></symbol>
+    <symbol id="i-folder" viewBox="0 0 24 24"><path d="M3.5 7.5V18a1.5 1.5 0 0 0 1.5 1.5h14a1.5 1.5 0 0 0 1.5-1.5V9.5A1.5 1.5 0 0 0 19 8h-7l-2-2.5H5A1.5 1.5 0 0 0 3.5 7z"/></symbol>
+    <symbol id="i-bolt" viewBox="0 0 24 24"><path d="M13 3L5 13.5h6L10 21l8-10.5h-6z"/></symbol>
+    <symbol id="i-refresh-id" viewBox="0 0 24 24"><path d="M4 12a8 8 0 0 1 13.7-5.6L20 9"/><path d="M20 4v5h-5"/><path d="M20 12a8 8 0 0 1-13.7 5.6L4 15"/><path d="M4 20v-5h5"/></symbol>
+    <symbol id="i-noam" viewBox="0 0 24 24"><path d="M12 3c2.6 1.6 5.3 2.2 8 2.2 0 7.3-2.6 12-8 15.8C6.6 17.2 4 12.5 4 5.2c2.7 0 5.4-.6 8-2.2z"/><path d="M9.3 15V8.6l5.4 6.4V8.6"/></symbol>
+    <symbol id="i-book" viewBox="0 0 24 24"><path d="M4 5.5C6.5 4.5 9.5 4.5 12 6c2.5-1.5 5.5-1.5 8-.5V19c-2.5-1-5.5-1-8 .5-2.5-1.5-5.5-1.5-8-.5z"/><path d="M12 6v13.5"/></symbol>
+    <symbol id="i-translate" viewBox="0 0 24 24"><path d="M3.5 6h9M8 4v2c0 4-2 7-4.5 8.5M5.5 9.5c1 2.2 3 4 5.5 5"/><path d="M12.5 20l4-9 4 9M14 17h5"/></symbol>
+    <symbol id="i-key" viewBox="0 0 24 24"><circle cx="8" cy="15" r="4"/><path d="M11 12l8.5-8.5M16 7l2.5 2.5M14 9l2 2"/></symbol>
+    <symbol id="i-pip" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><rect x="12" y="12" width="7" height="5" rx="1" fill="currentColor" stroke="none"/></symbol>
+    <symbol id="i-moon" viewBox="0 0 24 24"><path d="M19.5 14.5A8 8 0 0 1 9.5 4.5a8 8 0 1 0 10 10z"/></symbol>
+    <symbol id="i-split" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M12 5v14"/></symbol>
+    <symbol id="i-sidebar" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M9 5v14"/></symbol>
+    <symbol id="i-update" viewBox="0 0 24 24"><path d="M12 4v10M7.5 9.5L12 14l4.5-4.5"/><path d="M5 19h14"/></symbol>
+    <symbol id="i-cmd" viewBox="0 0 24 24"><path d="M9 9V6a3 3 0 1 0-3 3h12a3 3 0 1 0-3-3v12a3 3 0 1 0 3-3H6a3 3 0 1 0 3 3V9z"/></symbol>
+    <symbol id="i-puzzle" viewBox="0 0 24 24"><path d="M5 12V7h4a2 2 0 1 1 4 0h4v4a2 2 0 1 1 0 4v4h-4a2 2 0 1 0-4 0H5v-4a2 2 0 1 0 0-4z"/></symbol>
+  </defs>
+</svg>
+
+<div id="app">
+  <header id="titlebar">
+    <div id="tabstrip" role="tablist"></div>
+    <button id="newtab" class="icon-btn small" title="New tab (Ctrl+T)"><svg><use href="#i-plus"/></svg></button>
+    <div class="drag-fill"></div>
+    <div id="wc-space" dir="ltr">
+      <button class="wc" data-wc="minimize" title="Minimize" aria-label="Minimize"><svg viewBox="0 0 12 12"><path d="M1.5 6h9"/></svg></button>
+      <button class="wc" data-wc="maximize" title="Maximize" aria-label="Maximize"><svg viewBox="0 0 12 12" class="max-i"><rect x="1.5" y="1.5" width="9" height="9" rx="1"/></svg><svg viewBox="0 0 12 12" class="restore-i"><rect x="1.5" y="3.5" width="7" height="7" rx="1"/><path d="M3.5 3.5V2.5a1 1 0 0 1 1-1h5a1 1 0 0 1 1 1v5a1 1 0 0 1-1 1h-1"/></svg></button>
+      <button class="wc close" data-wc="close" title="Close" aria-label="Close"><svg viewBox="0 0 12 12"><path d="M2 2l8 8M10 2l-8 8"/></svg></button>
+    </div>
+  </header>
+
+  <nav id="toolbar">
+    <button id="back" class="icon-btn" title="Back (Alt+←)" disabled><svg><use href="#i-back"/></svg></button>
+    <button id="fwd" class="icon-btn" title="Forward (Alt+→)" disabled><svg><use href="#i-fwd"/></svg></button>
+    <button id="reload" class="icon-btn" title="Reload (Ctrl+R)"><svg><use href="#i-reload"/></svg></button>
+    <button id="home" class="icon-btn" title="Home"><svg><use href="#i-home"/></svg></button>
+
+    <div id="omnibox">
+      <button id="site-badge" class="site-badge" title="Connection"><svg><use href="#i-search"/></svg><span></span></button>
+      <input id="url" type="text" spellcheck="false" autocomplete="off" placeholder="Search privately or type an address">
+      <button id="zoom-badge" class="pill-btn" hidden>100%</button>
+      <button id="translate-btn" class="icon-btn small omni-act" title="Translate this page" hidden><svg><use href="#i-translate"/></svg></button>
+      <button id="reader-btn" class="icon-btn small omni-act" title="Reader view (F9)" hidden><svg><use href="#i-book"/></svg></button>
+      <button id="key-btn" class="icon-btn small omni-act" title="Saved passwords for this site" hidden><svg><use href="#i-key"/></svg></button>
+      <button id="star" class="icon-btn small" title="Bookmark this page (Ctrl+D)"><svg><use href="#i-star"/></svg></button>
+      <div id="suggest" role="listbox" hidden></div>
+    </div>
+
+    <button id="shield-btn" class="status-pill" title="NoamBrowser Shields">
+      <svg><use href="#i-shield"/></svg><span id="shield-count">0</span>
+    </button>
+    <button id="vpn-btn" class="status-pill vpn" title="Built-in VPN">
+      <span class="dot"></span><span id="vpn-label">VPN</span>
+    </button>
+    <button id="pip-btn" class="icon-btn" title="Picture in picture" hidden><svg><use href="#i-pip"/></svg></button>
+    <button id="update-btn" class="status-pill update" title="An update is ready" hidden><svg><use href="#i-update"/></svg><span id="update-label">Update</span></button>
+    <button id="dl-btn" class="icon-btn" title="Downloads (Ctrl+J)" hidden>
+      <svg><use href="#i-download"/></svg><i id="dl-ring"></i>
+    </button>
+    <button id="menu-btn" class="icon-btn" title="Menu"><svg><use href="#i-menu"/></svg></button>
+  </nav>
+
+  <div id="bookmarks-bar"></div>
+
+  <div id="main-row">
+  <aside id="sidebar" hidden>
+    <div class="sb-head">
+      <button id="sb-newtab" class="sb-new"><svg><use href="#i-plus"/></svg><span>New tab</span></button>
+      <button id="sb-collapse" class="icon-btn small" title="Collapse sidebar"><svg><use href="#i-sidebar"/></svg></button>
+    </div>
+    <div id="sb-tabs"></div>
+    <div id="sb-resize" title="Drag to resize"></div>
+  </aside>
+  <main id="content">
+    <div id="progress"></div>
+    <div id="views"></div>
+    <div id="permission-bar" hidden>
+      <svg class="pb-icon"><use href="#i-shield"/></svg>
+      <div class="pb-text"></div>
+      <label class="pb-remember"><input type="checkbox" checked> Remember</label>
+      <button class="btn ghost" data-act="block">Block</button>
+      <button class="btn primary" data-act="allow">Allow</button>
+    </div>
+    <div id="findbar" hidden>
+      <input id="find-input" placeholder="Find in page" spellcheck="false">
+      <span id="find-count"></span>
+      <button class="icon-btn small" id="find-prev" title="Previous (Shift+Enter)"><svg><use href="#i-up"/></svg></button>
+      <button class="icon-btn small" id="find-next" title="Next (Enter)"><svg><use href="#i-down"/></svg></button>
+      <button class="icon-btn small" id="find-close" title="Close (Esc)"><svg><use href="#i-close"/></svg></button>
+    </div>
+    <div id="split-divider" hidden><button id="split-close" title="Close split view"><svg><use href="#i-close"/></svg></button></div>
+    <div id="pw-bar" class="infobar" hidden>
+      <svg class="pb-icon"><use href="#i-key"/></svg>
+      <div class="pb-text"></div>
+      <button class="btn ghost" data-act="never">Never for this site</button>
+      <button class="btn ghost" data-act="dismiss">Not now</button>
+      <button class="btn primary" data-act="save">Save</button>
+    </div>
+    <div id="toast" hidden></div>
+  </main>
+  </div>
+
+  <!-- Shields panel -->
+  <section id="shield-panel" class="panel" hidden>
+    <div class="panel-head">
+      <div class="site-line"><img id="sp-fav" alt=""><span id="sp-site">this site</span></div>
+      <button id="sp-toggle" class="switch big" role="switch" aria-checked="true"><span></span></button>
+    </div>
+    <p id="sp-state" class="state-text"></p>
+    <div class="ledger">
+      <div><b id="sp-blocked">0</b><span>ads & trackers blocked</span></div>
+      <div><b id="sp-https">0</b><span>upgraded to HTTPS</span></div>
+      <div><b id="sp-cookies">0</b><span>cross-site cookies stopped</span></div>
+      <div><b id="sp-params">0</b><span>tracking tags removed from links</span></div>
+    </div>
+    <details id="sp-list-wrap"><summary>Blocked on this page</summary><ul id="sp-list"></ul></details>
+    <div class="sp-row" id="sp-dark-row"><span>Dark mode for this site<small>Turns bright pages dark</small></span><button id="sp-dark" class="switch" role="switch" aria-checked="false"><span></span></button></div>
+    <div class="panel-foot">
+      <button id="sp-forget" class="btn ghost">Forget this site</button>
+      <button id="sp-settings" class="btn ghost">Shield settings</button>
+    </div>
+    <p class="total-line">Since you installed NoamBrowser: <b id="sp-total">0</b> blocked, about <b id="sp-saved">0 MB</b> not downloaded.</p>
+  </section>
+
+  <!-- VPN panel -->
+  <section id="vpn-panel" class="panel" hidden>
+    <div class="vpn-hero">
+      <button id="vpn-power" class="vpn-power" aria-label="Turn VPN on or off"><svg><use href="#i-bolt"/></svg></button>
+      <div>
+        <h2 id="vpn-title">VPN is off</h2>
+        <p id="vpn-sub">Your real IP address is visible to sites.</p>
+      </div>
+    </div>
+    <dl id="vpn-info" class="vpn-info" hidden>
+      <div><dt>Public IP</dt><dd id="vpn-ip">—</dd></div>
+      <div><dt>Exit country</dt><dd id="vpn-loc">—</dd></div>
+      <div><dt>Data center</dt><dd id="vpn-colo">—</dd></div>
+    </dl>
+    <div class="seg" role="radiogroup" aria-label="VPN type">
+      <button data-mode="warp" role="radio">Cloudflare WARP <small>free, built in</small></button>
+      <button data-mode="custom" role="radio">Your own proxy <small>SOCKS5 / HTTP</small></button>
+    </div>
+    <div id="vpn-custom" hidden>
+      <input id="vpn-proxy" placeholder="socks5://user:pass@host:1080" spellcheck="false">
+      <button id="vpn-proxy-save" class="btn primary">Save</button>
+    </div>
+    <label class="row-toggle"><span>Kill switch<small>Pause browsing if the tunnel drops, so nothing leaks.</small></span><button id="vpn-kill" class="switch" role="switch"><span></span></button></label>
+    <label class="row-toggle"><span>Connect on startup</span><button id="vpn-auto" class="switch" role="switch"><span></span></button></label>
+    <div class="panel-foot"><button id="vpn-newid" class="btn ghost"><svg><use href="#i-refresh-id"/></svg>New identity</button></div>
+  </section>
+
+  <!-- Downloads panel -->
+  <section id="dl-panel" class="panel" hidden>
+    <h3>Downloads</h3>
+    <ul id="dl-list"></ul>
+    <div class="panel-foot"><button id="dl-all" class="btn ghost">Show all downloads</button></div>
+  </section>
+
+  <section id="translate-panel" class="panel" hidden>
+    <h3>Translate this page</h3>
+    <p class="tp-note">Runs on this computer. The page’s text is never sent anywhere; each language model downloads once (about 15–40&nbsp;MB).</p>
+    <div class="tp-row"><label>From<select id="tp-from"></select></label><button id="tp-swap" class="icon-btn small" title="Swap languages">⇄</button><label>To<select id="tp-to"></select></label></div>
+    <div class="tp-progress" id="tp-progress" hidden><i></i></div>
+    <p class="tp-status" id="tp-status"></p>
+    <div class="panel-foot"><button id="tp-original" class="btn ghost" hidden>Show original</button><button id="tp-go" class="btn primary">Translate</button></div>
+  </section>
+</div>
+
+<div id="palette" hidden>
+  <div class="pal-box" role="dialog" aria-label="Command palette">
+    <div class="pal-input"><svg><use href="#i-search"/></svg><input id="pal-q" placeholder="Search tabs, bookmarks, history and commands" spellcheck="false" autocomplete="off"><kbd>Esc</kbd></div>
+    <div id="pal-list" role="listbox"></div>
+    <div class="pal-foot"><span><kbd>↑</kbd><kbd>↓</kbd> move</span><span><kbd>Enter</kbd> open</span><span><kbd>Ctrl</kbd><kbd>K</kbd> anytime</span></div>
+  </div>
+</div>
+
+<script src="../assets/apply-theme.js"></script>
+<script src="ui.js"></script>
+<script src="ui2.js"></script>
+</body>
+</html>

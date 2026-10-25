@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Settings</title><link rel="stylesheet" href="pages.css"><link rel="stylesheet" href="assets/themes.css">
+<style>
+  .layout { display: grid; grid-template-columns: 200px minmax(0, 680px); gap: 40px; max-width: 960px; margin: 0 auto; padding: 40px 28px 100px; }
+  nav { position: sticky; top: 40px; align-self: start; display: flex; flex-direction: column; gap: 2px; }
+  nav h1 { font-size: 26px; letter-spacing: -.02em; margin: 0 0 18px 10px; font-weight: 800; }
+  nav a { padding: 8px 12px; border-radius: 10px; color: var(--text); font-weight: 650; text-decoration: none !important; }
+  nav a:hover { background: var(--surface); }
+  nav a.on { background: var(--accent-soft); color: var(--accent); }
+  section { scroll-margin-top: 30px; margin-bottom: 44px; }
+  h2 { font-size: 19px; letter-spacing: -.01em; margin: 0 0 4px; font-weight: 800; }
+  .lede { color: var(--muted); margin: 0 0 14px; }
+  .card { background: var(--surface); border-radius: 14px; padding: 4px 18px; }
+  .item { display: flex; align-items: center; gap: 16px; padding: 14px 0; border-top: 1px solid var(--line); }
+  .item:first-child { border-top: 0; }
+  .item .txt { flex: 1; min-width: 0; }
+  .item .txt b { display: block; font-weight: 700; }
+  .item .txt span { display: block; color: var(--muted); font-size: 12.5px; margin-top: 1px; }
+  .item select.field, .item input.field { width: 230px; }
+  .swatches { display: flex; gap: 8px; }
+  .swatches button { width: 26px; height: 26px; border-radius: 50%; border: 3px solid transparent; }
+  .swatches button[aria-checked="true"] { border-color: var(--text); }
+  .checks { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 16px; padding: 14px 0; }
+  .checks label { display: flex; gap: 8px; align-items: center; }
+  .checks input { accent-color: var(--accent); width: 16px; height: 16px; }
+  .mini { list-style: none; margin: 0; padding: 0; }
+  .mini li { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-top: 1px solid var(--line); }
+  .mini li:first-child { border-top: 0; }
+  .mini li span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .mini .tag { font-size: 11.5px; font-weight: 700; padding: 2px 8px; border-radius: 8px; background: var(--surface-2); color: var(--muted); }
+  .mini .tag.allow { color: var(--safe); }
+  .vpnstate { display: flex; align-items: center; gap: 10px; font-weight: 700; }
+  .vpnstate i { width: 10px; height: 10px; border-radius: 50%; background: var(--muted); }
+  .vpnstate.on i { background: var(--safe); box-shadow: 0 0 0 4px var(--safe-soft); }
+  .about { display: flex; gap: 18px; align-items: center; padding: 18px 0; }
+  .about img { width: 64px; height: 64px; }
+  .about p { margin: 2px 0; color: var(--muted); font-size: 13px; }
+  .about b { font-size: 18px; color: var(--text); }
+  .note { font-size: 12.5px; color: var(--muted); padding: 0 0 14px; }
+  #filter-progress { font-size: 12.5px; color: var(--muted); }
+  .presets { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+  .preset { position: relative; border-radius: 14px; overflow: hidden; background: var(--surface); padding: 0 0 10px; text-align: left; border: 2px solid transparent; transition: transform .25s cubic-bezier(.2,1.2,.3,1), border-color .15s; }
+  .preset:hover { transform: translateY(-2px); }
+  .preset[aria-checked="true"] { border-color: var(--accent); }
+  .preset .art { height: 58px; position: relative; }
+  .preset .art i { position: absolute; left: 10px; right: 10px; bottom: 10px; height: 16px; border-radius: 8px; background: rgba(255,255,255,.18); }
+  .preset .art b { position: absolute; left: 10px; top: 10px; width: 46px; height: 12px; border-radius: 6px 6px 0 0; }
+  .preset span { display: block; padding: 8px 12px 0; font-weight: 700; font-size: 13px; }
+  .swatches { flex-wrap: wrap; justify-content: flex-end; max-width: 320px; }
+  .swatches .auto { background: var(--surface-2); font-weight: 800; font-size: 11px; color: var(--muted); display: grid; place-items: center; }
+  .custom-color { width: 26px; height: 26px; border-radius: 50%; background: conic-gradient(red, yellow, lime, cyan, blue, magenta, red); position: relative; overflow: hidden; border: 3px solid transparent; }
+  .custom-color.on { border-color: var(--text); }
+  .custom-color input { position: absolute; inset: -8px; opacity: 0; width: 50px; height: 50px; cursor: pointer; }
+  .seg { display: inline-flex; background: var(--surface-2); border-radius: 10px; padding: 3px; gap: 2px; }
+  .seg button { padding: 6px 12px; border-radius: 8px; font-weight: 650; font-size: 12.5px; color: var(--muted); }
+  .seg button[aria-checked="true"] { background: var(--surface); color: var(--text); box-shadow: 0 1px 3px rgba(0,0,0,.15); }
+  .range { width: 200px; accent-color: var(--accent); }
+  output { width: 44px; text-align: right; font-variant-numeric: tabular-nums; color: var(--muted); font-size: 12.5px; }
+  .walls { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+  .wall { height: 74px; border-radius: 12px; border: 2px solid transparent; position: relative; overflow: hidden; background-size: cover; background-position: center; transition: transform .25s cubic-bezier(.2,1.2,.3,1); }
+  .wall:hover { transform: scale(1.03); }
+  .wall[aria-checked="true"] { border-color: var(--accent); }
+  .wall span { position: absolute; left: 8px; bottom: 6px; font-size: 11.5px; font-weight: 700; color: #fff; text-shadow: 0 1px 6px rgba(0,0,0,.6); }
+  @media (max-width: 760px) { .layout { grid-template-columns: 1fr; } nav { position: static; flex-direction: row; flex-wrap: wrap; } nav h1 { width: 100%; } }
+</style></head>
+<body>
+<div class="layout">
+  <nav id="nav">
+    <h1>Settings</h1>
+    <a href="#general">General</a>
+    <a href="#appearance">Appearance</a>
+    <a href="#shields">Shields</a>
+    <a href="#vpn">VPN</a>
+    <a href="#passwords">Passwords</a>
+    <a href="#privacy">Privacy &amp; data</a>
+    <a href="#translate">Translate</a>
+    <a href="#import">Import</a>
+    <a href="#sync">Sync</a>
+    <a href="#about">About &amp; updates</a>
+  </nav>
+  <main>
+    <section id="general">
+      <h2>General</h2>
+      <p class="lede">How NoamBrowser looks and where it starts.</p>
+      <div class="card">
+        <div class="item"><div class="txt"><b>Search engine</b><span>Used by the address bar and new tab page.</span></div><select class="field" data-k="searchEngine" id="engine"></select></div>
+        <div class="item"><div class="txt"><b>Home page</b><span>Opened by the home button.</span></div><input class="field" data-k="homepage" spellcheck="false"></div>
+        <div class="item"><div class="txt"><b>Show bookmarks bar</b><span>Ctrl+Shift+B</span></div><button class="switch" data-k="showBookmarksBar" role="switch"></button></div>
+        <div class="item"><div class="txt"><b>Reopen tabs from last time</b></div><button class="switch" data-k="restoreTabs" role="switch"></button></div>
+        <div class="item"><div class="txt"><b>Show blocking stats on new tabs</b></div><button class="switch" data-k="newTabShowStats" role="switch"></button></div>
+        <div class="item"><div class="txt"><b>Show top sites on new tabs</b></div><button class="switch" data-k="newTabShowTopSites" role="switch"></button></div>
+        <div class="item"><div class="txt"><b>Ask where to save each download</b></div><button class="switch" data-k="askDownloadLocation" role="switch"></button></div>
+        <div class="item"><div class="txt"><b>Default browser</b><span>Open links from other apps in NoamBrowser.</span></div><button class="btn" id="default">Make default</button></div>
+      </div>
+    </section>
+
+    <section id="appearance">
+      <h2>Appearance</h2>
+      <p class="lede">Make NoamBrowser yours. Changes apply instantly.</p>
+      <div class="presets" id="presets"></div>
+      <div class="card" style="margin-top:14px">
+        <div class="item"><div class="txt"><b>Light or dark</b><span>Used by the Classic theme.</span></div><select class="field" data-k="theme"><option value="system">Match system</option><option value="dark">Dark</option><option value="light">Light</option></select></div>
+        <div class="item glass-row"><div class="txt"><b>Liquid Glass</b><span>See-through, frosted chrome with light catching the edges. Uses real window blur on Windows 11 and macOS.</span></div><button class="switch" data-a="liquidGlass" role="switch"></button></div>
+        <div class="item" id="glass-strength-row"><div class="txt"><b>Glass strength</b></div><input type="range" min="10" max="100" step="5" data-ar="glassStrength" class="range"><output id="gs-out"></output></div>
+        <div class="item"><div class="txt"><b>Accent color</b></div><div class="swatches" id="accent">
+          <button data-v="auto" class="auto" title="Theme default">A</button>
+          <button data-v="violet" style="background:#7C68FA" title="Violet"></button><button data-v="ocean" style="background:#3E8DEB" title="Ocean"></button><button data-v="rose" style="background:#E2577F" title="Rose"></button><button data-v="mint" style="background:#22B79F" title="Mint"></button><button data-v="amber" style="background:#F2A71B" title="Amber"></button><button data-v="lime" style="background:#8CCB2E" title="Lime"></button><button data-v="coral" style="background:#F2694F" title="Coral"></button>
+          <label class="custom-color" title="Pick any color"><input type="color" id="custom-accent"></label></div></div>
+        <div class="item"><div class="txt"><b>Tab layout</b><span>Vertical tabs live in a sidebar — great for lots of tabs. Right-click a tab to group it.</span></div><div class="seg" data-ts="layout"><button data-v="horizontal">On top</button><button data-v="vertical">Sidebar</button></div></div>
+        <div class="item"><div class="txt"><b>Tab style</b></div><div class="seg" data-as="tabStyle"><button data-v="rounded">Rounded</button><button data-v="pills">Pills</button><button data-v="floating">Floating</button><button data-v="minimal">Minimal</button></div></div>
+        <div class="item"><div class="txt"><b>Density</b></div><div class="seg" data-as="density"><button data-v="compact">Compact</button><button data-v="comfortable">Comfortable</button><button data-v="spacious">Spacious</button></div></div>
+        <div class="item"><div class="txt"><b>Corner roundness</b></div><input type="range" min="0" max="200" step="10" data-ar="radius" class="range"><output id="rad-out"></output></div>
+        <div class="item"><div class="txt"><b>Font</b></div><select class="field" data-af="font"><option value="manrope">Manrope</option><option value="system">System</option><option value="rounded">Rounded</option><option value="serif">Serif</option><option value="mono">Monospace</option></select></div>
+        <div class="item"><div class="txt"><b>Animations</b><span>Extra adds a soft fade every time a page loads.</span></div><div class="seg" data-as="animations"><button data-v="off">Off</button><button data-v="full">Smooth</button><button data-v="extra">Extra</button></div></div>
+      </div>
+      <h2 style="margin-top:26px;font-size:16px">Dark mode for websites</h2>
+      <div class="card">
+        <div class="item"><div class="txt"><b>Make every website dark</b><span>Bright sites are darkened; sites that are already dark are left alone. You can also turn it on for one site from the shield button.</span></div><button class="switch" id="dark-all" role="switch"></button></div>
+        <div id="dark-sites"></div>
+      </div>
+      <h2 style="margin-top:26px;font-size:16px">New tab wallpaper</h2>
+      <div class="walls" id="walls"></div>
+      <div class="card" style="margin-top:12px">
+        <div class="item"><div class="txt"><b>Your own picture</b><span>JPG, PNG, WebP or GIF up to 25 MB.</span></div><label class="btn">Choose picture<input type="file" id="wall-file" accept="image/jpeg,image/png,image/webp,image/gif" hidden></label></div>
+        <div class="item"><div class="txt"><b>Dim wallpaper</b><span>Keeps text readable on busy pictures.</span></div><input type="range" min="0" max="80" step="5" data-ar="wallpaperDim" class="range"><output id="dim-out"></output></div>
+        <div class="item"><div class="txt"><span id="wall-msg"></span></div><button class="btn" id="reset-look">Reset appearance</button></div>
+      </div>
+    </section>
+
+    <section id="shields">
+      <h2>Shields</h2>
+      <p class="lede">Protections that run on every site. Turn Shields off for a single site from the shield button in the toolbar.</p>
+      <div class="card">
+        <div class="item"><div class="txt"><b>Block ads &amp; trackers</b><span>Network and cosmetic filtering with EasyList, EasyPrivacy, uBlock filters and malware lists.</span></div><button class="switch" data-s="ads" role="switch"></button></div>
+        <div class="item"><div class="txt"><b>Block YouTube ads</b><span>Removes video ads before they play, hides ads in the feed, and skips any that slip through.</span></div><button class="switch" data-s="youtube" role="switch"></button></div>
+        <div class="item"><div class="txt"><b>Upgrade connections to HTTPS</b><span>Falls back to HTTP only when a site has no secure version.</span></div><button class="switch" data-s="httpsOnly" role="switch"></button></div>
+        <div class="item"><div class="txt"><b>Block cross-site cookies</b><span>Stops other companies following you between sites. May break some embedded logins.</span></div><button class="switch" data-s="blockThirdPartyCookies" role="switch"></button></div>
+        <div class="item"><div class="txt"><b>Fingerprinting protection</b><span>Adds tiny per-site noise to canvas, WebGL and audio, and hides hardware details.</span></div><button class="switch" data-s="fingerprinting" role="switch"></button></div>
+        <div class="item"><div class="txt"><b>Remove tracking tags from links</b><span>Strips utm_, fbclid, gclid and similar from addresses.</span></div><button class="switch" data-s="stripParams" role="switch"></button></div>
+        <div class="item"><div class="txt"><b>Send Global Privacy Control</b><span>Tells sites not to sell or share your data.</span></div><button class="switch" data-s="gpc" role="switch"></button></div>
+        <div class="item"><div class="txt"><b>Filter lists</b><span id="filter-info">Loading…</span><span id="filter-progress"></span></div><button class="btn" id="update-lists">Update now</button></div>
+      </div>
+      <h2 style="margin-top:26px;font-size:16px">Sites with Shields down</h2>
+      <div class="card"><ul class="mini" id="sites-off"></ul></div>
+    </section>
+
+    <section id="vpn">
+      <h2>VPN</h2>
+      <p class="lede">The built-in VPN uses Cloudflare WARP’s free WireGuard network. No account, no log-in, and NoamBrowser runs no servers of its own.</p>
+      <div class="card">
+        <div class="item"><div class="txt"><div class="vpnstate" id="vpnstate"><i></i><span>Off</span></div><span id="vpnmsg"></span></div><button class="btn primary" id="vpntoggle">Turn on</button></div>
+        <div class="item"><div class="txt"><b>Connection type</b></div><select class="field" data-v="mode"><option value="warp">Cloudflare WARP (free)</option><option value="custom">Your own proxy</option></select></div>
+        <div class="item" id="proxyrow"><div class="txt"><b>Proxy address</b><span>socks5://, http:// or https://. Add user:pass@ if your provider needs it.</span></div><input class="field" data-v="customProxy" placeholder="socks5://host:1080" spellcheck="false"></div>
+        <div class="item"><div class="txt"><b>Kill switch</b><span>If the VPN drops, block traffic instead of going direct.</span></div><button class="switch" data-vs="killSwitch" role="switch"></button></div>
+        <div class="item"><div class="txt"><b>Connect when NoamBrowser starts</b></div><button class="switch" data-vs="autoConnect" role="switch"></button></div>
+        <div class="item"><div class="txt"><b>New identity</b><span>Generates fresh WireGuard keys and a new WARP device.</span></div><button class="btn" id="newid">New identity</button></div>
+      </div>
+      <p class="note" style="margin-top:10px">WARP hides your IP address from websites and encrypts traffic between you and Cloudflare. Your exit is usually in your own country, so it won’t unlock other regions. For a specific country, use your own proxy.</p>
+    </section>
+
+    <section id="passwords">
+      <h2>Passwords</h2>
+      <p class="lede">Saved passwords are encrypted on this computer and filled in for you when you visit the site.</p>
+      <div class="card">
+        <div class="item"><div class="txt"><b>Offer to save passwords</b></div><button class="switch" data-pw="offerSave" role="switch"></button></div>
+        <div class="item"><div class="txt"><b>Fill in saved passwords automatically</b><span>Only on the exact site the password was saved for.</span></div><button class="switch" data-pw="autofill" role="switch"></button></div>
+        <div class="item"><div class="txt"><b>Saved passwords</b><span>See, edit, copy, import or export them.</span></div><a class="btn" href="noam://passwords/">Manage passwords</a></div>
+      </div>
+    </section>
+
+    <section id="privacy">
+      <h2>Privacy &amp; data</h2>
+      <p class="lede">NoamBrowser sends no telemetry and has no account. Everything below stays on this computer.</p>
+      <div class="card">
+        <div class="item"><div class="txt"><b>Secure DNS</b><span>Encrypts address lookups so your network can’t see them. When the VPN is on, lookups go through the tunnel.</span></div>
+          <select class="field" data-k="dns"><option value="cloudflare">Cloudflare 1.1.1.1</option><option value="quad9">Quad9 (blocks malware)</option><option value="mullvad">Mullvad</option><option value="adguard">AdGuard (blocks ads)</option><option value="system">Off — use Windows DNS</option></select></div>
+        <div class="item"><div class="txt"><b>Clear everything when I close NoamBrowser</b><span>Cookies, cache, site data and history.</span></div><button class="switch" data-k="clearOnExit" role="switch"></button></div>
+      </div>
+      <h2 style="margin-top:26px;font-size:16px">Clear browsing data</h2>
+      <div class="card">
+        <div class="checks">
+          <label><input type="checkbox" data-c="history" checked> History</label>
+          <label><input type="checkbox" data-c="cookies" checked> Cookies &amp; site data</label>
+          <label><input type="checkbox" data-c="cache" checked> Cached files</label>
+          <label><input type="checkbox" data-c="downloads"> Download list</label>
+          <label><input type="checkbox" data-c="permissions"> Site permissions</label>
+          <label><input type="checkbox" data-c="stats"> Blocking stats</label>
+        </div>
+        <div class="item"><div class="txt"><span id="cleared"></span></div><button class="btn primary" id="clear">Clear data</button></div>
+      </div>
+      <h2 style="margin-top:26px;font-size:16px">Site permissions</h2>
+      <div class="card"><ul class="mini" id="perms"></ul></div>
+    </section>
+
+    <section id="translate">
+      <h2>Translate</h2>
+      <p class="lede">Translation runs entirely on this computer using the open Firefox Translations engine. Pages are never sent to Google or anyone else.</p>
+      <div class="card">
+        <div class="item"><div class="txt"><b>Offer to translate pages in other languages</b><span>Shows a translate button in the address bar.</span></div><button class="switch" data-tr="offer" role="switch"></button></div>
+        <div class="item"><div class="txt"><b>Translate into</b></div><select class="field" id="tr-target"></select></div>
+      </div>
+      <p class="note" style="margin-top:10px">Each language model downloads the first time you use it (about 15–40 MB) and then works offline. Languages without a direct model are translated through English.</p>
+    </section>
+
+    <section id="import">
+      <h2>Import</h2>
+      <p class="lede">Bring your bookmarks and history over from another browser on this computer. Nothing in the other browser is changed.</p>
+      <div class="card" id="imp-card"><div class="item"><div class="txt"><span>Looking for other browsers…</span></div></div></div>
+      <p class="note" style="margin-top:10px">Passwords: browsers lock their saved passwords, so export them first — in Chrome, Edge or Brave open Settings → Passwords → Export passwords — then use <a href="noam://passwords/">Import from CSV</a>.</p>
+    </section>
+
+    <section id="sync">
+      <h2>Sync</h2>
+      <p class="lede">Keep bookmarks, settings and (optionally) passwords the same on all your computers — Windows, Mac and Linux. No account and no NoamBrowser server: it syncs through a folder your cloud drive already syncs (OneDrive, Google Drive, Dropbox, iCloud Drive) and everything is encrypted with your passphrase first.</p>
+      <div class="card" id="sync-off">
+        <div class="item"><div class="txt"><b>Sync folder</b><span id="sync-folder-label">Pick a folder inside OneDrive, Google Drive, Dropbox or iCloud Drive.</span></div><button class="btn" id="sync-pick">Choose folder</button></div>
+        <div class="item"><div class="txt"><b>Sync passphrase</b><span>Use the same passphrase on every computer. Write it down — it can’t be recovered.</span></div><input class="field" id="sync-pass" type="password" placeholder="At least 8 characters" autocomplete="new-password"></div>
+        <div class="item"><div class="txt"><b>Also sync saved passwords</b><span>Encrypted with your passphrase before they’re written to the folder.</span></div><button class="switch" id="sync-pw" role="switch" aria-checked="false"></button></div>
+        <div class="item"><div class="txt"><span id="sync-msg"></span></div><button class="btn primary" id="sync-on">Turn on sync</button></div>
+      </div>
+      <div class="card" id="sync-on-card" hidden>
+        <div class="item"><div class="txt"><div class="vpnstate on" id="sync-state"><i></i><span>Syncing</span></div><span id="sync-detail"></span></div><button class="btn" id="sync-now">Sync now</button></div>
+        <div class="item"><div class="txt"><b>This computer</b><span id="sync-me"></span></div><button class="btn danger" id="sync-off-btn">Turn off sync</button></div>
+      </div>
+    </section>
+
+    <section id="about">
+      <h2>About &amp; updates</h2>
+      <div class="card"><div class="about"><img src="noam://assets/logo.svg" alt=""><div><b>NoamBrowser</b><p id="ver"></p><p>Built for privacy: no telemetry, no account, no AI services. Ad and tracker blocking powered by open filter lists. VPN by Cloudflare WARP via WireGuard.</p></div></div>
+        <div class="item"><div class="txt"><b id="upd-title">Updates</b><span id="upd-detail">NoamBrowser checks for new versions every few hours.</span></div><button class="btn" id="upd-check">Check for updates</button><button class="btn primary" id="upd-install" hidden>Restart to update</button></div>
+        <div class="item"><div class="txt"><b>Download updates automatically</b><span>You still choose when to restart.</span></div><button class="switch" data-up="auto" role="switch"></button></div>
+      </div>
+    </section>
+  </main>
+</div>
+<script src="assets/apply-theme.js"></script>
+<script src="common.js"></script>
+<script src="settings.js"></script>
+<script src="settings2.js"></script>
+</body>
+</html>
