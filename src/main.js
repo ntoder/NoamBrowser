@@ -84,6 +84,7 @@ const settings = new Store(userData, 'settings', {
   session: [],
   window: { width: 1320, height: 860, maximized: false },
   siteDark: {},
+  topSitesHidden: {},
   forceDarkAll: false,
   passwords: { offerSave: true, autofill: true },
   translate: { target: 'en', offer: true },
@@ -291,8 +292,9 @@ function updateHistoryMeta({ url, title, favicon }) {
 }
 function topSites(n = 8) {
   const bySite = new Map();
+  const hidden = settings.get('topSitesHidden') || {};
   for (const h of history.get('items').slice(0, 4000)) {
-    const host = hostOf(h.url); if (!host) continue;
+    const host = hostOf(h.url); if (!host || hidden[host]) continue;
     const score = (h.visits || 1) * (1 + Math.max(0, 30 - (Date.now() - h.t) / 86400000) / 30);
     const cur = bySite.get(host);
     if (!cur) bySite.set(host, { url: 'https://' + host + '/', title: h.title, favicon: h.favicon, score, host });
@@ -604,6 +606,7 @@ uiHandle('ui:suggest', (_e, q) => suggest(q));
 uiHandle('ui:resolve-input', (_e, text) => resolveInput(text));
 uiHandle('history:add', (_e, h) => addHistory(h));
 uiHandle('history:meta', (_e, h) => updateHistoryMeta(h));
+uiHandle('history:remove-url', (_e, url) => { history.set('items', history.get('items').filter((h) => h.url !== url)); return true; });
 uiHandle('session:save', (_e, tabs) => { settings.set('session', tabs.filter((t) => t.url && !t.url.startsWith('view-source')).slice(0, 60)); });
 uiHandle('bookmarks:toggle', (_e, b) => {
   const items = bookmarks.get('items');
@@ -771,6 +774,9 @@ pageHandle('settings:set', (_e, patch) => setSettings(patch));
 pageHandle('stats:get', () => statsSummary());
 pageHandle('search:engines', () => SEARCH_ENGINES);
 pageHandle('topsites:get', () => topSites(8));
+pageHandle('topsites:hide', (_e, host) => { const h = settings.get('topSitesHidden'); h[String(host)] = Date.now(); settings.set('topSitesHidden', h); return topSites(8); });
+pageHandle('topsites:unhide', (_e, host) => { const h = settings.get('topSitesHidden'); delete h[String(host)]; settings.set('topSitesHidden', h); return topSites(8); });
+pageHandle('topsites:reset', () => { settings.set('topSitesHidden', {}); return topSites(8); });
 pageHandle('history:list', (_e, { q = '', offset = 0, limit = 200 } = {}) => {
   q = q.toLowerCase();
   const items = q ? history.get('items').filter((h) => h.url.toLowerCase().includes(q) || (h.title || '').toLowerCase().includes(q)) : history.get('items');

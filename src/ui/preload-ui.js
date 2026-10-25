@@ -6,7 +6,7 @@ const INVOKE = new Set([
   'settings:set', 'stats:get', 'downloads:list', 'downloads:action', 'private:clear', 'window:new', 'window:control', 'window:set-fullscreen',
   'page:zoom', 'page:save', 'page:menu', 'page:screenshot', 'shell:show', 'webview:prepare',
   'ui:popup-menu', 'password:answer', 'passwords:for-tab', 'passwords:fill', 'reader:check', 'reader:open', 'translate:detect', 'translate:page',
-  'translate:restore', 'translate:languages', 'update:status', 'update:install', 'dark:toggle', 'dark:get',
+  'translate:restore', 'translate:languages', 'update:status', 'update:install', 'dark:toggle', 'dark:get', 'history:remove-url',
 ]);
 const EVENTS = new Set([
   'init', 'tab:open', 'shortcut', 'shields:update', 'vpn:status', 'settings:changed', 'bookmarks:changed', 'downloads:update',

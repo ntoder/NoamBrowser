@@ -57,6 +57,15 @@
   .site:hover { background: color-mix(in srgb, var(--surface) 70%, transparent); }
   .site .ic { width: 48px; height: 48px; border-radius: 14px; background: var(--surface); display: grid; place-items: center; font-weight: 800; font-size: 19px; color: var(--accent); }
   .site .ic img { width: 24px; height: 24px; border-radius: 4px; }
+  .site { position: relative; }
+  .site .rm { position: absolute; top: 4px; right: 4px; width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; background: var(--surface); color: var(--muted); opacity: 0; transition: opacity .15s, transform .15s; box-shadow: 0 2px 8px rgba(0,0,0,.18); }
+  .site .rm svg { width: 12px; height: 12px; stroke-width: 2.4; }
+  .site:hover .rm, .site:focus-within .rm { opacity: 1; }
+  .site .rm:hover { color: var(--danger); transform: scale(1.1); }
+  :root:not([data-anim="off"]) .site.going { animation: tileOut .28s ease-in both; }
+  @keyframes tileOut { to { opacity: 0; transform: scale(.7); } }
+  .undo { display: flex; align-items: center; justify-content: center; gap: 12px; margin-top: 10px; font-size: 13px; color: var(--muted); min-height: 30px; }
+  .undo button { color: var(--accent); font-weight: 750; }
   .site .n { font-size: 12px; font-weight: 600; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
   /* the receipt: the one memorable thing on this page */
@@ -92,6 +101,7 @@
     </form>
     <p class="private-note" id="pnote" hidden>This is a private tab. Pages you visit here aren’t saved to history, and cookies and site data are wiped when you close your last private tab. Your internet provider can still see traffic unless the VPN is on.</p>
     <div class="sites" id="sites"></div>
+    <div class="undo" id="undo" hidden><span id="undo-text"></span><button id="undo-btn">Undo</button><button id="undo-all">Show all again</button></div>
     <section class="receipt" id="receipt" hidden>
       <div class="big" id="week">0</div>
       <div class="what"><b>ads and trackers blocked</b> this week<span id="saved"></span></div>

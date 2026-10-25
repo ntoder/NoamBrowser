@@ -41,6 +41,31 @@ module.exports = ({ app, windows, shields, vpn, settings, webContents, features 
     if (req.url.startsWith('/dl')) { res.writeHead(200, { 'content-type': 'application/octet-stream', 'content-disposition': 'attachment; filename="test-file.bin"' }); res.end(Buffer.alloc(200000, 7)); return; }
     res.writeHead(200, { 'content-type': 'text/html', 'set-cookie': 'fp=1' }); res.end(TEST_PAGE);
   });
+  if (process.env.NOAM_TEST_TILES) {
+    const srv = require('https').createServer({ key: fs.readFileSync('/tmp/claude-0/k.pem'), cert: fs.readFileSync('/tmp/claude-0/c.pem') }, (req, res) => { res.writeHead(200, { 'content-type': 'text/html' }); res.end('<title>' + req.headers.host.split(':')[0] + '</title><h1>hi</h1>'); });
+    srv.listen(0, '127.0.0.1', async () => {
+      const port = srv.address().port;
+      const ui = [...windows][0].webContents; const js = (c) => ui.executeJavaScript(c);
+      await sleep(3000);
+      for (const h of ['news.example.org', 'www.youtube.com', 'accounts.google.com']) { await js(`state.active.navigate('https://${h}:${port}/')`); await sleep(1500); }
+      await js(`state.active.navigate('noam://newtab/')`); await sleep(2000);
+      const wc = webContents.fromId(await js('state.active.wcId'));
+      const tiles = () => wc.executeJavaScript(`[...document.querySelectorAll('.site')].map(e=>e.dataset.host)`);
+      log('tiles before', await tiles());
+      await wc.executeJavaScript(`document.querySelector('.site .rm').click()`); await sleep(800);
+      log('tiles after remove', await tiles(), await wc.executeJavaScript(`document.getElementById('undo-text').textContent`));
+      const img = await [...windows][0].webContents.capturePage(); fs.writeFileSync(path.join(OUT, 'tiles-removed.png'), img.toPNG());
+      await wc.executeJavaScript(`document.getElementById('undo-btn').click()`); await sleep(600);
+      log('tiles after undo', await tiles());
+      // omnibox shift+delete
+      await js(`document.getElementById('url').focus(); document.getElementById('url').value='www.you'; document.getElementById('url').dispatchEvent(new Event('input'))`); await sleep(700);
+      log('suggest', await js(`sgItems.map(x=>x.kind+':'+x.url)`));
+      await js(`sgSel = sgItems.findIndex(x=>x.kind==='history'); document.getElementById('url').dispatchEvent(new KeyboardEvent('keydown',{key:'Delete',shiftKey:true,bubbles:true}))`); await sleep(500);
+      log('history has youtube', await wc.executeJavaScript(`noam.invoke('history:list',{q:'youtube'}).then(r=>r.total)`));
+      app.exit(0);
+    });
+    return;
+  }
   if (process.env.NOAM_TEST_V2) {
     const article = `<!doctype html><html lang="fr"><head><title>Un long article</title></head><body style="font:16px serif;padding:20px">
 <nav>Menu Accueil Contact</nav><div class="ad">Publicité</div>

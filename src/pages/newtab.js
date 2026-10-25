@@ -20,13 +20,26 @@
   noam.on('settings', applyWall);
   const priv = new URLSearchParams(location.search).has('private');
   if (priv) { $('#wall').className = 'none'; document.body.classList.remove('has-wall'); document.body.classList.add('private'); document.documentElement.style.background = '#1E1030'; $('#pnote').hidden = false; document.title = 'Private tab'; }
-  if (s.newTabShowTopSites && !priv) {
-    const sites = await noam.invoke('topsites:get');
+  const renderSites = (sites) => {
     $('#sites').innerHTML = sites.map((x) => {
       const name = x.host.replace(/^www\./, '').split('.')[0];
       const ic = x.favicon ? `<img src="${esc(x.favicon)}" alt="" data-letter="${esc(name[0] || '?')}">` : esc((name[0] || '?').toUpperCase());
-      return `<a class="site" href="${esc(x.url)}" title="${esc(x.title || x.host)}"><span class="ic">${ic}</span><span class="n">${esc(name)}</span></a>`;
+      return `<a class="site" href="${esc(x.url)}" title="${esc(x.title || x.host)}" data-host="${esc(x.host)}"><span class="ic">${ic}</span><span class="n">${esc(name)}</span><button class="rm" title="Remove ${esc(x.host.replace(/^www\./, ''))} from this page" aria-label="Remove"><svg viewBox="0 0 24 24"><path d="M7 7l10 10M17 7L7 17"/></svg></button></a>`;
     }).join('');
+    $$('.site .rm').forEach((b) => (b.onclick = async (e) => {
+      e.preventDefault(); e.stopPropagation();
+      const tile = b.closest('.site'); const host = tile.dataset.host;
+      tile.classList.add('going');
+      const next = await noam.invoke('topsites:hide', host);
+      setTimeout(() => renderSites(next), 260);
+      $('#undo').hidden = false;
+      $('#undo-text').textContent = `Removed ${host.replace(/^www\./, '')}`;
+      $('#undo-btn').onclick = async () => { renderSites(await noam.invoke('topsites:unhide', host)); $('#undo').hidden = true; };
+    }));
+  };
+  $('#undo-all').onclick = async () => { renderSites(await noam.invoke('topsites:reset')); $('#undo').hidden = true; };
+  if (s.newTabShowTopSites && !priv) {
+    renderSites(await noam.invoke('topsites:get'));
     document.addEventListener('error', (e) => { const t = e.target; if (t.tagName === 'IMG' && t.dataset.letter) t.replaceWith(document.createTextNode(t.dataset.letter.toUpperCase())); }, true);
   }
 

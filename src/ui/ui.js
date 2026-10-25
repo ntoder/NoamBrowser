@@ -381,6 +381,13 @@ urlInput.addEventListener('keydown', (e) => {
     e.preventDefault();
     const pick = sgItems.length && sgSel > 0 ? sgItems[sgSel] : null;
     go(pick ? pick.url : urlInput.value, e.altKey || e.ctrlKey && e.shiftKey ? 'newtab' : e.ctrlKey ? 'ctrl' : '');
+  } else if (e.key === 'Delete' && e.shiftKey && sgItems[sgSel] && sgItems[sgSel].kind === 'history') {
+    e.preventDefault();
+    const gone = sgItems[sgSel];
+    nb.invoke('history:remove-url', gone.url);
+    sgItems.splice(sgSel, 1); sgSel = Math.max(0, sgSel - 1);
+    urlInput.value = typed; renderSuggest();
+    toast('Removed from history');
   } else if (e.key === 'Escape') {
     if (!$('#suggest').hidden) closeSuggest();
     else { urlInput.value = displayUrl(state.active?.url); urlInput.select(); }
