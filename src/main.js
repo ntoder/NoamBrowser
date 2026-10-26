@@ -100,6 +100,9 @@ const settings = new Store(userData, 'settings', {
   ] },
   downloads: { autoSort: false, limitKBps: 0 },
   forceDarkAll: false,
+  screenTime: { enabled: true, idleMinutes: 2, limits: {} },
+  zmanimAlerts: { enabled: false, before: 60, sound: true, which: { shma: true, tefila: true, candles: true, sunset: true } },
+  blueLight: { enabled: false, strength: 45, tint: 'amber', color: '#ff8a1c', dim: 0, fade: 1.2, schedule: 'off', from: '21:00', to: '07:00', sunsetOffset: 0, ramp: false, pauseVideo: true, button: true },
   passwords: { offerSave: true, autofill: true },
   translate: { target: 'en', offer: true },
   sync: { enabled: false, folder: '', passwords: false, deviceId: '', settingsUpdated: 0 },
@@ -115,6 +118,7 @@ if (!stats.get('since')) stats.set('since', Date.now());
 const sessionSecret = crypto.randomBytes(16).toString('hex');
 let mainWindow = null;
 const windows = new Set();
+let screenTime = null;
 let shields;
 let vpn;
 const downloads = new Map(); // id -> { item, info }
@@ -747,15 +751,15 @@ function downloadAction(id, action) {
 }
 
 function setSettings(patch) {
-  const allowed = ['searchEngine', 'homepage', 'theme', 'accent', 'showBookmarksBar', 'restoreTabs', 'clearOnExit', 'askDownloadLocation', 'downloadDir', 'newTabShowStats', 'newTabShowTopSites', 'dns', 'shields', 'vpn', 'appearance', 'passwords', 'translate', 'updates', 'tabs', 'forceDarkAll', 'gestures', 'media', 'widgets', 'sidePanel', 'downloads'];
+  const allowed = ['searchEngine', 'homepage', 'theme', 'accent', 'showBookmarksBar', 'restoreTabs', 'clearOnExit', 'askDownloadLocation', 'downloadDir', 'newTabShowStats', 'newTabShowTopSites', 'dns', 'shields', 'vpn', 'appearance', 'passwords', 'translate', 'updates', 'tabs', 'forceDarkAll', 'gestures', 'media', 'widgets', 'sidePanel', 'downloads', 'blueLight', 'zmanimAlerts', 'screenTime'];
   for (const [k, v] of Object.entries(patch || {})) {
     if (!allowed.includes(k)) continue;
-    if (['shields', 'vpn', 'appearance', 'passwords', 'translate', 'updates', 'tabs', 'gestures', 'media', 'widgets', 'sidePanel', 'downloads'].includes(k) && v && typeof v === 'object' && !Array.isArray(v)) settings.set(k, { ...settings.get(k), ...v });
-    else if (['gestures', 'media', 'widgets', 'sidePanel', 'downloads'].includes(k)) continue;
+    if (['shields', 'vpn', 'appearance', 'passwords', 'translate', 'updates', 'tabs', 'gestures', 'media', 'widgets', 'sidePanel', 'downloads', 'blueLight', 'zmanimAlerts', 'screenTime'].includes(k) && v && typeof v === 'object' && !Array.isArray(v)) settings.set(k, { ...settings.get(k), ...v });
+    else if (['gestures', 'media', 'widgets', 'sidePanel', 'downloads', 'blueLight', 'zmanimAlerts', 'screenTime'].includes(k)) continue;
     else settings.set(k, v);
   }
   if ('theme' in patch || 'appearance' in patch) applyThemeToWindows();
-  if (features && Object.keys(patch || {}).some((k) => ['searchEngine', 'homepage', 'theme', 'accent', 'appearance', 'shields', 'showBookmarksBar', 'widgets', 'gestures', 'media', 'sidePanel'].includes(k))) { features.syncer.touchSettings(); features.syncTouch(); }
+  if (features && Object.keys(patch || {}).some((k) => ['searchEngine', 'homepage', 'theme', 'accent', 'appearance', 'shields', 'showBookmarksBar', 'widgets', 'gestures', 'media', 'sidePanel', 'blueLight', 'zmanimAlerts'].includes(k))) { features.syncer.touchSettings(); features.syncTouch(); }
   if (patch.downloads && 'limitKBps' in patch.downloads) for (const d of downloads.values()) if (d.td) { d.td.setLimit(Math.max(0, +patch.downloads.limitKBps || 0) * 1024); d.info.limited = d.td.limit > 0; }
   if ('dns' in patch) applyDns();
   if (patch.vpn && vpn.wantOn && ('mode' in patch.vpn || 'customProxy' in patch.vpn)) vpn.connect();
@@ -791,11 +795,13 @@ function appMenu(sender, wcId, x, y) {
     { label: 'Downloads', accelerator: 'CmdOrCtrl+J', click: () => send('tab:open', { url: 'noam://downloads/' }) },
     { label: 'Bookmarks', click: () => send('tab:open', { url: 'noam://bookmarks/' }) },
     { label: 'Passwords', click: () => send('tab:open', { url: 'noam://passwords/' }) },
+    { label: 'Screen time', click: () => send('tab:open', { url: 'noam://screentime/' }) },
     { type: 'separator' },
     { label: 'Command palette…', accelerator: 'CmdOrCtrl+K', click: () => send('shortcut', { key: 'k', ctrl: true }) },
     { label: 'Reader view', accelerator: 'F9', enabled: !!wc, click: () => send('shortcut', { key: 'reader' }) },
     { label: 'Translate page…', enabled: !!wc, click: () => send('shortcut', { key: 'translate' }) },
     { label: 'Dark mode for this site', enabled: !!wc, click: () => send('shortcut', { key: 'dark' }) },
+    { label: 'Blue light filter', type: 'checkbox', accelerator: 'CmdOrCtrl+Shift+L', checked: !!(settings.get('blueLight') || {}).enabled, click: () => send('shortcut', { key: 'l', ctrl: true, shift: true }) },
     { label: 'Split view', accelerator: 'CmdOrCtrl+Shift+S', click: () => send('shortcut', { key: 's', ctrl: true, shift: true }) },
     { label: 'Vertical tabs', type: 'checkbox', checked: settings.get('tabs').layout === 'vertical', click: () => send('shortcut', { key: 'vertical' }) },
     { type: 'separator' },
@@ -961,6 +967,8 @@ app.whenReady().then(async () => {
   features = setupFeatures({ settings, bookmarks, history, userData, broadcast, broadcastPages, uiHandle, pageHandle, siteOf, hostOf, applyThemeToWindows, publicSettings });
   const ctx2 = { settings, userData, broadcast, broadcastPages, uiHandle, pageHandle, siteOf, hostOf, getFetchSession: () => mainSession(), syncTouch: () => features.syncTouch() };
   features2 = setupFeatures2(ctx2);
+  try { require('./zmanim-alerts')({ settings, pageHandle, windows }); } catch (e) { console.error('zmanim alerts', e); }
+  try { screenTime = require('./screentime')({ settings, userData, uiHandle, pageHandle, windows, privatePartition: PRIVATE_PARTITION }); } catch (e) { console.error('screen time', e); }
   features.syncer.extra = { snapshot: features2.snapshot, merge: features2.merge };
   pageHandle('passwords:check', () => ctx2.passwordsCheck(features.vault));
 

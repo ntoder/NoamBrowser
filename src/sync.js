@@ -11,7 +11,7 @@ const os = require('os');
 const { EventEmitter } = require('events');
 
 const MAGIC = 'NBSYNC1';
-const SYNCED_SETTINGS = ['searchEngine', 'homepage', 'theme', 'accent', 'appearance', 'shields', 'showBookmarksBar', 'siteShieldsOff', 'siteDark', 'translate', 'widgets', 'gestures', 'media', 'sidePanel', 'topSitesHidden'];
+const SYNCED_SETTINGS = ['searchEngine', 'homepage', 'theme', 'accent', 'appearance', 'shields', 'showBookmarksBar', 'siteShieldsOff', 'siteDark', 'translate', 'widgets', 'gestures', 'media', 'sidePanel', 'topSitesHidden', 'blueLight', 'zmanimAlerts'];
 
 function deriveKey(pass, salt) { return crypto.scryptSync(pass, salt, 32, { N: 1 << 15, r: 8, p: 1, maxmem: 64 * 1024 * 1024 }); }
 

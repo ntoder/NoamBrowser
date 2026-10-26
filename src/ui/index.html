@@ -9,6 +9,7 @@
 <link rel="stylesheet" href="fx.css">
 <link rel="stylesheet" href="features.css">
 <link rel="stylesheet" href="features2.css">
+<style>#bluelight,#bl-dim{position:fixed;inset:0;z-index:2147483000;pointer-events:none;opacity:0;transition:opacity var(--blf,1.2s) ease}#bluelight{background:var(--blc,#ff8a1c);mix-blend-mode:multiply}#bl-dim{background:#000;z-index:2147483001}#bluelight.on{opacity:var(--bl,.45)}#bl-dim.on{opacity:var(--bld,0)}#bl-btn.on{color:#e8890c;background:rgba(255,150,40,.16)}</style>
 </head>
 <body>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
@@ -101,6 +102,7 @@
       <span class="dot"></span><span id="vpn-label">VPN</span>
     </button>
     <button id="media-btn" class="icon-btn" title="Media playing" hidden><svg><use href="#i-music"/></svg><i class="eq"><b></b><b></b><b></b></i></button>
+    <button id="bl-btn" class="icon-btn" title="Blue light filter (Ctrl+Shift+L) — right-click for options"><svg><use href="#i-moon"/></svg></button>
     <button id="shot-btn" class="icon-btn" title="Screenshot (Ctrl+Shift+X)"><svg><use href="#i-camera"/></svg></button>
     <button id="pip-btn" class="icon-btn" title="Picture in picture" hidden><svg><use href="#i-pip"/></svg></button>
     <button id="update-btn" class="status-pill update" title="An update is ready" hidden><svg><use href="#i-update"/></svg><span id="update-label">Update</span></button>
@@ -243,6 +245,9 @@
 <script src="ui.js"></script>
 <script src="ui2.js"></script>
 <script src="../assets/calc.js"></script>
+<div id="bluelight" aria-hidden="true"></div><div id="bl-dim" aria-hidden="true"></div>
 <script src="ui3.js"></script>
+<script src="../assets/zmanim.js"></script>
+<script src="ui4.js"></script>
 </body>
 </html>

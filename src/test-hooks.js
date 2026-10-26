@@ -287,6 +287,108 @@ fetch('/player').then(r=>r.text()).then(t=>{window.r3=Object.keys(JSON.parse(t))
     });
     return;
   }
+  if (process.env.NOAM_TEST_ST) {
+    const srv = require('https').createServer({ key: fs.readFileSync('/tmp/claude-0/k.pem'), cert: fs.readFileSync('/tmp/claude-0/c.pem') }, (req, res) => { res.writeHead(200, { 'content-type': 'text/html' }); res.end('<title>' + req.headers.host + '</title><h1>' + req.headers.host + '</h1>'); });
+    srv.listen(443, '127.0.0.1', async () => {
+      const win = [...windows][0]; const ui = win.webContents; const js = (c) => ui.executeJavaScript(c);
+      await sleep(3000);
+      await js(`nb.invoke('settings:set',{screenTime:{idleMinutes:100000}})`);
+      win.show(); win.focus();
+      log('focused', !!require('electron').BrowserWindow.getFocusedWindow(), 'idle', require('electron').powerMonitor.getSystemIdleTime());
+      await js(`state.active.navigate('https://www.youtube.com/watch')`); await sleep(16000);
+      await js(`newTab({url:'https://news.example.org/'})`); await sleep(11000);
+      await js(`newTab({url:'https://news.example.org/', private:true})`); await sleep(11000);
+      const st = JSON.parse(fs.readFileSync(path.join(app.getPath('userData'), 'screentime.json'), 'utf8'));
+      log('live data', JSON.stringify(st.days));
+      // seed a week of history for the screenshot
+      const dk = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      const st2 = require('./screentime');
+      const seed = { YouTube: 5400, Facebook: 3600, 'Google Sheets': 1500, WhatsApp: 2400, 'Google Search': 900, 'netzach.legos.co.il': 1300, 'GitHub': 1100, Gmail: 700, ChatGPT: 800, 'ynet.co.il': 500 };
+      const days = {};
+      for (let i = 0; i < 9; i++) { const d = dk(new Date(Date.now() - i * 86400000)); days[d] = {}; for (const [k, v] of Object.entries(seed)) days[d][k] = Math.round(v * (0.4 + Math.random() * 1.1)); }
+      app.emit('noam-test-seed-screentime', days);
+      log('seeded');
+      await sleep(600);
+      await js(`newTab({url:'noam://screentime/'})`); await sleep(2500);
+      let img = await win.webContents.capturePage(); fs.writeFileSync(path.join(OUT, 'st-today.png'), img.toPNG());
+      const wc = webContents.fromId(await js('state.active.wcId'));
+      await wc.executeJavaScript(`document.querySelector('[data-r="7"]').click()`); await sleep(1200);
+      img = await win.webContents.capturePage(); fs.writeFileSync(path.join(OUT, 'st-week.png'), img.toPNG());
+      await wc.executeJavaScript(`(() => { const sel=document.querySelector('.site select'); sel.value='30'; sel.dispatchEvent(new Event('change')); })()`); await sleep(1200);
+      log('limit set', JSON.stringify(settings.get('screenTime').limits));
+      log('csv head', (await wc.executeJavaScript(`noam.invoke('screentime:csv')`)).split('\n').slice(0, 3));
+      log('DONE'); setTimeout(() => app.exit(0), 300);
+    });
+    return;
+  }
+  if (process.env.NOAM_TEST_ZA) {
+    const { Notification } = require('electron');
+    Notification.isSupported = () => true; const orig = Notification.prototype.show;
+    Notification.prototype.show = function () { log('NOTIFY', this.title, '|', this.body, 'silent', this.silent); try { orig.call(this); } catch {} };
+    (async () => {
+      const win = [...windows][0]; const ui = win.webContents; const js = (c) => ui.executeJavaScript(c);
+      await sleep(3000);
+      const Z = require('./assets/zmanim.js');
+      const c = { lat: 31.769, lon: 35.2163, tz: 'Asia/Jerusalem' };
+      const all = []; for (const o of [0, 1]) { const z = Z.zmanim(c, new Date(Date.now() + o * 86400000)); for (const k of ['alot', 'sunrise', 'shma', 'tefila', 'chatzot', 'minchaGedola', 'minchaKetana', 'plag', 'sunset', 'tzeit']) if (z[k]) all.push([k, z[k]]); }
+      const [key, t] = all.filter(([, t]) => t > Date.now() + 120000).sort((a, b) => a[1] - b[1])[0];
+      const before = Math.floor((t - Date.now()) / 60000);
+      log('target', key, t.toISOString(), 'before', before);
+      await js(`nb.invoke('settings:set',{zmanimAlerts:{enabled:true, before:${before}, sound:false, which:{${key}:true}}})`);
+      await js(`newTab({url:'noam://settings/#tools'})`); await sleep(2500);
+      const wc = webContents.fromId(await js('state.active.wcId'));
+      await wc.executeJavaScript(`document.getElementById('za-on').scrollIntoView({block:'start'})`); await sleep(600);
+      log('note', await wc.executeJavaScript(`document.getElementById('za-note').textContent`));
+      const img = await win.webContents.capturePage(); fs.writeFileSync(path.join(OUT, 'za-settings.png'), img.toPNG());
+      await wc.executeJavaScript(`document.getElementById('za-test').click()`); await sleep(500);
+      await sleep(85000);
+      log('DONE'); app.exit(0);
+    })();
+    return;
+  }
+  if (process.env.NOAM_TEST_BL) {
+    const srv = require('https').createServer({ key: fs.readFileSync('/tmp/claude-0/k.pem'), cert: fs.readFileSync('/tmp/claude-0/c.pem') }, (req, res) => {
+      res.writeHead(200, { 'content-type': 'text/html' });
+      res.end('<title>Colours</title><body style="margin:0;background:#fff;font:24px sans-serif"><div style="display:flex;gap:0"><div style="width:300px;height:300px;background:#fff"></div><div style="width:300px;height:300px;background:#0000ff"></div><div style="width:300px;height:300px;background:#00ff00"></div></div><h1 style="padding:20px">Night reading test</h1></body>');
+    });
+    srv.listen(443, '127.0.0.1', async () => {
+      const win = [...windows][0]; const ui = win.webContents; const js = (c) => ui.executeJavaScript(c);
+      const shot = async (n) => { const img = await win.webContents.capturePage(); fs.writeFileSync(path.join(OUT, n + '.png'), img.toPNG()); return img; };
+      const px = (img, x, y) => { const b = img.toBitmap(); const sz = img.getSize(); const i = (y * sz.width + x) * 4; return [b[i + 2], b[i + 1], b[i]]; };
+      const step = async (name, fn) => { try { await fn(); log('ok', name); } catch (e) { log('FAIL', name, e.stack || String(e)); } };
+      await sleep(3500);
+      await step('overlay', async () => {
+        await js(`state.active.navigate('https://news.example.org/')`); await sleep(2000);
+        const r = await js(`(() => { const b = state.active.wv.getBoundingClientRect(); return { x: Math.round(b.left), y: Math.round(b.top) }; })()`);
+        let img = await shot('bl-01-off');
+        log('off', px(img, r.x + 150, r.y + 150), px(img, r.x + 450, r.y + 150), 'toolbar', px(img, 400, 62));
+        await js(`toggleBlueLight()`); await sleep(1800);
+        img = await shot('bl-02-on');
+        log('on', px(img, r.x + 150, r.y + 150), px(img, r.x + 450, r.y + 150), 'toolbar', px(img, 400, 62), 'btn on', await js(`document.getElementById('bl-btn').classList.contains('on')`));
+        await js(`nb.invoke('settings:set',{blueLight:{tint:'red', strength:70, dim:30, fade:0}})`); await sleep(800);
+        img = await shot('bl-03-red-dim');
+        log('red+dim', px(img, r.x + 150, r.y + 150));
+        await js(`toggleBlueLight()`); await sleep(600);
+        log('after off', await js(`document.getElementById('bluelight').classList.contains('on')`), await js(`document.getElementById('bl-dim').classList.contains('on')`));
+        // schedule: custom window that includes now
+        const d = new Date(); const hh = (x) => String(x).padStart(2, '0');
+        const from = `${hh((d.getHours() + 23) % 24)}:00`, to = `${hh((d.getHours() + 1) % 24)}:59`;
+        await js(`nb.invoke('settings:set',{blueLight:{schedule:'custom', from:'${from}', to:'${to}', tint:'amber', strength:45, dim:0, enabled:false}})`); await sleep(800);
+        log('scheduled on', await js(`document.getElementById('bluelight').classList.contains('on')`));
+        await js(`nb.invoke('settings:set',{blueLight:{schedule:'sunset'}})`); await sleep(500);
+        log('sunset schedule now', await js(`document.getElementById('bluelight').classList.contains('on')`), new Date().toTimeString().slice(0, 5));
+        await js(`nb.invoke('settings:set',{blueLight:{schedule:'off', enabled:true, tint:'amber', strength:45, dim:0, fade:1.2}})`); await sleep(1500);
+        await js(`newTab({url:'noam://settings/#tools'})`); await sleep(2500);
+        const wc = webContents.fromId(await js('state.active.wcId'));
+        await wc.executeJavaScript(`document.getElementById('tools').scrollIntoView()`); await sleep(500);
+        await shot('bl-04-settings-filter-on');
+        await js(`nb.invoke('settings:set',{blueLight:{enabled:false}})`); await sleep(1600);
+        await shot('bl-05-settings');
+      });
+      log('DONE'); setTimeout(() => app.exit(0), 300);
+    });
+    return;
+  }
   if (process.env.NOAM_TEST_V21) {
     const wav = (() => { const sr = 8000, n = sr * 20; const b = Buffer.alloc(44 + n * 2); b.write('RIFF', 0); b.writeUInt32LE(36 + n * 2, 4); b.write('WAVEfmt ', 8); b.writeUInt32LE(16, 16); b.writeUInt16LE(1, 20); b.writeUInt16LE(1, 22); b.writeUInt32LE(sr, 24); b.writeUInt32LE(sr * 2, 28); b.writeUInt16LE(2, 32); b.writeUInt16LE(16, 34); b.write('data', 36); b.writeUInt32LE(n * 2, 40); for (let i = 0; i < n; i++) b.writeInt16LE(Math.round(Math.sin(i * 2 * Math.PI * 440 / sr) * 3000), 44 + i * 2); return b; })();
     const longPage = `<!doctype html><title>Long article about trains</title><body style="font:17px Georgia,serif;margin:0;padding:30px 60px;background:linear-gradient(#fdf6e3,#e3f0fd)"><h1>Trains of Israel</h1>` + Array.from({ length: 40 }, (_, i) => `<p>Section ${i + 1}: The railway between Tel Aviv and Jerusalem climbs through the hills, passing tunnels and bridges built over many years.</p>`).join('') + `<h2 id="end">The end</h2></body>`;

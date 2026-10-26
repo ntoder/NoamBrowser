@@ -66,6 +66,18 @@
   .clouds { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
   .clouds button { padding: 5px 11px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); font-weight: 750; font-size: 12px; }
   .clouds button.on { background: var(--accent); color: #fff; }
+  .bl-tints { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+  .bl-tints button { width: 30px; height: 30px; border-radius: 50%; border: 3px solid var(--surface); box-shadow: 0 0 0 1px var(--line); cursor: pointer; }
+  .bl-tints button.on { box-shadow: 0 0 0 2.5px var(--accent); }
+  .bl-tints button.custom { background: conic-gradient(red, yellow, lime, cyan, blue, magenta, red); }
+  .bl-range { width: 200px; accent-color: var(--accent); }
+  .bl-preview { position: relative; display: flex; gap: 6px; align-items: center; padding: 8px 12px; border-radius: 12px; background: #fff; color: #1D1836; font-weight: 800; overflow: hidden; }
+  .bl-preview i { width: 22px; height: 22px; border-radius: 6px; box-shadow: 0 0 0 1px rgba(0,0,0,.1); }
+  .bl-preview::after { content: ''; position: absolute; inset: 0; background: var(--pc, #ff8a1c); mix-blend-mode: multiply; opacity: var(--po, .45); }
+  .bl-preview::before { content: ''; position: absolute; inset: 0; background: #000; opacity: var(--pd, 0); z-index: 1; }
+  .za-list { display: grid; grid-template-columns: repeat(2, minmax(150px, auto)); gap: 6px 16px; font-size: 13px; font-weight: 600; }
+  .za-list label { display: flex; gap: 7px; align-items: center; cursor: pointer; white-space: nowrap; }
+  .za-list input { accent-color: var(--accent); width: 16px; height: 16px; }
   kbd { font: 700 11px var(--font); padding: 1px 5px; border-radius: 5px; background: var(--surface-2); border: 1px solid var(--line); }
 </style></head>
 <body>
@@ -166,7 +178,39 @@
 
     <section id="tools">
       <h2>Tools &amp; gestures</h2>
-      <p class="lede">Mouse gestures, video controls, downloads, the sidebar and saved sessions.</p>
+      <p class="lede">Night light, screen time, zmanim reminders, mouse gestures, video controls, downloads, the sidebar and saved sessions.</p>
+      <div class="card">
+        <div class="item"><div class="txt"><b>Blue light filter</b><span>Gives the browser a warm tint that's easier on your eyes at night. Quick toggle: Ctrl+Shift+L, or click the 🌙 button (right-click it for quick options).</span></div><button class="switch" id="bl-on" role="switch"></button></div>
+        <div class="item"><div class="txt"><b>Colour</b><span>Redder colours block more blue light.</span></div><div class="bl-tints" id="bl-tints"></div></div>
+        <div class="item" id="bl-custom-row"><div class="txt"><b>Your colour</b></div><input type="color" id="bl-color"></div>
+        <div class="item"><div class="txt"><b>Strength</b><span id="bl-val"></span></div><input type="range" id="bl-str" min="5" max="85" step="5" class="bl-range"></div>
+        <div class="item"><div class="txt"><b>Dim the screen</b><span id="bl-dim-val">Darkens everything a little — great for late at night.</span></div><input type="range" id="bl-dim" min="0" max="70" step="5" class="bl-range"></div>
+        <div class="item"><div class="txt"><b>Fade</b><span>How fast it turns on and off.</span></div>
+          <select class="field" id="bl-fade"><option value="0">Instantly</option><option value="0.4">Quick</option><option value="1.2">Smooth</option><option value="6">Slow</option><option value="30">Very slow (30 seconds)</option></select></div>
+        <div class="item"><div class="txt"><b>Turn on automatically</b><span id="bl-sched-note"></span></div>
+          <select class="field" id="bl-sched"><option value="off">No — only when I turn it on</option><option value="sunset">From sunset to sunrise</option><option value="custom">At set times</option></select></div>
+        <div class="item" id="bl-times"><div class="txt"><b>From</b></div><span style="display:flex;gap:8px;align-items:center"><input class="field" type="time" id="bl-from" style="width:auto"> to <input class="field" type="time" id="bl-to" style="width:auto"></span></div>
+        <div class="item" id="bl-offset-row"><div class="txt"><b>Start before sunset</b></div>
+          <select class="field" id="bl-offset"><option value="0">At sunset</option><option value="15">15 minutes before</option><option value="30">30 minutes before</option><option value="60">1 hour before</option><option value="120">2 hours before</option><option value="-30">30 minutes after</option></select></div>
+        <div class="item" id="bl-ramp-row"><div class="txt"><b>Ease in gradually</b><span>When it turns on by itself, start light and get stronger over 45 minutes.</span></div><button class="switch" id="bl-ramp" role="switch"></button></div>
+        <div class="item"><div class="txt"><b>Pause for full-screen videos</b><span>So movies keep their real colours.</span></div><button class="switch" id="bl-pause" role="switch"></button></div>
+        <div class="item"><div class="txt"><b>Show the 🌙 button in the toolbar</b></div><button class="switch" id="bl-button" role="switch"></button></div>
+        <div class="item"><div class="txt"><b>Preview</b></div><div class="bl-preview" id="bl-preview"><span>Aa</span><i style="background:#3E8DEB"></i><i style="background:#fff"></i><i style="background:#3FAE5A"></i></div></div>
+      </div>
+      <h2 style="margin-top:26px;font-size:16px">Screen time</h2>
+      <div class="card">
+        <div class="item"><div class="txt"><b>See how long you spend on each site</b><span>Daily and weekly totals, top sites and daily limits. Stays on this computer; private tabs are never counted.</span></div><a class="btn primary" href="noam://screentime/">Open screen time</a></div>
+      </div>
+      <h2 style="margin-top:26px;font-size:16px">Zmanim reminders</h2>
+      <div class="card">
+        <div class="item"><div class="txt"><b>Remind me before zmanim</b><span id="za-note">Shows a notification on your computer while NoamBrowser is open.</span></div><button class="switch" id="za-on" role="switch"></button></div>
+        <div class="item"><div class="txt"><b>How long before</b></div>
+          <select class="field" id="za-before"><option value="5">5 minutes</option><option value="10">10 minutes</option><option value="15">15 minutes</option><option value="30">30 minutes</option><option value="45">45 minutes</option><option value="60">1 hour</option><option value="90">1½ hours</option><option value="120">2 hours</option></select></div>
+        <div class="item"><div class="txt"><b>Which zmanim</b><span>Times use the city from your new tab zmanim widget.</span></div><div class="za-list" id="za-list"></div></div>
+        <div class="item"><div class="txt"><b>Play a sound</b></div><button class="switch" id="za-sound" role="switch"></button></div>
+        <div class="item"><div class="txt"><b>Try it</b><span>Sends a sample reminder now.</span></div><button class="btn" id="za-test">Send a test</button></div>
+      </div>
+      <h2 style="margin-top:26px;font-size:16px">Gestures &amp; video</h2>
       <div class="card">
         <div class="item"><div class="txt"><b>Mouse gestures</b><span>Hold the right mouse button and draw: ← back, → forward, ↑ new tab, ↓→ close tab, ↓← reopen closed tab, ↑↓ reload, ↓ scroll down.</span></div><button class="switch" data-g="enabled" role="switch"></button></div>
         <div class="item"><div class="txt"><b>Show the gesture trail</b></div><button class="switch" data-g="trail" role="switch"></button></div>

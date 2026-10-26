@@ -16,6 +16,9 @@ A private, fast web browser for Windows, macOS and Linux.
 - **Mouse gestures**, **download pause/resume**, **speed limit** and **auto-sorting into folders**.
 - **New tab widgets** — clock with Hebrew date, weather, zmanim with candle lighting and parasha, synced to-do list.
 - **Sync** through your own cloud-drive folder (OneDrive, Google Drive, Dropbox, iCloud found automatically), encrypted with your passphrase — no server. Syncs bookmarks, settings, reading list, notes, to-dos, sessions and optionally passwords.
+- **Blue light filter** — warm night tint with 6 colours or your own, strength, screen dimming, sunset-to-sunrise or timed schedule, gradual fade-in (Ctrl+Shift+L).
+- **Screen time** — see how long you spend on each site (today, week, month), with daily limits and reminders. Stays on your computer.
+- **Zmanim reminders** — a notification before Shema, Shacharit, Mincha, candle lighting, sunset and more (5 minutes to 2 hours ahead).
 - **Themes** — 9 presets (including Daylight, which changes with the time of day), Liquid Glass, custom accents, wallpapers, animations.
 - **Automatic updates** from this repository's Releases.
 

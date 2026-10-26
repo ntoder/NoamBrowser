@@ -426,7 +426,7 @@ if (cfg.internal && location.protocol === 'noam:' && window.top === window) {
     'translate:languages', 'sitedark:list', 'sitedark:set', 'topsites:hide', 'topsites:unhide', 'topsites:reset',
     'widgets:geocode', 'widgets:weather', 'widgets:jewish', 'todos:list', 'todos:save', 'reading:list', 'reading:remove', 'reading:read',
     'notes:all', 'sessions:list', 'sessions:delete', 'sessions:open', 'screenshot:get', 'screenshot:copy', 'screenshot:save', 'passwords:check',
-    'sync:cloud-folders',
+    'sync:cloud-folders', 'zmanim:alerts-info', 'zmanim:alerts-test', 'screentime:get', 'screentime:set-limit', 'screentime:clear', 'screentime:csv',
   ]);
   const listeners = new Map();
   ipcRenderer.on('noam:page-event', (_e, name, data) => { for (const fn of listeners.get(name) || []) try { fn(data); } catch {} });
