@@ -19,19 +19,61 @@ A private, fast web browser for Windows, macOS and Linux.
 - **Themes** — 9 presets (including Daylight, which changes with the time of day), Liquid Glass, custom accents, wallpapers, animations.
 - **Automatic updates** from this repository's Releases.
 
-## Download
+## How to install
 
-Get the latest version from **[Releases](https://github.com/ntoder/NoamBrowser/releases/latest)**:
+All downloads are on the **[Releases page](https://github.com/ntoder/NoamBrowser/releases/latest)**. Scroll down to **Assets** and pick the file for your computer. (Ignore the files ending in `.yml` and `.blockmap` — those are for automatic updates.)
 
-| System | File |
-| --- | --- |
-| Windows | `NoamBrowser-Setup-x.y.z.exe` (installer, auto-updates) or `NoamBrowser.exe` (portable) |
-| macOS (Apple Silicon) | `NoamBrowser-x.y.z-arm64-mac.zip` |
-| macOS (Intel) | `NoamBrowser-x.y.z-x64-mac.zip` |
-| Ubuntu / Debian | `noambrowser_x.y.z_amd64.deb` |
-| Other Linux | `NoamBrowser-x.y.z-x86_64.AppImage` |
+You only install once. After that, NoamBrowser updates itself.
 
-The app isn't signed with paid certificates yet, so Windows SmartScreen and macOS Gatekeeper warn on first launch. On Windows choose **More info → Run anyway**. On macOS run `xattr -cr /Applications/NoamBrowser.app` once, or use **System Settings → Privacy & Security → Open Anyway**.
+### 🪟 Windows
+
+1. Download **`NoamBrowser-Setup-2.1.0.exe`** (the number may be newer).
+2. Open it from your Downloads folder.
+3. If a blue box says **"Windows protected your PC"**: click **More info**, then **Run anyway**. (This appears because the app is new, not because something is wrong.)
+4. NoamBrowser installs and opens by itself. You'll find it in the Start menu and on your desktop.
+
+*No admin rights / want to run it from a USB stick?* Download **`NoamBrowser.exe`** instead and just double-click it — nothing is installed. (This version doesn't update itself; it tells you when there's a new one.)
+
+### 🍎 Mac
+
+1. Find out which Mac you have: click the **Apple menu  → About This Mac**.
+   - It says **Chip: Apple M1 / M2 / M3 / M4…** → download **`NoamBrowser-…-arm64-mac.zip`**
+   - It says **Processor: Intel…** → download **`NoamBrowser-…-x64-mac.zip`**
+2. Double-click the downloaded zip. A **NoamBrowser** app appears next to it.
+3. Drag **NoamBrowser** into your **Applications** folder.
+4. Open **Terminal** (press ⌘ Space, type `Terminal`, press Enter), paste this line and press Enter:
+   ```
+   xattr -cr /Applications/NoamBrowser.app
+   ```
+   This tells macOS it's OK to open the app. You only do it once. It prints nothing — that means it worked.
+5. Open NoamBrowser from Applications (or Launchpad).
+
+*Skipped step 4 and got "NoamBrowser Not Opened"?* Click **Done**, then go to **System Settings → Privacy & Security**, scroll down and click **Open Anyway** next to NoamBrowser.
+
+### 🐧 Linux (Ubuntu, Debian, Mint, Zorin, Pop!_OS…)
+
+Do these steps **on the Linux computer itself**.
+
+1. Download **`noambrowser_2.1.0_amd64.deb`** (the number may be newer) with the browser on that computer. It goes into your **Downloads** folder.
+2. Open **Terminal** (press **Ctrl + Alt + T**).
+3. Copy this whole line, paste it with **Ctrl + Shift + V**, and press Enter:
+   ```
+   sudo apt install ~/Downloads/noambrowser_*_amd64.deb
+   ```
+4. Type your computer password when it asks (nothing shows while you type — that's normal), press Enter, then press **Y** and Enter if it asks to continue.
+5. Open **NoamBrowser** from your apps menu.
+
+*Getting "Unsupported file" or "no such file"?* The file isn't in Downloads on that computer. Run `ls ~/Downloads` to see what's there, and download it again if it's missing.
+
+*Other Linux (Fedora, Arch…)?* Download **`NoamBrowser-…-x86_64.AppImage`**, right-click it → **Properties → Permissions → Allow executing as a program**, then double-click it.
+
+### Updating
+
+Nothing to do. NoamBrowser checks for new versions every few hours. On Windows and Linux it downloads the update and shows **Restart to update**; on Mac it shows **Update available** and opens this page so you can download the new zip (then repeat Mac steps 2–4). To check right now: **Settings → About & updates → Check for updates**.
+
+### Is it safe?
+
+The warnings on Windows and Mac show up for any app that hasn't paid Microsoft or Apple for a signing certificate. NoamBrowser's full source code is in this repository.
 
 ## Build from source
 
