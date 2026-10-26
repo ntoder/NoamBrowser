@@ -81,3 +81,30 @@
 :root[data-font="rounded"] { --font: 'SF Pro Rounded', 'Arial Rounded MT Bold', 'Nunito', 'Manrope', system-ui, sans-serif; }
 :root[data-font="serif"] { --font: 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, serif; }
 :root[data-font="mono"] { --font: 'Cascadia Code', 'SF Mono', Consolas, 'JetBrains Mono', monospace; }
+
+/* ---------- Daylight: follows the time of day (dawn → day → sunset → night) ---------- */
+:root[data-preset="daylight"][data-tod="dawn"] {
+  --bg: #F6E9F0; --surface: #FFF8FB; --surface-2: #F7E8F0; --surface-3: #EED7E4; --line: rgba(80, 30, 60, .10);
+  --text: #2A1630; --muted: #85617A; --accent: #E0608A; --accent-soft: rgba(224, 96, 138, .15); --safe: #12A07A; --safe-soft: rgba(18, 160, 122, .13);
+  --chrome-art: linear-gradient(100deg, #FFC3A0 0%, #FFAFBD 35%, #C9B6FF 70%, #A0C4FF 100%); color-scheme: light;
+}
+:root[data-preset="daylight"][data-tod="day"] {
+  --bg: #E6F1FB; --surface: #FFFFFF; --surface-2: #EEF5FC; --surface-3: #DCEAF7; --line: rgba(10, 40, 80, .10);
+  --text: #0E2238; --muted: #577089; --accent: #1C7CF4; --accent-soft: rgba(28, 124, 244, .13); --safe: #0B9E6B; --safe-soft: rgba(11, 158, 107, .12);
+  --chrome-art: linear-gradient(100deg, #8EC5FC 0%, #B8E1FF 40%, #E0C3FC 75%, #8EC5FC 100%); color-scheme: light;
+}
+:root[data-preset="daylight"][data-tod="sunset"] {
+  --bg: #2A1426; --surface: #3A1C33; --surface-2: #4A2440; --surface-3: #5C2D4F; --line: rgba(255, 210, 200, .11);
+  --text: #FFEDE6; --muted: #E0A9A6; --accent: #FF8F5A; --accent-soft: rgba(255, 143, 90, .2); --safe: #FFD166; --safe-soft: rgba(255, 209, 102, .16);
+  --chrome-art: linear-gradient(100deg, #FF7E5F 0%, #FEB47B 30%, #C04A82 65%, #4B2A6B 100%); color-scheme: dark;
+}
+:root[data-preset="daylight"][data-tod="night"] {
+  --bg: #070B1A; --surface: #0F1630; --surface-2: #172045; --surface-3: #212C5C; --line: rgba(190, 210, 255, .10);
+  --text: #E7ECFF; --muted: #8E9AC6; --accent: #8FA8FF; --accent-soft: rgba(143, 168, 255, .18); --safe: #6CF5B5; --safe-soft: rgba(108, 245, 181, .15);
+  --chrome-art: radial-gradient(1px 1px at 10% 30%, #fff 50%, transparent), radial-gradient(1px 1px at 30% 70%, #fff 50%, transparent), radial-gradient(1.5px 1.5px at 55% 25%, #fff 50%, transparent), radial-gradient(1px 1px at 75% 60%, #fff 50%, transparent), radial-gradient(1px 1px at 90% 35%, #fff 50%, transparent), linear-gradient(100deg, #0B1033 0%, #1B1F5E 50%, #0B1033 100%);
+  color-scheme: dark;
+}
+:root[data-preset="daylight"] #titlebar { animation: drift 30s ease-in-out infinite alternate; }
+:root[data-preset="daylight"][data-tod="night"] #titlebar { background-size: 100% 100%; animation: twinkle 6s ease-in-out infinite alternate; }
+@keyframes twinkle { from { filter: brightness(1); } to { filter: brightness(1.25); } }
+:root[data-preset="daylight"] body, :root[data-preset="daylight"] #toolbar, :root[data-preset="daylight"] .tab.active { transition: background-color 2s ease, color 2s ease; }

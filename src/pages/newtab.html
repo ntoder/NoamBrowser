@@ -86,6 +86,60 @@
   .private-note { margin: 26px 4px 0; color: var(--muted); max-width: 60ch; line-height: 1.6; }
   body.private { --bg: #1E1030; --surface: #2E1A47; --surface-2: #3A2257; --text: #F3E8FF; --muted: #C4A6E4; --accent: #C27BFF; color-scheme: dark; }
   body.private .mark span::after { content: ' · private'; color: var(--accent); font-weight: 650; }
+  /* ---------- widgets ---------- */
+  .widgets { position: relative; z-index: 1; width: min(980px, 100%); margin: 34px auto 0; }
+  .w-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; align-items: start; }
+  .w { background: color-mix(in srgb, var(--surface) 82%, transparent); border-radius: 18px; padding: 16px 18px; box-shadow: 0 1px 0 var(--line), 0 14px 34px -22px rgba(0,0,0,.45); min-width: 0; }
+  body.has-wall .w { background: color-mix(in srgb, var(--surface) 62%, transparent); backdrop-filter: blur(22px) saturate(1.6); }
+  .w h3 { margin: 0 0 10px; font-size: 12.5px; font-weight: 750; color: var(--muted); display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .w h3 button { color: var(--muted); font-size: 12px; font-weight: 650; }
+  .w h3 button:hover { color: var(--accent); }
+  .clock .t { font-size: 44px; font-weight: 800; letter-spacing: -.04em; line-height: 1; font-variant-numeric: tabular-nums; }
+  .clock .d { margin-top: 8px; font-weight: 650; }
+  .clock .hd { margin-top: 4px; color: var(--muted); font-size: 13px; }
+  .clock .hd b { font-weight: 700; color: var(--text); font-size: 15px; }
+  .weather .now { display: flex; align-items: center; gap: 12px; }
+  .weather .emo { font-size: 40px; line-height: 1; }
+  .weather .temp { font-size: 36px; font-weight: 800; letter-spacing: -.03em; font-variant-numeric: tabular-nums; }
+  .weather .desc { color: var(--muted); font-size: 13px; margin-top: 2px; }
+  .weather .days { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 12px; }
+  .weather .day { text-align: center; font-size: 12px; background: color-mix(in srgb, var(--surface-2) 70%, transparent); border-radius: 10px; padding: 6px 2px; }
+  .weather .day b { display: block; font-size: 18px; font-weight: 400; margin: 2px 0; }
+  .zm .heb { font-size: 17px; font-weight: 800; }
+  .zm .sub { color: var(--muted); font-size: 12.5px; margin: 2px 0 10px; }
+  .zm .tag { display: inline-block; font-size: 12px; font-weight: 700; padding: 3px 9px; border-radius: 9px; background: var(--accent-soft); color: var(--accent); margin: 0 4px 6px 0; }
+  .zm ul { list-style: none; margin: 0; padding: 0; font-size: 13px; }
+  .zm li { display: flex; justify-content: space-between; padding: 3px 0; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .zm li b { color: var(--text); font-weight: 650; }
+  .zm li.next { color: var(--accent); }
+  .zm li.next b { color: var(--accent); font-weight: 800; }
+  .zm li.past { opacity: .55; }
+  .zm .note { font-size: 11px; color: var(--muted); margin-top: 8px; }
+  .todo form { display: flex; gap: 6px; }
+  .todo input[type=text] { flex: 1; min-width: 0; height: 34px; border-radius: 10px; border: 1px solid var(--line); background: color-mix(in srgb, var(--surface-2) 70%, transparent); padding: 0 10px; outline: 0; }
+  .todo input[type=text]:focus { border-color: var(--accent); }
+  .todo ul { list-style: none; margin: 10px 0 0; padding: 0; max-height: 220px; overflow: auto; }
+  .todo li { display: flex; align-items: center; gap: 8px; padding: 5px 2px; border-radius: 8px; }
+  .todo li input { accent-color: var(--accent); width: 16px; height: 16px; flex: none; }
+  .todo li span { flex: 1; min-width: 0; overflow-wrap: anywhere; font-size: 13.5px; }
+  .todo li.done span { text-decoration: line-through; color: var(--muted); }
+  .todo li button { opacity: 0; color: var(--muted); width: 22px; height: 22px; border-radius: 6px; display: grid; place-items: center; }
+  .todo li:hover button { opacity: 1; }
+  .todo li button:hover { color: var(--danger); }
+  .todo .empty { color: var(--muted); font-size: 13px; padding: 8px 2px; }
+  .w-cfg { margin-top: 12px; }
+  .w-cfg .row { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; font-size: 13px; }
+  .w-cfg label { display: flex; gap: 6px; align-items: center; }
+  .w-cfg input[type=checkbox] { accent-color: var(--accent); }
+  .city { position: relative; margin-top: 10px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; font-size: 13px; }
+  .city input { height: 32px; border-radius: 9px; border: 1px solid var(--line); background: var(--surface); padding: 0 10px; width: 220px; outline: 0; }
+  .city ul { position: absolute; top: 36px; left: 0; z-index: 5; list-style: none; margin: 0; padding: 4px; background: var(--surface); border-radius: 10px; box-shadow: 0 14px 40px -10px rgba(0,0,0,.4); min-width: 260px; }
+  .city li { padding: 7px 10px; border-radius: 7px; cursor: pointer; }
+  .city li:hover { background: var(--accent-soft); }
+  .w-actions { display: flex; justify-content: flex-end; margin-top: 8px; }
+  .w-actions button { font-size: 12px; color: var(--muted); font-weight: 650; }
+  .w-actions button:hover { color: var(--accent); }
+  .muted { color: var(--muted); font-size: 13px; }
   footer { margin-top: auto; padding: 16px; color: var(--muted); font-size: 12px; }
   footer a { color: var(--muted); }
 </style>
@@ -109,9 +163,31 @@
       <div class="vpnline" id="vpnline"><span class="dot"></span><span id="vpntext">VPN is off</span><button id="vpnbtn">Turn on</button></div>
     </section>
   </div>
+  <section class="widgets" id="widgets" hidden>
+    <div class="w-grid" id="wgrid">
+      <div class="w clock" id="w-clock" hidden><div class="t" id="clock-t"></div><div class="d" id="clock-d"></div><div class="hd" id="clock-hd"></div></div>
+      <div class="w weather" id="w-weather" hidden><h3><span id="wx-place">Weather</span><button id="wx-units" title="Switch units">°C</button></h3><div id="wx-body" class="muted">Loading…</div></div>
+      <div class="w zm" id="w-zmanim" hidden><h3><span>Zmanim</span><span id="zm-place"></span></h3><div id="zm-body"></div></div>
+      <div class="w todo" id="w-todo" hidden><h3><span>To-do</span><button id="todo-clear" title="Remove finished items">Clear done</button></h3>
+        <form id="todo-f"><input type="text" id="todo-in" placeholder="Add a task" maxlength="300"></form><ul id="todo-list"></ul></div>
+    </div>
+    <div class="w-actions"><button id="w-edit">Customize widgets</button></div>
+    <div class="w w-cfg" id="w-cfg" hidden>
+      <div class="row">
+        <label><input type="checkbox" data-w="clock"> Clock</label>
+        <label><input type="checkbox" data-w="weather"> Weather</label>
+        <label><input type="checkbox" data-w="zmanim"> Hebrew date &amp; zmanim</label>
+        <label><input type="checkbox" data-w="todo"> To-do list</label>
+        <label>Candle lighting <select id="w-candle"><option value="18">18 min</option><option value="20">20 min</option><option value="22">22 min</option><option value="30">30 min</option><option value="40">40 min (Jerusalem)</option></select></label>
+      </div>
+      <div class="city"><span>Location: <b id="city-now"></b></span><input id="city-q" placeholder="Search a city" autocomplete="off"><ul id="city-list" hidden></ul></div>
+    </div>
+  </section>
   <footer><a href="noam://settings/">Settings</a> &nbsp; <a href="noam://history/">History</a> &nbsp; <a href="noam://bookmarks/">Bookmarks</a></footer>
 <script src="assets/apply-theme.js"></script>
 <script src="common.js"></script>
+<script src="assets/zmanim.js"></script>
 <script src="newtab.js"></script>
+<script src="widgets.js"></script>
 </body>
 </html>

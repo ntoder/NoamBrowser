@@ -33,6 +33,7 @@
   // ---------- appearance ----------
   const PRESETS = [
     ['default', 'Classic', 'linear-gradient(135deg,#ECEAF4 50%,#16122A 50%)', '#6A55F5'],
+    ['daylight', 'Daylight', 'linear-gradient(100deg,#FFC3A0,#8EC5FC 35%,#FF7E5F 65%,#0B1033)', '#FF8F5A'],
     ['aurora', 'Aurora', 'linear-gradient(115deg,#3A1D8F,#0E6E8C,#6B2CA8)', '#8EF3E1'],
     ['sunset', 'Sunset', 'linear-gradient(110deg,#FF5F6D,#C2346B,#6A1B5D)', '#FF9466'],
     ['ocean', 'Ocean', 'linear-gradient(120deg,#023E73,#0A6F8F,#034A6B)', '#4FC3F7'],

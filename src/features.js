@@ -84,7 +84,7 @@ module.exports = function setupFeatures(ctx) {
   pageHandle('passwords:remove', (_e, id) => { vault.remove(id); sync.touch(); return pwData(); });
   pageHandle('passwords:update', (_e, p) => { vault.upsert(p); sync.touch(); return pwData(); });
   pageHandle('passwords:never-remove', (_e, origin) => { vault.removeNever(origin); return pwData(); });
-  pageHandle('passwords:clear-clipboard-later', (_e, value) => { setTimeout(() => { if (clipboard.readText() === value) clipboard.writeText(''); }, 30000); return true; });
+  pageHandle('passwords:clear-clipboard-later', (_e, value) => { setTimeout(async () => { const clip = require('./clip'); try { if (await clip.readText() === value) await clip.writeText(''); } catch {} }, 30000); return true; });
   pageHandle('passwords:export', async (e) => {
     const win = BrowserWindow.fromWebContents(e.sender.hostWebContents || e.sender);
     const r = await dialog.showSaveDialog(win, { defaultPath: path.join(app.getPath('documents'), 'NoamBrowser Passwords.csv'), filters: [{ name: 'CSV', extensions: ['csv'] }] });

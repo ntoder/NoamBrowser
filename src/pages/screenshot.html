@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Screenshot</title><link rel="stylesheet" href="pages.css"><link rel="stylesheet" href="assets/themes.css">
+<style>
+  html, body { height: 100%; }
+  body { display: flex; flex-direction: column; overflow: hidden; }
+  .bar { flex: none; display: flex; align-items: center; gap: 6px; padding: 10px 14px; background: var(--surface); border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+  .bar .grp { display: flex; gap: 2px; background: var(--surface-2); padding: 3px; border-radius: 11px; }
+  .tool { height: 32px; min-width: 36px; padding: 0 9px; border-radius: 8px; display: inline-flex; align-items: center; gap: 6px; font-weight: 700; font-size: 12.5px; color: var(--text); background: none; border: 0; cursor: pointer; }
+  .tool svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  .tool:hover { background: var(--surface-3); }
+  .tool.on { background: var(--accent); color: #fff; }
+  :root[data-theme="dark"] .tool.on { color: #120D2A; }
+  .tool:disabled { opacity: .4; cursor: default; }
+  .sw { width: 20px; height: 20px; border-radius: 50%; border: 2px solid var(--surface); box-shadow: 0 0 0 1px var(--line); cursor: pointer; padding: 0; }
+  .sw.on { box-shadow: 0 0 0 2px var(--accent); }
+  .spacer { flex: 1; }
+  .meta { color: var(--muted); font-size: 12px; max-width: 280px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #stage { flex: 1; min-height: 0; overflow: auto; display: flex; padding: 28px; background:
+    repeating-conic-gradient(var(--surface-2) 0 25%, transparent 0 50%) 0 0 / 22px 22px, var(--bg); }
+  #wrap { margin: auto; flex: none; position: relative; box-shadow: 0 20px 60px -15px rgba(0,0,0,.45); border-radius: 6px; overflow: hidden; line-height: 0; }
+  #cv { display: block; max-width: none; cursor: crosshair; }
+  #txt { position: absolute; display: none; min-width: 60px; background: rgba(255,255,255,.9); color: #000; border: 1.5px dashed var(--accent); padding: 2px 4px; font: 700 20px/1.2 'Manrope', system-ui, sans-serif; outline: none; line-height: 1.2; }
+  .toast { position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%); background: var(--text); color: var(--bg); padding: 9px 16px; border-radius: 12px; font-weight: 700; font-size: 13px; opacity: 0; transition: opacity .2s; pointer-events: none; }
+  .toast.show { opacity: 1; }
+  .empty-shot { color: var(--muted); text-align: center; font-size: 14px; }
+</style></head>
+<body>
+<div class="bar">
+  <div class="grp" id="tools">
+    <button class="tool on" data-t="arrow" title="Arrow (A)"><svg viewBox="0 0 24 24"><path d="M5 19L19 5M10 5h9v9"/></svg>Arrow</button>
+    <button class="tool" data-t="box" title="Box (B)"><svg viewBox="0 0 24 24"><rect x="4" y="6" width="16" height="12" rx="2"/></svg>Box</button>
+    <button class="tool" data-t="pen" title="Pen (P)"><svg viewBox="0 0 24 24"><path d="M4 20c4-1 5-6 8-9s6-5 8-6"/></svg>Pen</button>
+    <button class="tool" data-t="mark" title="Highlighter (H)"><svg viewBox="0 0 24 24"><path d="M4 18h16" stroke-width="5" opacity=".5"/><path d="M8 14l7-9 4 3-7 9z"/></svg>Highlight</button>
+    <button class="tool" data-t="text" title="Text (T)"><svg viewBox="0 0 24 24"><path d="M5 6V4h14v2M12 4v16M9 20h6"/></svg>Text</button>
+    <button class="tool" data-t="blur" title="Blur / hide (X)"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M4 9h16M4 14h16M9 4v16M14 4v16"/></svg>Blur</button>
+    <button class="tool" data-t="crop" title="Crop (C)"><svg viewBox="0 0 24 24"><path d="M6 2v16h16M2 6h16v16"/></svg>Crop</button>
+  </div>
+  <div class="grp" id="colors"></div>
+  <div class="grp">
+    <button class="tool" id="undo" title="Undo (Ctrl+Z)" disabled><svg viewBox="0 0 24 24"><path d="M9 14L4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/></svg></button>
+    <button class="tool" id="redo" title="Redo (Ctrl+Y)" disabled><svg viewBox="0 0 24 24"><path d="M15 14l5-5-5-5"/><path d="M20 9H10a6 6 0 0 0 0 12h3"/></svg></button>
+  </div>
+  <span class="spacer"></span>
+  <span class="meta" id="meta"></span>
+  <button class="btn" id="copy">Copy</button>
+  <button class="btn primary" id="save">Save…</button>
+</div>
+<div id="stage"><div id="wrap"><canvas id="cv"></canvas><div id="txt" contenteditable="plaintext-only" spellcheck="false"></div></div></div>
+<div class="toast" id="toast"></div>
+<script src="assets/apply-theme.js"></script>
+<script src="common.js"></script>
+<script src="screenshot.js"></script>
+</body>
+</html>

@@ -7,10 +7,12 @@ const INVOKE = new Set([
   'page:zoom', 'page:save', 'page:menu', 'page:screenshot', 'shell:show', 'webview:prepare',
   'ui:popup-menu', 'password:answer', 'passwords:for-tab', 'passwords:fill', 'reader:check', 'reader:open', 'translate:detect', 'translate:page',
   'translate:restore', 'translate:languages', 'update:status', 'update:install', 'dark:toggle', 'dark:get', 'history:remove-url',
+  'rates:get', 'reading:list', 'reading:add', 'reading:remove', 'reading:read', 'reading:has', 'reading:toggle', 'notes:get', 'notes:set', 'notes:all',
+  'sessions:save', 'sessions:list', 'sessions:get', 'sessions:delete', 'screenshot:capture',
 ]);
 const EVENTS = new Set([
   'init', 'tab:open', 'shortcut', 'shields:update', 'vpn:status', 'settings:changed', 'bookmarks:changed', 'downloads:update',
-  'permission:ask', 'stats:update', 'window:state', 'zoom:changed', 'password:offer', 'translate:progress', 'update:status',
+  'permission:ask', 'stats:update', 'window:state', 'zoom:changed', 'password:offer', 'translate:progress', 'update:status', 'extras:changed', 'session:open',
 ]);
 
 contextBridge.exposeInMainWorld('nb', {

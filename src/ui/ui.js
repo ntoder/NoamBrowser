@@ -43,8 +43,9 @@ matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyTheme
 
 // ------------------------------------------------------------------ tabs
 class Tab {
-  constructor({ url = NEWTAB, private: priv = false, background = false, index, opener }) {
+  constructor({ url = NEWTAB, private: priv = false, background = false, index, opener, ws }) {
     this.id = state.nextId++;
+    this.ws = ws || state.ws || 'default';
     this.private = !!priv;
     this.url = url;
     this.title = isInternal(url) ? 'New tab' : hostOf(url) || 'New tab';
@@ -254,8 +255,12 @@ function closeTab(tab) {
   if (!state.tabs.length) { nb.invoke('window:control', 'close'); return; }
   if (state.active === tab) {
     state.active = null;
-    const opener = tab.opener && state.tabs.find((t) => t.wcId === tab.opener);
-    activate(opener || state.tabs[Math.min(i, state.tabs.length - 1)]);
+    const opener = tab.opener && state.tabs.find((t) => t.wcId === tab.opener && t.ws === tab.ws);
+    const same = state.tabs.filter((t) => t.ws === tab.ws);
+    const after = state.tabs.slice(i).find((t) => t.ws === tab.ws) || same[same.length - 1];
+    if (opener || after) activate(opener || after);
+    else if (window.hooks && window.hooks.emptyWorkspace) window.hooks.emptyWorkspace(tab.ws);
+    else activate(state.tabs[Math.min(i, state.tabs.length - 1)]);
   }
   layoutTabs(); saveSession();
   window.hooks && window.hooks.closed && window.hooks.closed(tab);
@@ -270,7 +275,7 @@ function layoutTabs() {
   const strip = $('#tabstrip');
   if (document.body.classList.contains('vtabs')) { for (const t of state.tabs) { t.el.style.flexBasis = ''; t.el.style.width = ''; t.el.classList.remove('narrow'); } strip.style.maxWidth = ''; return; }
   const avail = $('#titlebar').clientWidth - 8 - 40 - $('#wc-space').offsetWidth - 40;
-  const n = (state.tabs.filter((t) => !t.el.classList.contains('group-hidden')).length || 1) + (state.groups ? state.groups.filter((g) => state.tabs.some((t) => t.groupId === g.id)).length * 0.5 : 0);
+  const n = (state.tabs.filter((t) => !t.el.classList.contains('group-hidden') && !t.el.classList.contains('ws-hidden')).length || 1) + (state.groups ? state.groups.filter((g) => state.tabs.some((t) => t.groupId === g.id)).length * 0.5 : 0);
   const w = Math.max(40, Math.min(228, Math.floor(avail / n)));
   for (const t of state.tabs) { t.el.style.flexBasis = w + 'px'; t.el.style.width = w + 'px'; t.el.classList.toggle('narrow', w < 72); }
   strip.style.maxWidth = avail + 'px';
@@ -298,7 +303,7 @@ function setupDrag(tab) {
 let sessionTimer;
 function saveSession() {
   clearTimeout(sessionTimer);
-  sessionTimer = setTimeout(() => nb.invoke('session:save', state.tabs.filter((t) => !t.private).map((t) => ({ url: t.url, title: t.title, group: t.groupId || undefined }))), 600);
+  sessionTimer = setTimeout(() => nb.invoke('session:save', state.tabs.filter((t) => !t.private).map((t) => ({ url: t.url, title: t.title, group: t.groupId || undefined, ws: t.ws && t.ws !== 'default' ? t.ws : undefined }))), 600);
 }
 
 // ------------------------------------------------------------------ toolbar
@@ -379,6 +384,8 @@ urlInput.addEventListener('keydown', (e) => {
     renderSuggest(); urlInput.value = sgItems[sgSel].fill ?? urlInput.value;
   } else if (e.key === 'Enter') {
     e.preventDefault();
+    const calcPick = sgItems[sgSel] && sgItems[sgSel].kind === 'calc' ? sgItems[sgSel] : null;
+    if (calcPick) { navigator.clipboard.writeText(calcPick.value).then(() => toast('Copied ' + calcPick.value)).catch(() => {}); closeSuggest(); return; }
     const pick = sgItems.length && sgSel > 0 ? sgItems[sgSel] : null;
     go(pick ? pick.url : urlInput.value, e.altKey || e.ctrlKey && e.shiftKey ? 'newtab' : e.ctrlKey ? 'ctrl' : '');
   } else if (e.key === 'Delete' && e.shiftKey && sgItems[sgSel] && sgItems[sgSel].kind === 'history') {
@@ -405,6 +412,9 @@ urlInput.addEventListener('input', async () => {
   const first = looksUrl ? { kind: 'go', title: q, url: q } : { kind: 'search', title: q, url: q, sub: `Search with ${eng.name}` };
   sgItems = [first, ...results.map((r) => ({ ...r, fill: r.url }))];
   sgSel = 0;
+  const calc = window.hooks && window.hooks.calc ? await window.hooks.calc(q) : null;
+  if (urlInput.value !== typed) return;
+  if (calc) { sgItems.unshift({ kind: 'calc', title: calc.text, value: calc.value, sub: calc.note ? calc.note + ' · Enter to copy' : null }); sgSel = 0; }
   // inline autocomplete of a remembered site
   if (!lastKeyDelete && !/\s/.test(q)) {
     const h = results.find((r) => r.url.replace(/^https?:\/\/(www\.)?/, '').toLowerCase().startsWith(q.toLowerCase()));
@@ -428,6 +438,7 @@ function renderSuggest() {
   const hl = (s) => { s = String(s || ''); const i = s.toLowerCase().indexOf(q); return i < 0 || !q ? esc(s) : esc(s.slice(0, i)) + '<mark>' + esc(s.slice(i, i + q.length)) + '</mark>' + esc(s.slice(i + q.length)); };
   box.innerHTML = sgItems.map((s, i) => {
     let ic = icon('globe');
+    if (s.kind === 'calc') return `<div class="sg calc${i === sgSel ? ' sel' : ''}" data-i="${i}" role="option"><span class="ic">${icon('calc')}</span><span class="t"><b>${esc(s.title)}</b></span><span class="u">${esc(s.sub || 'Press Enter to copy the answer')}</span></div>`;
     if (s.kind === 'search') ic = icon('search');
     else if (s.kind === 'bookmark') ic = icon('star');
     else if (s.favicon) ic = `<img src="${esc(s.favicon)}" alt="" data-drop>`;
@@ -436,7 +447,7 @@ function renderSuggest() {
     return `<div class="sg${i === sgSel ? ' sel' : ''}" data-i="${i}" role="option"><span class="ic">${ic}</span>${title}</div>`;
   }).join('');
   box.hidden = false; omni.classList.add('open');
-  $$('.sg', box).forEach((el) => el.addEventListener('mousedown', (e) => { e.preventDefault(); const s = sgItems[+el.dataset.i]; go(s.url, e.button === 1 ? 'newtab' : ''); }));
+  $$('.sg', box).forEach((el) => el.addEventListener('mousedown', (e) => { e.preventDefault(); const s = sgItems[+el.dataset.i]; if (s.kind === 'calc') { navigator.clipboard.writeText(s.value).then(() => toast('Copied ' + s.value)).catch(() => {}); closeSuggest(); return; } go(s.url, e.button === 1 ? 'newtab' : ''); }));
 }
 function closeSuggest() { $('#suggest').hidden = true; omni.classList.remove('open'); sgItems = []; }
 
@@ -592,9 +603,9 @@ function renderDownloads() {
   $('#dl-ring').hidden = !active.length;
   $('#dl-list').innerHTML = list.map((d) => {
     const pct = d.total ? Math.round((d.received / d.total) * 100) : 0;
-    const meta = d.state === 'progressing' ? `${fmtBytes(d.received)} of ${d.total ? fmtBytes(d.total) : '?'}${d.paused ? ' · paused' : ''}` : d.state === 'completed' ? fmtBytes(d.total || d.received) + ' · done' : d.state === 'cancelled' ? 'Cancelled' : 'Failed';
+    const meta = d.state === 'progressing' ? `${fmtBytes(d.received)} of ${d.total ? fmtBytes(d.total) : '?'}${d.paused ? ' · paused' : d.speed ? ` · ${fmtBytes(d.speed)}/s` : ''}${d.limited && !d.paused ? ' (limited)' : ''}` : d.state === 'completed' ? fmtBytes(d.total || d.received) + ' · done' : d.state === 'cancelled' ? 'Cancelled' : 'Failed';
     const acts = d.state === 'progressing'
-      ? `<button class="icon-btn small" data-a="cancel" data-id="${d.id}" title="Cancel">${icon('close')}</button>`
+      ? `<button class="icon-btn small" data-a="${d.paused ? 'resume' : 'pause'}" data-id="${d.id}" title="${d.paused ? 'Resume' : 'Pause'}">${icon(d.paused ? 'play' : 'pause')}</button><button class="icon-btn small" data-a="cancel" data-id="${d.id}" title="Cancel">${icon('close')}</button>`
       : d.state === 'completed' ? `<button class="icon-btn small" data-a="show" data-id="${d.id}" title="Show in folder">${icon('folder')}</button>` : '';
     return `<li data-id="${d.id}" data-state="${d.state}"><span class="n" title="${esc(d.name)}">${esc(d.name)}</span><span class="m">${esc(meta)}</span><span class="acts">${acts}</span>${d.state === 'progressing' ? `<span class="bar"><i style="width:${pct}%"></i></span>` : ''}</li>`;
   }).join('');
@@ -655,7 +666,8 @@ $$('#permission-bar .btn').forEach((b) => (b.onclick = () => {
 }));
 
 // ------------------------------------------------------------------ shortcuts
-function tabByOffset(d) { const i = state.tabs.indexOf(state.active); return state.tabs[(i + d + state.tabs.length) % state.tabs.length]; }
+function visibleTabs() { return state.tabs.filter((t) => t.ws === (state.ws || 'default')); }
+function tabByOffset(d) { const v = visibleTabs(); const i = v.indexOf(state.active); return v[(i + d + v.length) % v.length]; }
 async function shortcut({ key, ctrl, shift, alt }) {
   const t = state.active;
   key = (key || '').toLowerCase();
@@ -681,8 +693,8 @@ async function shortcut({ key, ctrl, shift, alt }) {
     if (key === ',') { newTab({ url: 'noam://settings/' }); return true; }
     if (key === 'b' && shift) { const s = await nb.invoke('settings:set', { showBookmarksBar: !state.settings.showBookmarksBar }); state.settings = s; applyTheme(); return true; }
     if (key === 'tab' || key === 'pagedown' || key === 'pageup') { activate(tabByOffset(key === 'pageup' || shift ? -1 : 1)); return true; }
-    if (/^[1-8]$/.test(key)) { activate(state.tabs[+key - 1]); return true; }
-    if (key === '9') { activate(state.tabs[state.tabs.length - 1]); return true; }
+    if (/^[1-8]$/.test(key)) { activate(visibleTabs()[+key - 1]); return true; }
+    if (key === '9') { const v = visibleTabs(); activate(v[v.length - 1]); return true; }
     if (key === '=' || key === '+') { setZoom((t?.zoom || 0) + 0.5); return true; }
     if (key === '-') { setZoom((t?.zoom || 0) - 0.5); return true; }
     if (key === '0') { setZoom(0); return true; }
@@ -750,8 +762,9 @@ nb.on('init', async (init) => {
   document.body.classList.add('booting'); setTimeout(() => { document.body.classList.remove('booting'); state.booted = true; }, 900);
   const tabs = init.tabs.length ? init.tabs : [{ url: NEWTAB }];
   state.groups = (init.settings.tabs && init.settings.tabs.groups) || [];
-  tabs.forEach((t, i) => { const nt = newTab({ url: t.url, private: init.privateTab && i === tabs.length - 1, background: i < tabs.length - 1 }); if (t.group && state.groups.some((g) => g.id === t.group)) { nt.groupId = t.group; nt.render(); } });
+  state.ws = (init.settings.tabs && init.settings.tabs.activeWs) || 'default';
+  tabs.forEach((t, i) => { const nt = newTab({ url: t.url, ws: t.ws || 'default', private: init.privateTab && i === tabs.length - 1, background: i < tabs.length - 1 }); if (t.group && state.groups.some((g) => g.id === t.group)) { nt.groupId = t.group; nt.render(); } });
   window.hooks && window.hooks.init && window.hooks.init(init);
-  activate(state.tabs[state.tabs.length - 1]);
+  activate(visibleTabs()[visibleTabs().length - 1] || state.tabs[state.tabs.length - 1]);
   layoutTabs();
 });

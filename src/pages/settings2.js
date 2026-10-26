@@ -61,7 +61,8 @@
   let folder = '';
   const syncPw = $('#sync-pw');
   syncPw.onclick = () => setSw(syncPw, syncPw.getAttribute('aria-checked') !== 'true');
-  $('#sync-pick').onclick = async () => { const f = await noam.invoke('sync:choose-folder'); if (f) { folder = f; $('#sync-folder-label').textContent = f; } };
+  window.setSyncFolder = (f) => { folder = f; $('#sync-folder-label').textContent = f; $$('#sync-clouds button').forEach((b) => b.classList.toggle('on', b.dataset.p === f)); };
+  $('#sync-pick').onclick = async () => { const f = await noam.invoke('sync:choose-folder'); if (f) setSyncFolder(f); };
   $('#sync-on').onclick = async () => {
     const msg = $('#sync-msg'); msg.textContent = '';
     if (!folder) { msg.textContent = 'Choose a sync folder first.'; return; }

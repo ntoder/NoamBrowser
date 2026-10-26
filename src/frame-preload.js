@@ -338,16 +338,95 @@ if (cfg.pw && /^https:|^http:\/\/(localhost|127\.)/.test(location.href)) {
   }
 }
 
+
+// ---------------------------------------------------------------- mouse gestures
+// Hold the right mouse button and draw: ← back, → forward, ↑ new tab,
+// ↓→ close tab, ↓← reopen closed tab, ↑↓ reload. A short right-click still
+// opens the normal menu.
+if (cfg.gestures) {
+  let pts = null, dirs = '', last = null, canvas = null, ctx2d = null, label = null, suppress = false;
+  const NAMES = { L: 'Back', R: 'Forward', U: 'New tab', DR: 'Close tab', DL: 'Reopen closed tab', UD: 'Reload', D: 'Scroll down', LR: 'Reload' };
+  const ensureCanvas = () => {
+    if (canvas || !cfg.gestureTrail) return;
+    canvas = document.createElement('canvas');
+    canvas.style.cssText = 'position:fixed;inset:0;width:100vw;height:100vh;z-index:2147483647;pointer-events:none';
+    canvas.width = innerWidth * devicePixelRatio; canvas.height = innerHeight * devicePixelRatio;
+    label = document.createElement('div');
+    label.style.cssText = 'position:fixed;left:50%;top:40%;transform:translate(-50%,-50%);z-index:2147483647;pointer-events:none;font:700 15px system-ui,sans-serif;color:#fff;background:rgba(106,85,245,.92);padding:8px 14px;border-radius:12px;box-shadow:0 8px 30px rgba(0,0,0,.3);display:none';
+    (document.body || document.documentElement).append(canvas, label);
+    ctx2d = canvas.getContext('2d'); ctx2d.scale(devicePixelRatio, devicePixelRatio);
+    ctx2d.lineWidth = 4; ctx2d.lineCap = 'round'; ctx2d.lineJoin = 'round'; ctx2d.strokeStyle = 'rgba(106,85,245,.85)';
+  };
+  const cleanup = () => { if (canvas) { canvas.remove(); label.remove(); } canvas = null; ctx2d = null; label = null; pts = null; };
+  addEventListener('mousedown', (e) => { if (e.button === 2) { pts = [[e.clientX, e.clientY]]; last = [e.clientX, e.clientY]; dirs = ''; } }, true);
+  addEventListener('mousemove', (e) => {
+    if (!pts || !(e.buttons & 2)) return;
+    const [lx, ly] = last; const dx = e.clientX - lx, dy = e.clientY - ly;
+    if (Math.abs(dx) < 28 && Math.abs(dy) < 28) { if (ctx2d) { ctx2d.lineTo(e.clientX, e.clientY); ctx2d.stroke(); } return; }
+    const d = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'R' : 'L') : (dy > 0 ? 'D' : 'U');
+    if (dirs[dirs.length - 1] !== d && dirs.length < 3) dirs += d;
+    last = [e.clientX, e.clientY];
+    if (!canvas && dirs) { ensureCanvas(); if (ctx2d) { ctx2d.beginPath(); ctx2d.moveTo(pts[0][0], pts[0][1]); } }
+    if (ctx2d) { ctx2d.lineTo(e.clientX, e.clientY); ctx2d.stroke(); }
+    if (label) { label.textContent = NAMES[dirs] || '…'; label.style.display = 'block'; }
+  }, true);
+  addEventListener('mouseup', (e) => {
+    if (e.button !== 2 || !pts) return;
+    const g = NAMES[dirs] ? dirs : '';
+    suppress = !!dirs;
+    cleanup();
+    try { ipcRenderer.send('noam:gesture-end', g); } catch {}
+    setTimeout(() => { suppress = false; }, 400);
+  }, true);
+  addEventListener('contextmenu', (e) => { if (suppress) { e.preventDefault(); e.stopImmediatePropagation(); } }, true);
+  addEventListener('blur', cleanup);
+}
+
+// ---------------------------------------------------------------- video speed keys
+// [ slower, ] faster, \ back to normal — on any site with a <video> (or playing audio).
+if (cfg.media && cfg.media.speedKeys) {
+  const STEPS = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2, 2.5, 3, 4];
+  let badge = null, hideT = null;
+  const pick = () => {
+    const vids = [...document.querySelectorAll('video, audio')].filter((v) => v.readyState > 0 && (v.tagName === 'VIDEO' || !v.paused));
+    vids.sort((a, b) => (!b.paused - !a.paused) || ((b.tagName === 'VIDEO') - (a.tagName === 'VIDEO')) || (b.clientWidth * b.clientHeight - a.clientWidth * a.clientHeight));
+    return vids[0];
+  };
+  const show = (v, rate) => {
+    if (!cfg.media.speedOverlay) return;
+    if (!badge) { badge = document.createElement('div'); badge.style.cssText = 'position:fixed;z-index:2147483647;pointer-events:none;font:800 18px system-ui,sans-serif;color:#fff;background:rgba(0,0,0,.72);padding:6px 12px;border-radius:10px;transition:opacity .25s'; (document.body || document.documentElement).appendChild(badge); }
+    const r = v.getBoundingClientRect();
+    badge.style.left = Math.max(8, r.left + 12) + 'px'; badge.style.top = Math.max(8, r.top + 12) + 'px';
+    badge.textContent = (Math.round(rate * 100) / 100) + '×'; badge.style.opacity = '1';
+    clearTimeout(hideT); hideT = setTimeout(() => { if (badge) badge.style.opacity = '0'; }, 900);
+  };
+  addEventListener('keydown', (e) => {
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    if (!['[', ']', '\\'].includes(e.key)) return;
+    const t = e.target; if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
+    const v = pick(); if (!v) return;
+    e.preventDefault(); e.stopPropagation();
+    const cur = v.playbackRate;
+    let next = 1;
+    if (e.key === ']') next = STEPS.find((s) => s > cur + 0.01) || 4;
+    else if (e.key === '[') next = [...STEPS].reverse().find((s) => s < cur - 0.01) || 0.25;
+    v.playbackRate = next; show(v, next);
+  }, true);
+}
+
 if (cfg.internal && location.protocol === 'noam:' && window.top === window) {
   const allowed = new Set([
     'settings:get', 'settings:set', 'stats:get', 'history:list', 'history:delete', 'history:clear', 'bookmarks:list', 'bookmarks:remove',
-    'bookmarks:add', 'bookmarks:update', 'downloads:list', 'downloads:open', 'downloads:show', 'downloads:cancel', 'downloads:clear', 'topsites:get',
+    'bookmarks:add', 'bookmarks:update', 'downloads:list', 'downloads:open', 'downloads:show', 'downloads:cancel', 'downloads:pause', 'downloads:resume', 'downloads:clear', 'topsites:get',
     'data:clear', 'filters:info', 'filters:update', 'vpn:status', 'vpn:toggle', 'vpn:new-identity', 'shields:sites', 'shields:site-set', 'app:info',
     'search:engines', 'appearance:wallpaper', 'permissions:list', 'permissions:reset', 'tab:navigate', 'default-browser:set',
     'reader:get', 'passwords:list', 'passwords:reveal', 'passwords:remove', 'passwords:update', 'passwords:export', 'passwords:import',
     'passwords:never-remove', 'passwords:clear-clipboard-later', 'import:detect', 'import:run', 'import:passwords-help',
     'sync:status', 'sync:enable', 'sync:disable', 'sync:now', 'sync:choose-folder', 'update:status', 'update:check', 'update:install',
     'translate:languages', 'sitedark:list', 'sitedark:set', 'topsites:hide', 'topsites:unhide', 'topsites:reset',
+    'widgets:geocode', 'widgets:weather', 'widgets:jewish', 'todos:list', 'todos:save', 'reading:list', 'reading:remove', 'reading:read',
+    'notes:all', 'sessions:list', 'sessions:delete', 'sessions:open', 'screenshot:get', 'screenshot:copy', 'screenshot:save', 'passwords:check',
+    'sync:cloud-folders',
   ]);
   const listeners = new Map();
   ipcRenderer.on('noam:page-event', (_e, name, data) => { for (const fn of listeners.get(name) || []) try { fn(data); } catch {} });

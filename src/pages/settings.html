@@ -63,6 +63,10 @@
   .wall[aria-checked="true"] { border-color: var(--accent); }
   .wall span { position: absolute; left: 8px; bottom: 6px; font-size: 11.5px; font-weight: 700; color: #fff; text-shadow: 0 1px 6px rgba(0,0,0,.6); }
   @media (max-width: 760px) { .layout { grid-template-columns: 1fr; } nav { position: static; flex-direction: row; flex-wrap: wrap; } nav h1 { width: 100%; } }
+  .clouds { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .clouds button { padding: 5px 11px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); font-weight: 750; font-size: 12px; }
+  .clouds button.on { background: var(--accent); color: #fff; }
+  kbd { font: 700 11px var(--font); padding: 1px 5px; border-radius: 5px; background: var(--surface-2); border: 1px solid var(--line); }
 </style></head>
 <body>
 <div class="layout">
@@ -72,6 +76,7 @@
     <a href="#appearance">Appearance</a>
     <a href="#shields">Shields</a>
     <a href="#vpn">VPN</a>
+    <a href="#tools">Tools &amp; gestures</a>
     <a href="#passwords">Passwords</a>
     <a href="#privacy">Privacy &amp; data</a>
     <a href="#translate">Translate</a>
@@ -159,6 +164,32 @@
       <p class="note" style="margin-top:10px">WARP hides your IP address from websites and encrypts traffic between you and Cloudflare. Your exit is usually in your own country, so it won’t unlock other regions. For a specific country, use your own proxy.</p>
     </section>
 
+    <section id="tools">
+      <h2>Tools &amp; gestures</h2>
+      <p class="lede">Mouse gestures, video controls, downloads, the sidebar and saved sessions.</p>
+      <div class="card">
+        <div class="item"><div class="txt"><b>Mouse gestures</b><span>Hold the right mouse button and draw: ← back, → forward, ↑ new tab, ↓→ close tab, ↓← reopen closed tab, ↑↓ reload, ↓ scroll down.</span></div><button class="switch" data-g="enabled" role="switch"></button></div>
+        <div class="item"><div class="txt"><b>Show the gesture trail</b></div><button class="switch" data-g="trail" role="switch"></button></div>
+        <div class="item"><div class="txt"><b>Video speed keys</b><span>On any video: <kbd>[</kbd> slower, <kbd>]</kbd> faster (0.25× steps up to 4×), <kbd>\</kbd> back to normal.</span></div><button class="switch" data-m="speedKeys" role="switch"></button></div>
+        <div class="item"><div class="txt"><b>Show the speed badge on videos</b></div><button class="switch" data-m="speedOverlay" role="switch"></button></div>
+      </div>
+      <h2 style="margin-top:26px;font-size:16px">Downloads</h2>
+      <div class="card">
+        <div class="item"><div class="txt"><b>Sort downloads into folders</b><span>Images, Videos, Music, Documents, Archives and Programs, inside your downloads folder.</span></div><button class="switch" data-dl="autoSort" role="switch"></button></div>
+        <div class="item"><div class="txt"><b>Download speed limit</b><span>Keeps big downloads from slowing everything else down. Downloads can be paused and resumed either way.</span></div>
+          <select class="field" id="dl-limit"><option value="0">No limit</option><option value="256">256 KB/s</option><option value="512">512 KB/s</option><option value="1024">1 MB/s</option><option value="2048">2 MB/s</option><option value="5120">5 MB/s</option><option value="10240">10 MB/s</option></select></div>
+      </div>
+      <h2 style="margin-top:26px;font-size:16px">Sidebar</h2>
+      <div class="card">
+        <div class="item"><div class="txt"><b>Show the sidebar on the right</b><span>Notes for each site, your reading list, a calculator and web apps like WhatsApp. Right-click an icon to remove it; use + to add any site.</span></div><button class="switch" id="sp-show" role="switch"></button></div>
+        <div id="sp-list"></div>
+        <div class="item"><div class="txt"><b>Put back the built-in panels</b></div><button class="btn" id="sp-reset">Restore defaults</button></div>
+      </div>
+      <h2 style="margin-top:26px;font-size:16px">Saved sessions</h2>
+      <p class="note" style="margin:-4px 0 10px">Save every open tab with the command palette (Ctrl+K → “Save open tabs as a session”) or the ⋮ menu. Sessions sync too.</p>
+      <div class="card" id="ses-list"></div>
+    </section>
+
     <section id="passwords">
       <h2>Passwords</h2>
       <p class="lede">Saved passwords are encrypted on this computer and filled in for you when you visit the site.</p>
@@ -212,9 +243,9 @@
 
     <section id="sync">
       <h2>Sync</h2>
-      <p class="lede">Keep bookmarks, settings and (optionally) passwords the same on all your computers — Windows, Mac and Linux. No account and no NoamBrowser server: it syncs through a folder your cloud drive already syncs (OneDrive, Google Drive, Dropbox, iCloud Drive) and everything is encrypted with your passphrase first.</p>
+      <p class="lede">Keep bookmarks, settings, your reading list, site notes, to-dos, saved sessions and (optionally) passwords the same on all your computers — Windows, Mac and Linux. No account and no NoamBrowser server: it syncs through a folder your cloud drive already syncs (OneDrive, Google Drive, Dropbox, iCloud Drive) and everything is encrypted with your passphrase first.</p>
       <div class="card" id="sync-off">
-        <div class="item"><div class="txt"><b>Sync folder</b><span id="sync-folder-label">Pick a folder inside OneDrive, Google Drive, Dropbox or iCloud Drive.</span></div><button class="btn" id="sync-pick">Choose folder</button></div>
+        <div class="item"><div class="txt"><b>Sync folder</b><span id="sync-folder-label">Pick a folder inside OneDrive, Google Drive, Dropbox or iCloud Drive.</span><span class="clouds" id="sync-clouds"></span></div><button class="btn" id="sync-pick">Choose folder</button></div>
         <div class="item"><div class="txt"><b>Sync passphrase</b><span>Use the same passphrase on every computer. Write it down — it can’t be recovered.</span></div><input class="field" id="sync-pass" type="password" placeholder="At least 8 characters" autocomplete="new-password"></div>
         <div class="item"><div class="txt"><b>Also sync saved passwords</b><span>Encrypted with your passphrase before they’re written to the folder.</span></div><button class="switch" id="sync-pw" role="switch" aria-checked="false"></button></div>
         <div class="item"><div class="txt"><span id="sync-msg"></span></div><button class="btn primary" id="sync-on">Turn on sync</button></div>
@@ -238,5 +269,6 @@
 <script src="common.js"></script>
 <script src="settings.js"></script>
 <script src="settings2.js"></script>
+<script src="settings3.js"></script>
 </body>
 </html>

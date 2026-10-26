@@ -9,6 +9,9 @@ const { Store } = require('./store');
 const { Shields, siteOf, hostOf, isGoogleAuthHost, FIREFOX_UA } = require('./privacy');
 const { VPN } = require('./vpn');
 const setupFeatures = require('./features');
+const setupFeatures2 = require('./features2');
+const { ThrottledDownload, sortFolder } = require('./downloader');
+let features2 = null;
 let features = null;
 
 const APP_ROOT = path.join(__dirname, '..');
@@ -40,7 +43,7 @@ cl.appendSwitch('disable-breakpad');
 cl.appendSwitch('no-pings');
 cl.appendSwitch('disable-client-side-phishing-detection');
 cl.appendSwitch('enable-smooth-scrolling');
-if (TEST_MODE) { cl.appendSwitch('no-sandbox'); cl.appendSwitch('ignore-certificate-errors'); cl.appendSwitch('no-proxy-server'); cl.appendSwitch('host-resolver-rules', 'MAP news.example.org 127.0.0.1, MAP accounts.google.com 127.0.0.1, MAP www.youtube.com 127.0.0.1'); }
+if (TEST_MODE) { cl.appendSwitch('no-sandbox'); cl.appendSwitch('ignore-certificate-errors'); cl.appendSwitch('no-proxy-server'); cl.appendSwitch('host-resolver-rules', 'MAP news.example.org 127.0.0.1, MAP accounts.google.com 127.0.0.1, MAP www.youtube.com 127.0.0.1, MAP geocoding-api.open-meteo.com 127.0.0.1, MAP api.open-meteo.com 127.0.0.1, MAP www.hebcal.com 127.0.0.1, MAP api.frankfurter.app 127.0.0.1, MAP api.pwnedpasswords.com 127.0.0.1'); cl.appendSwitch('autoplay-policy', 'no-user-gesture-required'); }
 
 protocol.registerSchemesAsPrivileged([
   { scheme: 'noam', privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: false, stream: true } },
@@ -85,6 +88,17 @@ const settings = new Store(userData, 'settings', {
   window: { width: 1320, height: 860, maximized: false },
   siteDark: {},
   topSitesHidden: {},
+  gestures: { enabled: true, trail: true },
+  media: { speedKeys: true, speedOverlay: true },
+  widgets: { clock: true, weather: true, zmanim: true, todo: true, units: 'c', candle: 40, city: { name: 'Jerusalem', admin: 'Jerusalem', country: 'Israel', lat: 31.769, lon: 35.2163, tz: 'Asia/Jerusalem', elevation: 786 } },
+  sidePanel: { show: true, width: 380, panels: [
+    { id: 'notes', kind: 'notes', name: 'Notes' },
+    { id: 'reading', kind: 'reading', name: 'Reading list' },
+    { id: 'whatsapp', kind: 'web', name: 'WhatsApp', url: 'https://web.whatsapp.com/' },
+    { id: 'chatgpt', kind: 'web', name: 'ChatGPT', url: 'https://chatgpt.com/' },
+    { id: 'calc', kind: 'calc', name: 'Calculator' },
+  ] },
+  downloads: { autoSort: false, limitKBps: 0 },
   forceDarkAll: false,
   passwords: { offerSave: true, autofill: true },
   translate: { target: 'en', offer: true },
@@ -247,26 +261,53 @@ function broadcastPages(name, data) {
 }
 function onWillDownload(_e, item, wc) {
   const id = crypto.randomUUID();
-  const dir = settings.get('downloadDir') || app.getPath('downloads');
+  const ds = settings.get('downloads') || {};
+  let dir = settings.get('downloadDir') || app.getPath('downloads');
+  if (ds.autoSort) { dir = path.join(dir, sortFolder(item.getFilename())); try { fs.mkdirSync(dir, { recursive: true }); } catch {} }
   const isPrivate = wc && wc.session === session.fromPartition(PRIVATE_PARTITION);
-  if (!settings.get('askDownloadLocation')) item.setSavePath(uniquePath(dir, item.getFilename()));
-  const info = { id, name: item.getFilename(), url: item.getURL(), total: item.getTotalBytes(), received: 0, state: 'progressing', path: item.getSavePath(), started: Date.now(), private: isPrivate, paused: false };
-  downloads.set(id, { item, info });
+  const ask = settings.get('askDownloadLocation');
+  if (!ask) item.setSavePath(uniquePath(dir, item.getFilename()));
+  const info = { id, name: item.getFilename(), url: item.getURL(), total: item.getTotalBytes(), received: 0, state: 'progressing', path: item.getSavePath(), started: Date.now(), private: isPrivate, paused: false, speed: 0, limited: false };
+  const entry = { item, info };
+  downloads.set(id, entry);
   const push = () => { broadcast('downloads:update', info); broadcastPages('downloads', info); };
+  let lastBytes = 0, lastT = Date.now();
+  const speed = () => { const t = Date.now(); if (t - lastT >= 900) { info.speed = Math.max(0, Math.round((info.received - lastBytes) * 1000 / (t - lastT))); lastBytes = info.received; lastT = t; } };
+  const finish = (state) => {
+    info.state = state; info.paused = false; info.speed = 0; info.name = path.basename(info.path || info.name);
+    if (!isPrivate) { const items = downloadsStore.get('items'); items.unshift({ ...info }); downloadsStore.set('items', items.slice(0, 300)); }
+    downloads.delete(id); push();
+  };
+  let mode = 'native';
   item.on('updated', (_ev, state) => {
+    if (mode !== 'native') return;
     info.received = item.getReceivedBytes(); info.total = item.getTotalBytes(); info.state = state === 'interrupted' ? 'interrupted' : 'progressing';
     info.paused = item.isPaused(); info.path = item.getSavePath(); info.name = path.basename(info.path || info.name);
-    push();
+    speed(); push();
   });
+  let td = null;
   item.once('done', (_ev, state) => {
-    info.state = state; info.received = item.getReceivedBytes(); info.path = item.getSavePath(); info.name = path.basename(info.path || info.name);
-    if (!isPrivate) {
-      const items = downloadsStore.get('items');
-      items.unshift({ ...info }); downloadsStore.set('items', items.slice(0, 300));
-    }
-    downloads.delete(id);
-    push();
+    if (mode !== 'native') return;
+    if (td && !td.accepted) { td.removeAllListeners(); td.cancel(); } // Chromium finished first (tiny file): keep its copy
+    info.received = item.getReceivedBytes(); info.path = item.getSavePath();
+    finish(state);
   });
+  // Speed limit: hand the transfer to the throttled engine (falls back to Chromium's if the server refuses a second request).
+  const limit = Math.max(0, +ds.limitKBps || 0) * 1024;
+  if (limit > 0 && !ask && /^https?:/i.test(item.getURL())) {
+    try { item.pause(); } catch {}
+    td = new ThrottledDownload({ url: item.getURL(), session: (wc && wc.session) || mainSession(), savePath: item.getSavePath(), limitBytesPerSec: limit, referrer: wc ? wc.getURL() : '', total: item.getTotalBytes() });
+    td.once('accepted', () => {
+      if (!downloads.has(id) || info.state !== 'progressing') { td.removeAllListeners(); td.cancel(); return; }
+      mode = 'throttled'; info.limited = true; entry.td = td;
+      try { item.cancel(); } catch {}
+      entry.item = { pause: () => td.pause(), resume: () => td.resume(), cancel: () => td.cancel(), canResume: () => true };
+      td.on('updated', () => { info.received = td.received; info.total = td.total; info.paused = td.paused; speed(); push(); });
+      td.once('done', (state) => { info.received = td.received; info.total = td.total || td.received; finish(state); });
+    });
+    td.once('rejected', () => { try { item.resume(); } catch {} });
+    td.start();
+  }
   push();
 }
 function allDownloads() {
@@ -325,6 +366,7 @@ const PRESET_BG = { aurora: '#0E0B1F', sunset: '#1F0E14', ocean: '#061826', fore
 function themeColors() {
   const ap = settings.get('appearance') || {};
   if (ap.liquidGlass && (process.platform === 'win32' || process.platform === 'darwin')) return { bg: '#00000000', fg: '#FFFFFF' };
+  if (ap.preset === 'daylight') { const h = new Date().getHours(); const night = h < 5 || h >= 17; return night ? { bg: h >= 20 || h < 5 ? '#070B1A' : '#2A1426', fg: '#FFFFFF' } : { bg: h < 8 ? '#F6E9F0' : '#E6F1FB', fg: '#0E2238' }; }
   if (PRESET_BG[ap.preset]) return { bg: PRESET_BG[ap.preset], fg: ap.preset === 'snow' ? '#0F1E33' : '#FFFFFF' };
   const dark = settings.get('theme') === 'dark' || (settings.get('theme') === 'system' && nativeTheme.shouldUseDarkColors);
   return dark ? { bg: '#16122A', fg: '#ECE8F7' } : { bg: '#ECEAF4', fg: '#1D1836' };
@@ -425,7 +467,7 @@ function hostWindowOf(wc) {
   const host = wc.hostWebContents;
   return host ? BrowserWindow.fromWebContents(host) : BrowserWindow.fromWebContents(wc);
 }
-const SHORTCUT_KEYS = new Set(['t', 'w', 'n', 'l', 'r', 'f', 'd', 'h', 'j', 'p', 's', 'tab', '=', '+', '-', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'pageup', 'pagedown', 'k', 'e', 'g', 'u']);
+const SHORTCUT_KEYS = new Set(['t', 'w', 'n', 'l', 'r', 'f', 'd', 'h', 'j', 'p', 's', 'tab', '=', '+', '-', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'pageup', 'pagedown', 'k', 'e', 'g', 'u', 'x']);
 
 app.on('web-contents-created', (_e, wc) => {
   const type = wc.getType();
@@ -470,7 +512,15 @@ app.on('web-contents-created', (_e, wc) => {
     }
   });
 
-  wc.on('context-menu', (_ev, params) => buildContextMenu(wc, params));
+  wc.on('context-menu', (_ev, params) => {
+    // On macOS/Linux the menu event fires on mouse-down, before we know whether the user is drawing a gesture.
+    if (process.platform !== 'win32' && type === 'webview' && params.menuSourceType === 'mouse' && settings.get('gestures').enabled && /^https?:/.test(wc.getURL())) {
+      pendingMenus.set(wc.id, params);
+      setTimeout(() => { if (pendingMenus.get(wc.id) === params) { pendingMenus.delete(wc.id); buildContextMenu(wc, params); } }, 4000);
+      return;
+    }
+    buildContextMenu(wc, params);
+  });
 
   wc.on('did-fail-load', (_ev, code, desc, url, isMainFrame) => {
     if (!isMainFrame || code === -3) return; // -3 = aborted (user navigated away)
@@ -499,6 +549,13 @@ app.on('web-contents-created', (_e, wc) => {
   wc.on('certificate-error', () => {}); // default: blocked, page shows Chromium's error
 });
 
+const pendingMenus = new Map();
+ipcMain.on('noam:gesture-end', (e, g) => {
+  const wc = e.sender; const pending = pendingMenus.get(wc.id); pendingMenus.delete(wc.id);
+  g = String(g || '');
+  if (g && /^[LRUD]{1,3}$/.test(g) && settings.get('gestures').enabled) { const host = wc.hostWebContents; if (host && !host.isDestroyed()) host.send('shortcut', { key: 'gesture-' + g, wcId: wc.id }); return; }
+  if (pending) buildContextMenu(wc, pending);
+});
 function saveZoom(url, lvl) {
   const z = settings.get('zoom'); const s = siteOf(url); if (!s) return;
   if (lvl === 0) delete z[s]; else z[s] = lvl;
@@ -591,7 +648,9 @@ ipcMain.on('noam:frame-config', (e, url) => {
   const topFrame = !!e.senderFrame && e.sender.mainFrame === e.senderFrame;
   const dark = !isUI && isWeb && !!features && features.darkFor(hostOf(top || url));
   const pw = !isUI && /^https?:/.test(url) && !!features && features.pwEnabled();
-  e.returnValue = { fp, internal, seed, googleAuth, firefoxUA: FIREFOX_UA, youtube, dark, pw, topFrame };
+  const gestures = !isUI && isWeb && topFrame && !!settings.get('gestures').enabled;
+  const media = !isUI && isWeb ? settings.get('media') : null;
+  e.returnValue = { fp, internal, seed, googleAuth, firefoxUA: FIREFOX_UA, youtube, dark, pw, topFrame, gestures, gestureTrail: !!settings.get('gestures').trail, media };
 });
 ipcMain.on('noam:yt-blocked', (e) => {
   try { if (/(^|\.)youtube\.com$/.test(hostOf(e.sender.getURL()))) shields.countBlocked(e.sender.id, 'https://www.youtube.com/(video ad)'); } catch {}
@@ -667,7 +726,7 @@ uiHandle('page:screenshot', async (_e, wcId) => {
   const img = await wc.capturePage();
   const file = uniquePath(app.getPath('pictures') || app.getPath('downloads'), `Screenshot ${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}.png`);
   fs.writeFileSync(file, img.toPNG());
-  clipboard.writeImage(img);
+  await require('./clip').writeImagePng(img.toPNG()).catch(() => {});
   return file;
 });
 uiHandle('shell:show', (_e, p) => shell.showItemInFolder(p));
@@ -688,14 +747,16 @@ function downloadAction(id, action) {
 }
 
 function setSettings(patch) {
-  const allowed = ['searchEngine', 'homepage', 'theme', 'accent', 'showBookmarksBar', 'restoreTabs', 'clearOnExit', 'askDownloadLocation', 'downloadDir', 'newTabShowStats', 'newTabShowTopSites', 'dns', 'shields', 'vpn', 'appearance', 'passwords', 'translate', 'updates', 'tabs', 'forceDarkAll'];
+  const allowed = ['searchEngine', 'homepage', 'theme', 'accent', 'showBookmarksBar', 'restoreTabs', 'clearOnExit', 'askDownloadLocation', 'downloadDir', 'newTabShowStats', 'newTabShowTopSites', 'dns', 'shields', 'vpn', 'appearance', 'passwords', 'translate', 'updates', 'tabs', 'forceDarkAll', 'gestures', 'media', 'widgets', 'sidePanel', 'downloads'];
   for (const [k, v] of Object.entries(patch || {})) {
     if (!allowed.includes(k)) continue;
-    if (['shields', 'vpn', 'appearance', 'passwords', 'translate', 'updates', 'tabs'].includes(k)) settings.set(k, { ...settings.get(k), ...v });
+    if (['shields', 'vpn', 'appearance', 'passwords', 'translate', 'updates', 'tabs', 'gestures', 'media', 'widgets', 'sidePanel', 'downloads'].includes(k) && v && typeof v === 'object' && !Array.isArray(v)) settings.set(k, { ...settings.get(k), ...v });
+    else if (['gestures', 'media', 'widgets', 'sidePanel', 'downloads'].includes(k)) continue;
     else settings.set(k, v);
   }
   if ('theme' in patch || 'appearance' in patch) applyThemeToWindows();
-  if (features && Object.keys(patch || {}).some((k) => ['searchEngine', 'homepage', 'theme', 'accent', 'appearance', 'shields', 'showBookmarksBar'].includes(k))) { features.syncer.touchSettings(); features.syncTouch(); }
+  if (features && Object.keys(patch || {}).some((k) => ['searchEngine', 'homepage', 'theme', 'accent', 'appearance', 'shields', 'showBookmarksBar', 'widgets', 'gestures', 'media', 'sidePanel'].includes(k))) { features.syncer.touchSettings(); features.syncTouch(); }
+  if (patch.downloads && 'limitKBps' in patch.downloads) for (const d of downloads.values()) if (d.td) { d.td.setLimit(Math.max(0, +patch.downloads.limitKBps || 0) * 1024); d.info.limited = d.td.limit > 0; }
   if ('dns' in patch) applyDns();
   if (patch.vpn && vpn.wantOn && ('mode' in patch.vpn || 'customProxy' in patch.vpn)) vpn.connect();
   const pub = publicSettings();
@@ -746,7 +807,9 @@ function appMenu(sender, wcId, x, y) {
     { label: 'Find in page…', accelerator: 'CmdOrCtrl+F', click: () => send('shortcut', { key: 'f', ctrl: true }) },
     { label: 'Print…', accelerator: 'CmdOrCtrl+P', enabled: !!wc, click: () => wc && wc.print() },
     { label: 'Save page as…', accelerator: 'CmdOrCtrl+S', enabled: !!wc, click: () => wc && savePage(wc) },
-    { label: 'Take screenshot', enabled: !!wc, click: () => send('shortcut', { key: 'screenshot' }) },
+    { label: 'Screenshot…', accelerator: 'CmdOrCtrl+Shift+X', enabled: !!wc, click: () => send('shortcut', { key: 'x', ctrl: true, shift: true }) },
+    { label: 'Reading list', click: () => send('shortcut', { key: 'reading-list' }) },
+    { label: 'Save tabs as a session…', click: () => send('shortcut', { key: 'save-session' }) },
     { label: 'Full screen', accelerator: 'F11', click: () => win && win.setFullScreen(!win.isFullScreen()) },
     { type: 'separator' },
     { label: 'Clear browsing data…', click: () => send('tab:open', { url: 'noam://settings/#privacy' }) },
@@ -793,6 +856,8 @@ pageHandle('downloads:list', () => allDownloads());
 pageHandle('downloads:open', (_e, id) => downloadAction(id, 'open'));
 pageHandle('downloads:show', (_e, id) => downloadAction(id, 'show'));
 pageHandle('downloads:cancel', (_e, id) => downloadAction(id, 'cancel'));
+pageHandle('downloads:pause', (_e, id) => downloadAction(id, 'pause'));
+pageHandle('downloads:resume', (_e, id) => downloadAction(id, 'resume'));
 pageHandle('downloads:clear', () => downloadAction(null, 'clear'));
 pageHandle('filters:info', () => shields.engineInfo());
 pageHandle('filters:update', async (e) => {
@@ -894,6 +959,10 @@ app.whenReady().then(async () => {
   mainSession();
   privateSession();
   features = setupFeatures({ settings, bookmarks, history, userData, broadcast, broadcastPages, uiHandle, pageHandle, siteOf, hostOf, applyThemeToWindows, publicSettings });
+  const ctx2 = { settings, userData, broadcast, broadcastPages, uiHandle, pageHandle, siteOf, hostOf, getFetchSession: () => mainSession(), syncTouch: () => features.syncTouch() };
+  features2 = setupFeatures2(ctx2);
+  features.syncer.extra = { snapshot: features2.snapshot, merge: features2.merge };
+  pageHandle('passwords:check', () => ctx2.passwordsCheck(features.vault));
 
   // Proxy auth for custom proxies with user:pass@
   app.on('login', (event, _wc, details, authInfo, cb) => {
@@ -906,7 +975,7 @@ app.whenReady().then(async () => {
   setInterval(() => broadcast('stats:update', statsSummary()), 5000);
   nativeTheme.on('updated', applyThemeToWindows);
 
-  if (TEST_MODE) require('./test-hooks')({ app, windows, shields, vpn, settings, webContents, features });
+  if (TEST_MODE) require('./test-hooks')({ app, windows, shields, vpn, settings, webContents, features, features2 });
 });
 
 app.on('window-all-closed', () => app.quit());

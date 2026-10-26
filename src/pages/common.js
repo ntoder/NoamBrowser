@@ -12,6 +12,8 @@ window.ICONS = {
   folder: '<path d="M3.5 7.5V18a1.5 1.5 0 0 0 1.5 1.5h14a1.5 1.5 0 0 0 1.5-1.5V9.5A1.5 1.5 0 0 0 19 8h-7l-2-2.5H5A1.5 1.5 0 0 0 3.5 7z"/>',
   file: '<path d="M7 3.5h7l4 4V20a.5.5 0 0 1-.5.5h-10A.5.5 0 0 1 7 20z"/><path d="M14 3.5V8h4"/>',
   edit: '<path d="M4 20h4L19 9l-4-4L4 16z"/>',
+  pause: '<path d="M9 6v12M15 6v12"/>',
+  play: '<path d="M8 5.5v13l10.5-6.5z"/>',
   shield: '<path d="M12 3c2.6 1.6 5.3 2.2 8 2.2 0 7.3-2.6 12-8 15.8C6.6 17.2 4 12.5 4 5.2c2.7 0 5.4-.6 8-2.2z"/>',
 };
 window.favImg = (url, fallback = 'globe') => url ? `<img src="${esc(url)}" alt="" data-fallback="${fallback}">` : svg(ICONS[fallback]);

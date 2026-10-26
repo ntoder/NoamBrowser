@@ -2,13 +2,22 @@
 // browser chrome and the built-in noam:// pages so they always match.
 (function () {
   const DARK_PRESETS = new Set(['aurora', 'sunset', 'ocean', 'forest', 'neon', 'mono']);
+  let lastSettings = null;
+  setInterval(() => { if (lastSettings && (lastSettings.appearance || {}).preset === 'daylight') window.applyNoamTheme(lastSettings); }, 60000);
   window.applyNoamTheme = function (s) {
+    lastSettings = s;
     const r = document.documentElement;
     const ap = s.appearance || {};
     const preset = ap.preset || 'default';
     r.dataset.preset = preset;
     let dark;
-    if (DARK_PRESETS.has(preset) || ap.liquidGlass) dark = true;
+    if (preset === 'daylight') {
+      const h = new Date().getHours() + new Date().getMinutes() / 60;
+      const tod = h >= 5 && h < 8 ? 'dawn' : h >= 8 && h < 17 ? 'day' : h >= 17 && h < 20 ? 'sunset' : 'night';
+      r.dataset.tod = tod; dark = tod === 'sunset' || tod === 'night' || !!ap.liquidGlass;
+    } else delete r.dataset.tod;
+    if (preset === 'daylight') {}
+    else if (DARK_PRESETS.has(preset) || ap.liquidGlass) dark = true;
     else if (preset === 'snow') dark = false;
     else dark = s.theme === 'dark' || (s.theme !== 'light' && matchMedia('(prefers-color-scheme: dark)').matches);
     r.dataset.theme = dark ? 'dark' : 'light';

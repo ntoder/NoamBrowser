@@ -8,6 +8,7 @@
 <link rel="stylesheet" href="../assets/themes.css">
 <link rel="stylesheet" href="fx.css">
 <link rel="stylesheet" href="features.css">
+<link rel="stylesheet" href="features2.css">
 </head>
 <body>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
@@ -46,12 +47,25 @@
     <symbol id="i-sidebar" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M9 5v14"/></symbol>
     <symbol id="i-update" viewBox="0 0 24 24"><path d="M12 4v10M7.5 9.5L12 14l4.5-4.5"/><path d="M5 19h14"/></symbol>
     <symbol id="i-cmd" viewBox="0 0 24 24"><path d="M9 9V6a3 3 0 1 0-3 3h12a3 3 0 1 0-3-3v12a3 3 0 1 0 3-3H6a3 3 0 1 0 3 3V9z"/></symbol>
+    <symbol id="i-music" viewBox="0 0 24 24"><path d="M9 18V6l11-2v12"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="17.5" cy="16" r="2.5"/></symbol>
+    <symbol id="i-reading" viewBox="0 0 24 24"><path d="M6 4h12v16l-6-4-6 4z"/><path d="M12 8v5M9.5 10.5h5"/></symbol>
+    <symbol id="i-reading-on" viewBox="0 0 24 24"><path d="M6 4h12v16l-6-4-6 4z" fill="currentColor"/></symbol>
+    <symbol id="i-camera" viewBox="0 0 24 24"><path d="M4 8h3l2-2.5h6L17 8h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></symbol>
+    <symbol id="i-note" viewBox="0 0 24 24"><path d="M5 4h10l4 4v12H5z"/><path d="M15 4v4h4M8 12h8M8 16h5"/></symbol>
+    <symbol id="i-chat" viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z"/></symbol>
+    <symbol id="i-calc" viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M8 7h8M8 11h1M12 11h1M16 11h0M8 15h1M12 15h1M16 15v3M8 18h1M12 18h1"/></symbol>
+    <symbol id="i-panel" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M15 5v14"/></symbol>
+    <symbol id="i-layers" viewBox="0 0 24 24"><path d="M12 3l9 5-9 5-9-5z"/><path d="M3 13l9 5 9-5"/></symbol>
+    <symbol id="i-play" viewBox="0 0 24 24"><path d="M7 5l12 7-12 7z" fill="currentColor"/></symbol>
+    <symbol id="i-pause" viewBox="0 0 24 24"><path d="M7 5h3v14H7zM14 5h3v14h-3z" fill="currentColor" stroke="none"/></symbol>
+    <symbol id="i-pin" viewBox="0 0 24 24"><path d="M12 3v6M8 9h8l-1 6H9zM12 15v6"/></symbol>
     <symbol id="i-puzzle" viewBox="0 0 24 24"><path d="M5 12V7h4a2 2 0 1 1 4 0h4v4a2 2 0 1 1 0 4v4h-4a2 2 0 1 0-4 0H5v-4a2 2 0 1 0 0-4z"/></symbol>
   </defs>
 </svg>
 
 <div id="app">
   <header id="titlebar">
+    <button id="ws-btn" class="ws-btn" title="Workspaces"><span class="ws-dot"></span><span id="ws-name">Personal</span></button>
     <div id="tabstrip" role="tablist"></div>
     <button id="newtab" class="icon-btn small" title="New tab (Ctrl+T)"><svg><use href="#i-plus"/></svg></button>
     <div class="drag-fill"></div>
@@ -75,6 +89,7 @@
       <button id="translate-btn" class="icon-btn small omni-act" title="Translate this page" hidden><svg><use href="#i-translate"/></svg></button>
       <button id="reader-btn" class="icon-btn small omni-act" title="Reader view (F9)" hidden><svg><use href="#i-book"/></svg></button>
       <button id="key-btn" class="icon-btn small omni-act" title="Saved passwords for this site" hidden><svg><use href="#i-key"/></svg></button>
+      <button id="rl-btn" class="icon-btn small omni-act" title="Add to reading list" hidden><svg><use href="#i-reading"/></svg></button>
       <button id="star" class="icon-btn small" title="Bookmark this page (Ctrl+D)"><svg><use href="#i-star"/></svg></button>
       <div id="suggest" role="listbox" hidden></div>
     </div>
@@ -85,6 +100,8 @@
     <button id="vpn-btn" class="status-pill vpn" title="Built-in VPN">
       <span class="dot"></span><span id="vpn-label">VPN</span>
     </button>
+    <button id="media-btn" class="icon-btn" title="Media playing" hidden><svg><use href="#i-music"/></svg><i class="eq"><b></b><b></b><b></b></i></button>
+    <button id="shot-btn" class="icon-btn" title="Screenshot (Ctrl+Shift+X)"><svg><use href="#i-camera"/></svg></button>
     <button id="pip-btn" class="icon-btn" title="Picture in picture" hidden><svg><use href="#i-pip"/></svg></button>
     <button id="update-btn" class="status-pill update" title="An update is ready" hidden><svg><use href="#i-update"/></svg><span id="update-label">Update</span></button>
     <button id="dl-btn" class="icon-btn" title="Downloads (Ctrl+J)" hidden>
@@ -121,6 +138,10 @@
       <button class="icon-btn small" id="find-next" title="Next (Enter)"><svg><use href="#i-down"/></svg></button>
       <button class="icon-btn small" id="find-close" title="Close (Esc)"><svg><use href="#i-close"/></svg></button>
     </div>
+    <div id="shot-overlay" hidden>
+      <div class="shot-bar"><span>Drag to select an area</span><button class="btn ghost" id="shot-visible">Visible page</button><button class="btn ghost" id="shot-full">Full page</button><button class="btn ghost" id="shot-cancel">Cancel</button></div>
+      <div id="shot-rect" hidden></div>
+    </div>
     <div id="split-divider" hidden><button id="split-close" title="Close split view"><svg><use href="#i-close"/></svg></button></div>
     <div id="pw-bar" class="infobar" hidden>
       <svg class="pb-icon"><use href="#i-key"/></svg>
@@ -131,6 +152,12 @@
     </div>
     <div id="toast" hidden></div>
   </main>
+  <aside id="rpanel" hidden>
+    <div class="rp-head"><span id="rp-title"></span><span class="rp-acts"><button id="rp-pop" class="icon-btn small" title="Open in a tab"><svg><use href="#i-plus"/></svg></button><button id="rp-close" class="icon-btn small" title="Close panel"><svg><use href="#i-close"/></svg></button></span></div>
+    <div id="rp-body"></div>
+    <div id="rp-resize"></div>
+  </aside>
+  <nav id="rail" hidden></nav>
   </div>
 
   <!-- Shields panel -->
@@ -189,6 +216,11 @@
     <div class="panel-foot"><button id="dl-all" class="btn ghost">Show all downloads</button></div>
   </section>
 
+  <section id="media-panel" class="panel" hidden>
+    <h3>Playing now</h3>
+    <div id="media-list"></div>
+  </section>
+
   <section id="translate-panel" class="panel" hidden>
     <h3>Translate this page</h3>
     <p class="tp-note">Runs on this computer. The page’s text is never sent anywhere; each language model downloads once (about 15–40&nbsp;MB).</p>
@@ -210,5 +242,7 @@
 <script src="../assets/apply-theme.js"></script>
 <script src="ui.js"></script>
 <script src="ui2.js"></script>
+<script src="../assets/calc.js"></script>
+<script src="ui3.js"></script>
 </body>
 </html>

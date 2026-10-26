@@ -16,7 +16,7 @@ const tabHost = (t) => hostOf(t && t.url);
 
 // ====================================================================== groups
 function renderGroups() {
-  $$('.group-chip').forEach((c) => c.remove());
+  $$('.group-chip').forEach((c) => { if (c.contains(document.activeElement) && c.querySelector('input')) c.querySelector('input').onblur = null; c.remove(); });
   // drop groups that no longer have tabs
   const used = new Set(state.tabs.map((t) => t.groupId).filter(Boolean));
   const before = state.groups.length;
@@ -49,8 +49,9 @@ function renameGroup(g, chip) {
   const inp = document.createElement('input');
   inp.value = g.name || ''; inp.placeholder = 'Name this group';
   chip.appendChild(inp); inp.focus(); inp.select();
-  const done = () => { g.name = inp.value.trim().slice(0, 40); saveGroups(); renderGroups(); };
-  inp.onkeydown = (e) => { e.stopPropagation(); if (e.key === 'Enter') done(); if (e.key === 'Escape') renderGroups(); };
+  let finished = false;
+  const done = () => { if (finished) return; finished = true; g.name = inp.value.trim().slice(0, 40); saveGroups(); renderGroups(); };
+  inp.onkeydown = (e) => { e.stopPropagation(); if (e.key === 'Enter') done(); if (e.key === 'Escape') { finished = true; renderGroups(); } };
   inp.onblur = done;
   inp.onclick = (e) => e.stopPropagation();
 }

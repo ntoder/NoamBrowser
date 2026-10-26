@@ -5,11 +5,18 @@ A private, fast web browser for Windows, macOS and Linux.
 - **Shields** — blocks ads, trackers, malware sites, cookie banners and YouTube ads; upgrades to HTTPS; blocks cross-site cookies and fingerprinting; strips tracking tags from links.
 - **Built-in VPN** — free Cloudflare WARP (WireGuard) with a kill switch, or your own SOCKS5/HTTP proxy.
 - **Private by design** — no telemetry, no account, no AI services, encrypted DNS.
-- **Password manager** — encrypted on your computer, autofill, CSV import/export.
+- **Password manager** — encrypted on your computer, autofill, CSV import/export, and leaked/reused/weak password alerts (Have I Been Pwned, k-anonymity).
 - **Reader view**, **on-device translation**, **picture-in-picture**, **per-site dark mode**.
 - **Vertical tabs**, **tab groups**, **split view**, **command palette** (Ctrl+K).
-- **Sync** through your own cloud-drive folder, encrypted with your passphrase — no server.
-- **Themes** — 8 presets, Liquid Glass, custom accents, wallpapers, animations.
+- **Workspaces** (Ctrl+Alt+1–9), **saved sessions**, **reading list**, **notes for each site**.
+- **Sidebar** with web panels (WhatsApp, ChatGPT or any site) and a calculator.
+- **Address-bar calculator & converter** — `5*12`, `10 km in miles`, `100 usd in ils`.
+- **Media controls** for every tab, video speed keys (`[` `]` `\`), volume boost up to 300%.
+- **Screenshots** — area, visible or full page, then annotate with arrows, boxes, pen, highlighter, text, blur and crop (Ctrl+Shift+X).
+- **Mouse gestures**, **download pause/resume**, **speed limit** and **auto-sorting into folders**.
+- **New tab widgets** — clock with Hebrew date, weather, zmanim with candle lighting and parasha, synced to-do list.
+- **Sync** through your own cloud-drive folder (OneDrive, Google Drive, Dropbox, iCloud found automatically), encrypted with your passphrase — no server. Syncs bookmarks, settings, reading list, notes, to-dos, sessions and optionally passwords.
+- **Themes** — 9 presets (including Daylight, which changes with the time of day), Liquid Glass, custom accents, wallpapers, animations.
 - **Automatic updates** from this repository's Releases.
 
 ## Download

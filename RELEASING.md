@@ -10,8 +10,8 @@ The version number in `package.json` must be higher than the last release.
 ## 2. Create the release on GitHub
 
 1. Go to **github.com/ntoder/NoamBrowser/releases/new**.
-2. **Choose a tag**: type `v2.0.0` (match the version) and pick *Create new tag*.
-3. **Release title**: `NoamBrowser 2.0.0`. Add notes about what changed — they show in the app.
+2. **Choose a tag**: type `v2.1.0` (match the version) and pick *Create new tag*.
+3. **Release title**: `NoamBrowser 2.1.0`. Add notes about what changed — they show in the app.
 4. Drag in **all** of these files from the `dist` folder:
 
    | File | Needed for |

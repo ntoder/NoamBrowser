@@ -11,7 +11,7 @@ const os = require('os');
 const { EventEmitter } = require('events');
 
 const MAGIC = 'NBSYNC1';
-const SYNCED_SETTINGS = ['searchEngine', 'homepage', 'theme', 'accent', 'appearance', 'shields', 'showBookmarksBar', 'siteShieldsOff', 'siteDark', 'translate'];
+const SYNCED_SETTINGS = ['searchEngine', 'homepage', 'theme', 'accent', 'appearance', 'shields', 'showBookmarksBar', 'siteShieldsOff', 'siteDark', 'translate', 'widgets', 'gestures', 'media', 'sidePanel', 'topSitesHidden'];
 
 function deriveKey(pass, salt) { return crypto.scryptSync(pass, salt, 32, { N: 1 << 15, r: 8, p: 1, maxmem: 64 * 1024 * 1024 }); }
 
@@ -107,6 +107,7 @@ class Sync extends EventEmitter {
       bookmarks: this.bookmarks.get('items'),
       bookmarkTombstones: this.bookmarks.get('tombstones') || [],
       passwords: c.passwords ? this.passwords.items : undefined,
+      extras: this.extra ? this.extra.snapshot() : undefined,
     };
   }
 
@@ -132,9 +133,11 @@ class Sync extends EventEmitter {
       this.settings.set('sync', { ...this.cfg(), settingsUpdated: remote.settingsUpdated });
       settingsChanged = true;
     }
+    let extrasChanged = false;
+    if (this.extra && remote.extras) extrasChanged = this.extra.merge(remote.extras);
     let pwChanged = false;
     if (this.cfg().passwords && remote.passwords) pwChanged = this.passwords.mergeFrom(remote.passwords);
-    return { bookmarks: changed, settings: settingsChanged, passwords: pwChanged };
+    return { bookmarks: changed, settings: settingsChanged, passwords: pwChanged, extras: extrasChanged };
   }
 
   async run() {
