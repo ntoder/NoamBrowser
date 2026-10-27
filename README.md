@@ -17,6 +17,9 @@ A private, fast web browser for Windows, macOS and Linux.
 - **New tab widgets** — clock with Hebrew date, weather, zmanim with candle lighting and parasha, synced to-do list.
 - **Sync** through your own cloud-drive folder (OneDrive, Google Drive, Dropbox, iCloud found automatically), encrypted with your passphrase — no server. Syncs bookmarks, settings, reading list, notes, to-dos, sessions and optionally passwords.
 - **Blue light filter** — warm night tint with 6 colours or your own, strength, screen dimming, sunset-to-sunrise or timed schedule, gradual fade-in (Ctrl+Shift+L).
+- **Dev Lab (F12)** — friendly developer tools that explain everything in simple words: Explore (inspector with live editing, box model, measure), Console (with error explanations), Network, Remix (live CSS), Colours & Fonts (eyedropper, contrast), Devices (phones, tablets, colour-blind vision), Everyone (accessibility checkup), Cookies & Memory, Speed report card, Scripts and a 3D view that pulls the page apart into layers — plus 13 missions to learn web development. Pro Chromium DevTools are still on Ctrl+Shift+I.
+- **Code Playground** — write HTML, CSS and JavaScript and see it live, with starter projects (games, drawing pad, counter…), a friendly console and download as .html.
+- **JSON viewer** — data files show as a tidy, foldable, searchable tree.
 - **Screen time** — see how long you spend on each site (today, week, month), with daily limits and reminders. Stays on your computer.
 - **Zmanim reminders** — a notification before Shema, Shacharit, Mincha, candle lighting, sunset and more (5 minutes to 2 hours ahead).
 - **Themes** — 9 presets (including Daylight, which changes with the time of day), Liquid Glass, custom accents, wallpapers, animations.

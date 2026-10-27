@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Code Playground</title><link rel="stylesheet" href="pages.css"><link rel="stylesheet" href="assets/themes.css">
+<style>
+  html, body { height: 100%; }
+  body { display: flex; flex-direction: column; overflow: hidden; }
+  .pg-top { flex: none; display: flex; align-items: center; gap: 8px; padding: 10px 14px; background: var(--surface); border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+  .pg-top h1 { font-size: 17px; margin: 0 6px 0 0; white-space: nowrap; }
+  .pg-name { font: 700 14px var(--font); border: 1px solid transparent; background: transparent; color: var(--text); padding: 5px 8px; border-radius: 8px; width: 220px; }
+  .pg-name:hover, .pg-name:focus { border-color: var(--line); outline: none; background: var(--surface-2); }
+  .pg-top select, .pg-top .btn { height: 32px; }
+  .pg-top select { font: 600 13px var(--font); border-radius: 9px; border: 1px solid var(--line); background: var(--surface-2); color: var(--text); padding: 0 8px; }
+  .grow { flex: 1; }
+  .pg-main { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) 6px minmax(0, 1fr); }
+  .pg-left { display: flex; flex-direction: column; min-width: 0; min-height: 0; background: var(--surface); }
+  .pg-tabs { display: flex; gap: 2px; padding: 8px 10px 0; border-bottom: 1px solid var(--line); align-items: flex-end; }
+  .pg-tabs button { padding: 7px 14px 9px; border-radius: 10px 10px 0 0; font-weight: 800; font-size: 13px; color: var(--muted); background: none; border: 0; border-bottom: 3px solid transparent; cursor: pointer; font-family: inherit; }
+  .pg-tabs button.on { color: var(--text); border-bottom-color: var(--c); }
+  .pg-tabs button small { display: block; font-weight: 600; font-size: 10.5px; color: var(--muted); }
+  .snips { display: flex; gap: 4px; padding: 6px 10px; flex-wrap: wrap; border-bottom: 1px solid var(--line); background: var(--surface); }
+  .snips::before { content: 'Add:'; font-size: 11.5px; font-weight: 700; color: var(--muted); align-self: center; margin-right: 2px; }
+  .chip { padding: 4px 9px; border-radius: 99px; background: var(--surface-2); border: 1px solid transparent; font: 700 11.5px var(--font); color: var(--text); cursor: pointer; white-space: nowrap; }
+  .chip:hover { border-color: var(--line); }
+  .ed { position: relative; flex: 1; min-height: 0; }
+  .ed pre, .ed textarea { position: absolute; inset: 0; margin: 0; padding: 12px 14px 12px 54px; font: 14px/1.6 'Cascadia Code', ui-monospace, Consolas, monospace; white-space: pre; overflow: auto; tab-size: 2; box-sizing: border-box; }
+  .ed pre { pointer-events: none; color: var(--text); }
+  .ed textarea { background: transparent; color: transparent; caret-color: var(--accent); border: 0; outline: none; resize: none; }
+  .ed .gut { position: absolute; left: 0; top: 0; bottom: 0; width: 44px; overflow: hidden; padding: 12px 0; text-align: right; color: var(--muted); font: 14px/1.6 ui-monospace, Consolas, monospace; opacity: .6; pointer-events: none; }
+  .ed .gut div { padding-right: 8px; }
+  .t-tag { color: #c2185b; } .t-attr { color: #e65100; } .t-str { color: #2e7d32; } .t-com { color: #8a8aa0; font-style: italic; } .t-kw { color: #7b1fa2; font-weight: 700; } .t-num { color: #1565c0; } .t-sel { color: #c2185b; font-weight: 700; } .t-prop { color: #1565c0; }
+  :root[data-theme="dark"] .t-tag, :root[data-theme="dark"] .t-sel { color: #f48fb1; } :root[data-theme="dark"] .t-attr { color: #ffb74d; } :root[data-theme="dark"] .t-str { color: #a5d6a7; } :root[data-theme="dark"] .t-kw { color: #ce93d8; } :root[data-theme="dark"] .t-num, :root[data-theme="dark"] .t-prop { color: #90caf9; }
+  .pg-split { cursor: col-resize; background: var(--line); }
+  .pg-split:hover { background: var(--accent); }
+  .pg-right { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+  .pg-pbar { display: flex; align-items: center; gap: 8px; padding: 7px 10px; background: var(--surface); border-bottom: 1px solid var(--line); font-size: 12.5px; font-weight: 700; }
+  .pg-pbar .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--safe); }
+  .pg-pbar .dot.busy { background: #d9a21b; }
+  .pg-frame { flex: 1; min-height: 0; background: #fff; position: relative; }
+  .pg-frame iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; background: #fff; }
+  .pg-con { height: 150px; flex: none; display: flex; flex-direction: column; background: var(--surface); border-top: 1px solid var(--line); }
+  .pg-con.min { height: 34px; }
+  .pg-con-h { display: flex; align-items: center; gap: 8px; padding: 6px 10px; font-weight: 800; font-size: 12.5px; cursor: pointer; }
+  .pg-con-h .n { background: var(--danger); color: #fff; border-radius: 99px; padding: 0 7px; font-size: 11px; }
+  .pg-con-list { flex: 1; overflow: auto; font: 12px/1.5 ui-monospace, Consolas, monospace; padding: 0 10px 6px; }
+  .pg-con-list div { padding: 2px 0; border-bottom: 1px solid var(--line); white-space: pre-wrap; word-break: break-word; }
+  .pg-con-list .error { color: var(--danger); } .pg-con-list .warn { color: #b07e00; }
+  .pg-con-list .ex { font-family: var(--font); color: var(--text); background: rgba(255, 216, 77, .22); border-radius: 7px; padding: 3px 8px; margin: 3px 0; border: 0; }
+  .pg-full .pg-left, .pg-full .pg-split { display: none; } .pg-full .pg-main { grid-template-columns: 1fr; }
+  .tipbar { font-size: 12px; color: var(--muted); padding: 6px 14px; border-top: 1px solid var(--line); background: var(--surface); }
+  .tipbar b { color: var(--text); }
+  .modal { position: fixed; inset: 0; background: rgba(10, 8, 25, .4); display: grid; place-items: center; z-index: 10; }
+  .modal .box { background: var(--surface); border-radius: 18px; padding: 20px; width: min(760px, 92vw); max-height: 80vh; overflow: auto; box-shadow: 0 30px 80px rgba(0,0,0,.4); }
+  .modal h2 { margin: 0 0 12px; font-size: 18px; }
+  .tpls { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px; }
+  .tpl { text-align: left; padding: 14px; border-radius: 14px; background: var(--surface-2); border: 1.5px solid transparent; cursor: pointer; font-family: inherit; color: var(--text); }
+  .tpl:hover { border-color: var(--accent); }
+  .tpl .e { font-size: 26px; display: block; } .tpl b { display: block; margin: 4px 0 2px; } .tpl small { color: var(--muted); }
+  .projs { margin-top: 16px; } .projs .p { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 10px; } .projs .p:hover { background: var(--surface-2); }
+  .projs .p b { flex: 1; cursor: pointer; } .projs .p small { color: var(--muted); }
+</style></head>
+<body>
+<div class="pg-top">
+  <h1>🧑‍💻 Code Playground</h1>
+  <input class="pg-name" id="name" spellcheck="false" title="Click to rename your project">
+  <button class="btn" id="new">✨ New / Open</button>
+  <span class="grow"></span>
+  <label style="display:flex;gap:6px;align-items:center;font-weight:700;font-size:13px"><input type="checkbox" id="auto" checked style="accent-color:var(--accent)"> Run as I type</label>
+  <button class="btn primary" id="run" title="Ctrl+Enter">▶ Run</button>
+  <button class="btn" id="full" title="Show only the result">⛶ Big preview</button>
+  <button class="btn" id="save" title="Download your page as an .html file you can share">⬇️ Download</button>
+  <label class="btn" title="Open an .html file">📂 Open file<input type="file" id="open" accept=".html,.htm,text/html" hidden></label>
+</div>
+<div class="pg-main" id="main">
+  <div class="pg-left">
+    <div class="pg-tabs" id="tabs">
+      <button data-l="html" style="--c:#e44d26" class="on">HTML<small>what’s on the page</small></button>
+      <button data-l="css" style="--c:#2965f1">CSS<small>how it looks</small></button>
+      <button data-l="js" style="--c:#f0db4f">JavaScript<small>what it does</small></button>
+    </div>
+    <div class="snips" id="snips"></div>
+    <div class="ed"><div class="gut" id="gut"></div><pre id="hl" aria-hidden="true"></pre><textarea id="code" spellcheck="false" autocomplete="off" autocapitalize="off"></textarea></div>
+    <div class="tipbar" id="tip"></div>
+  </div>
+  <div class="pg-split" id="split"></div>
+  <div class="pg-right">
+    <div class="pg-pbar"><span class="dot" id="dot"></span><span>Your page</span><span class="grow"></span><button class="chip" id="reload">🔄 Restart</button></div>
+    <div class="pg-frame" id="frame"></div>
+    <div class="pg-con" id="con"><div class="pg-con-h" id="conh">💬 Console <span class="n" id="errn" hidden></span><span class="grow"></span><button class="chip" id="conclear">🧹 Clear</button></div><div class="pg-con-list" id="conlist"></div></div>
+  </div>
+</div>
+<script src="assets/apply-theme.js"></script>
+<script src="common.js"></script>
+<script src="playground-templates.js"></script>
+<script src="playground.js"></script>
+</body>
+</html>

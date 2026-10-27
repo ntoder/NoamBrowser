@@ -1,6 +1,6 @@
 {
   "name": "noambrowser",
-  "version": "2.2.1",
+  "version": "2.3.0",
   "description": "NoamBrowser — a private web browser with built-in ad blocking and VPN",
   "main": "src/main.js",
   "scripts": {

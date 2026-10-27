@@ -435,3 +435,65 @@ if (cfg.internal && location.protocol === 'noam:' && window.top === window) {
     on: (name, fn) => { if (!listeners.has(name)) listeners.set(name, []); listeners.get(name).push(fn); },
   });
 }
+
+// ---------------------------------------------------------------- JSON viewer
+// Data files (JSON) are shown as a tidy, foldable tree instead of one long line.
+if (window.top === window && /^https?:|^file:/.test(location.protocol)) {
+  document.addEventListener('DOMContentLoaded', () => {
+    if (!/json/i.test(document.contentType || '')) return;
+    const pre = document.body && document.body.querySelector('pre');
+    const raw = pre ? pre.textContent : (document.body && document.body.textContent) || '';
+    if (raw.length > 30e6) return;
+    let data; try { data = JSON.parse(raw); } catch { return; }
+    const dark = matchMedia('(prefers-color-scheme: dark)').matches;
+    const css = `:root{color-scheme:${dark ? 'dark' : 'light'}}body{margin:0;font:13px/1.55 ui-monospace,Consolas,Menlo,monospace;background:${dark ? '#16122a' : '#fbfaff'};color:${dark ? '#ece8f7' : '#1d1836'}}
+      .bar{position:sticky;top:0;display:flex;gap:6px;align-items:center;padding:8px 14px;background:${dark ? '#221c3d' : '#fff'};border-bottom:1px solid ${dark ? '#332b58' : '#e6e3f2'};font-family:system-ui,sans-serif;font-size:13px;z-index:2}
+      .bar b{margin-right:8px}.bar button{border:0;border-radius:8px;padding:6px 12px;font-weight:700;background:${dark ? '#2c2550' : '#f0eefa'};color:inherit;cursor:pointer}.bar button.on{background:#6a55f5;color:#fff}
+      .bar input{margin-left:auto;border:1px solid ${dark ? '#3a3266' : '#ddd8f0'};border-radius:8px;padding:6px 10px;background:transparent;color:inherit;width:220px}
+      .tip{font-family:system-ui,sans-serif;color:${dark ? '#9c93b9' : '#6b6488'};padding:6px 14px 0;font-size:12px}
+      #tree{padding:8px 14px 40px}.row{white-space:pre-wrap;word-break:break-word}.k{color:${dark ? '#ce93d8' : '#8e24aa'}}.s{color:${dark ? '#a5d6a7' : '#2e7d32'}}.n{color:${dark ? '#90caf9' : '#1565c0'}}.b{color:${dark ? '#ffb74d' : '#e65100'}}.z{color:#999}
+      .tg{cursor:pointer;user-select:none;display:inline-block;width:14px;color:#999}.tg:hover{color:#6a55f5}.kids{padding-left:20px;border-left:1px dotted ${dark ? '#3a3266' : '#e0dcf0'};margin-left:5px}.closed>.kids{display:none}.cnt{color:#999;font-size:11px;margin-left:6px}
+      .hit{background:#ffd84d66;border-radius:3px}pre.raw{margin:0;padding:14px;white-space:pre-wrap;word-break:break-all}a{color:inherit}`;
+    const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+    let q = '';
+    const val = (v) => {
+      if (v === null) return '<span class="z">null</span>';
+      if (typeof v === 'string') { const t = esc(JSON.stringify(v)); return /^https?:\/\//.test(v) ? `<span class="s">"<a href="${esc(v)}">${esc(v)}</a>"</span>` : `<span class="s">${t}</span>`; }
+      if (typeof v === 'number') return `<span class="n">${v}</span>`;
+      if (typeof v === 'boolean') return `<span class="b">${v}</span>`;
+      return '';
+    };
+    const node = (k, v, depth, last) => {
+      const key = k === null ? '' : `<span class="k">${esc(typeof k === 'number' ? k : JSON.stringify(k))}</span>: `;
+      const comma = last ? '' : ',';
+      if (v && typeof v === 'object') {
+        const arr = Array.isArray(v); const ents = arr ? v.map((x, i) => [i, x]) : Object.entries(v);
+        if (!ents.length) return `<div class="row">${key}${arr ? '[]' : '{}'}${comma}</div>`;
+        const kids = ents.slice(0, 5000).map(([kk, vv], i) => node(arr ? i : kk, vv, depth + 1, i === Math.min(ents.length, 5000) - 1)).join('');
+        return `<div class="row${depth > 2 ? ' closed' : ''}"><span class="tg">▾</span>${key}${arr ? '[' : '{'}<span class="cnt">${ents.length} ${arr ? 'items' : 'keys'}</span><div class="kids">${kids}${ents.length > 5000 ? '<div class="z">… ' + (ents.length - 5000) + ' more</div>' : ''}</div>${arr ? ']' : '}'}${comma}</div>`;
+      }
+      return `<div class="row">${key}${val(v)}${comma}</div>`;
+    };
+    document.head.innerHTML = `<meta charset="utf-8"><title>${esc(location.pathname.split('/').pop() || location.host)} (JSON)</title><style>${css}</style>`;
+    document.body.innerHTML = `<div class="bar"><b>{ } JSON</b><button data-m="tree" class="on">Tree</button><button data-m="raw">Raw</button><button data-m="copy">Copy</button><button data-m="expand">Open all</button><button data-m="collapse">Close all</button><input placeholder="🔎 Find" spellcheck="false"></div>
+      <div class="tip">💡 JSON is how websites send data to each other. Click ▾ to fold parts away.</div><div id="tree">${node(null, data, 0, true)}</div><pre class="raw" hidden>${esc(JSON.stringify(data, null, 2))}</pre>`;
+    const tree = document.getElementById('tree'), rawEl = document.querySelector('pre.raw');
+    tree.addEventListener('click', (e) => { if (e.target.classList.contains('tg')) { const r = e.target.parentElement; r.classList.toggle('closed'); e.target.textContent = r.classList.contains('closed') ? '▸' : '▾'; } });
+    tree.querySelectorAll('.row.closed > .tg').forEach((t) => (t.textContent = '▸'));
+    document.querySelectorAll('.bar button').forEach((b) => b.addEventListener('click', () => {
+      const m = b.dataset.m;
+      if (m === 'tree' || m === 'raw') { tree.hidden = m === 'raw'; rawEl.hidden = m === 'tree'; document.querySelectorAll('[data-m=tree],[data-m=raw]').forEach((x) => x.classList.toggle('on', x === b)); }
+      if (m === 'copy') { navigator.clipboard.writeText(JSON.stringify(data, null, 2)).then(() => { b.textContent = 'Copied ✓'; setTimeout(() => (b.textContent = 'Copy'), 1500); }); }
+      if (m === 'expand' || m === 'collapse') tree.querySelectorAll('.row').forEach((r) => { if (!r.querySelector(':scope > .kids')) return; r.classList.toggle('closed', m === 'collapse'); const t = r.querySelector(':scope > .tg'); if (t) t.textContent = m === 'collapse' ? '▸' : '▾'; });
+    }));
+    const find = document.querySelector('.bar input');
+    find.addEventListener('input', () => {
+      q = find.value.trim().toLowerCase();
+      tree.querySelectorAll('.hit').forEach((h) => h.classList.remove('hit'));
+      if (!q) return;
+      let first = null;
+      for (const sp of tree.querySelectorAll('.k, .s, .n, .b')) if (sp.textContent.toLowerCase().includes(q)) { sp.classList.add('hit'); first = first || sp; for (let p = sp.parentElement; p && p !== tree; p = p.parentElement) if (p.classList.contains('closed')) { p.classList.remove('closed'); const t = p.querySelector(':scope > .tg'); if (t) t.textContent = '▾'; } }
+      if (first) first.scrollIntoView({ block: 'center' });
+    });
+  }, { once: true });
+}

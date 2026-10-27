@@ -170,6 +170,11 @@ function setupNoamProtocol(ses) {
     if (!path.resolve(file).startsWith(path.resolve(base)) || !fs.existsSync(file)) {
       return new Response('Not found', { status: 404, headers: { 'content-type': 'text/plain' } });
     }
+    if (page === 'playground' && rel === 'runner.html') {
+      // The Code Playground preview: runs the user's own code, sandboxed (opaque origin, no access to NoamBrowser).
+      return new Response(fs.readFileSync(file), { headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store',
+        'content-security-policy': "default-src * data: blob: 'unsafe-inline' 'unsafe-eval'; frame-ancestors noam:" } });
+    }
     return new Response(fs.readFileSync(file), {
       headers: {
         'content-type': mime(file),
@@ -508,7 +513,7 @@ app.on('web-contents-created', (_e, wc) => {
     const key = input.key.toLowerCase();
     const mod = input.control || input.meta;
     const isF = /^f(5|6|9|11|12)$/.test(key) || key === 'escape' && false;
-    if ((mod && SHORTCUT_KEYS.has(key)) || isF || (input.alt && (key === 'arrowleft' || key === 'arrowright' || key === 'home'))) {
+    if ((mod && SHORTCUT_KEYS.has(key)) || (mod && input.shift && (key === 'i' || key === 'c' || key === 'p')) || isF || (input.alt && (key === 'arrowleft' || key === 'arrowright' || key === 'home'))) {
       const win = hostWindowOf(wc);
       if (!win || type !== 'webview') return;
       event.preventDefault();
@@ -623,7 +628,8 @@ function buildContextMenu(wc, p) {
     t.push({ label: 'View page source', click: () => send('tab:open', { url: 'view-source:' + wc.getURL(), private: isPrivate }) });
     t.push({ type: 'separator' });
   }
-  t.push({ label: 'Inspect', click: () => { wc.inspectElement(p.x, p.y); } });
+  t.push({ label: '🔍 Explore this (Dev Lab)', click: () => send('devlab:explore-at', { wcId: wc.id, x: p.x, y: p.y }) });
+  t.push({ label: 'Inspect (pro tools)', click: () => { wc.inspectElement(p.x, p.y); } });
   Menu.buildFromTemplate(t).popup({ window: win || undefined });
 }
 
@@ -822,7 +828,9 @@ function appMenu(sender, wcId, x, y) {
     { label: 'Import from another browser…', click: () => send('tab:open', { url: 'noam://settings/#import' }) },
     { label: 'Sync…', click: () => send('tab:open', { url: 'noam://settings/#sync' }) },
     { label: 'Settings', accelerator: 'CmdOrCtrl+,', click: () => send('tab:open', { url: 'noam://settings/' }) },
-    { label: 'Developer tools', accelerator: 'F12', enabled: !!wc, click: () => wc && (wc.isDevToolsOpened() ? wc.closeDevTools() : wc.openDevTools()) },
+    { label: 'Dev Lab — look inside this page', accelerator: 'F12', enabled: !!wc, click: () => send('shortcut', { key: 'devlab' }) },
+    { label: 'Code Playground', click: () => send('tab:open', { url: 'noam://playground/' }) },
+    { label: 'Pro developer tools', accelerator: 'CmdOrCtrl+Shift+I', enabled: !!wc, click: () => wc && (wc.isDevToolsOpened() ? wc.closeDevTools() : wc.openDevTools()) },
     { label: 'About NoamBrowser', click: () => send('tab:open', { url: 'noam://settings/#about' }) },
     { type: 'separator' },
     { label: 'Exit', click: () => app.quit() },
@@ -967,6 +975,7 @@ app.whenReady().then(async () => {
   features = setupFeatures({ settings, bookmarks, history, userData, broadcast, broadcastPages, uiHandle, pageHandle, siteOf, hostOf, applyThemeToWindows, publicSettings });
   const ctx2 = { settings, userData, broadcast, broadcastPages, uiHandle, pageHandle, siteOf, hostOf, getFetchSession: () => mainSession(), syncTouch: () => features.syncTouch() };
   features2 = setupFeatures2(ctx2);
+  try { require('./devlab')({ uiHandle }); } catch (e) { console.error('dev lab', e); }
   try { require('./zmanim-alerts')({ settings, pageHandle, windows }); } catch (e) { console.error('zmanim alerts', e); }
   try { screenTime = require('./screentime')({ settings, userData, uiHandle, pageHandle, windows, privatePartition: PRIVATE_PARTITION }); } catch (e) { console.error('screen time', e); }
   features.syncer.extra = { snapshot: features2.snapshot, merge: features2.merge };

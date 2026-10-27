@@ -8,11 +8,11 @@ const INVOKE = new Set([
   'ui:popup-menu', 'password:answer', 'passwords:for-tab', 'passwords:fill', 'reader:check', 'reader:open', 'translate:detect', 'translate:page',
   'translate:restore', 'translate:languages', 'update:status', 'update:install', 'dark:toggle', 'dark:get', 'history:remove-url',
   'rates:get', 'reading:list', 'reading:add', 'reading:remove', 'reading:read', 'reading:has', 'reading:toggle', 'notes:get', 'notes:set', 'notes:all',
-  'screentime:active', 'sessions:save', 'sessions:list', 'sessions:get', 'sessions:delete', 'screenshot:capture',
+  'screentime:active', 'devlab:attach', 'devlab:detach', 'devlab:cmd', 'devlab:scripts', 'devlab:cookies', 'devlab:pro', 'devlab:capture', 'sessions:save', 'sessions:list', 'sessions:get', 'sessions:delete', 'screenshot:capture',
 ]);
 const EVENTS = new Set([
   'init', 'tab:open', 'shortcut', 'shields:update', 'vpn:status', 'settings:changed', 'bookmarks:changed', 'downloads:update',
-  'permission:ask', 'stats:update', 'window:state', 'zoom:changed', 'password:offer', 'translate:progress', 'update:status', 'extras:changed', 'session:open', 'screentime:limit',
+  'permission:ask', 'stats:update', 'window:state', 'zoom:changed', 'password:offer', 'translate:progress', 'update:status', 'extras:changed', 'session:open', 'screentime:limit', 'devlab:event', 'devlab:explore-at',
 ]);
 
 contextBridge.exposeInMainWorld('nb', {

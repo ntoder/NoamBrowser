@@ -287,6 +287,120 @@ fetch('/player').then(r=>r.text()).then(t=>{window.r3=Object.keys(JSON.parse(t))
     });
     return;
   }
+  if (process.env.NOAM_TEST_DL) {
+    const page = `<!doctype html><html><head><title>Space Cats</title><style>body{font-family:Georgia,serif;margin:0;background:#fdf6ec;color:#222}header{background:#3b2c85;color:#fff;padding:18px 30px;display:flex;gap:16px;align-items:center}nav a{color:#ffd84d;margin-right:12px}main{padding:20px 30px;display:grid;grid-template-columns:1fr 1fr;gap:20px}.card{background:#fff;border-radius:14px;padding:16px;box-shadow:0 4px 14px rgba(0,0,0,.1)}.faint{color:#ccc}button{background:#ee7a2e;color:#fff;border:0;border-radius:8px;padding:10px 16px;font-size:16px}@keyframes wob{50%{transform:rotate(8deg)}}.cat{animation:wob 1s infinite}</style>
+<link rel="stylesheet" href="/style.css"></head><body><header><img class="cat" src="/cat.svg" width="60" height="60"><h1>Space Cats 🚀</h1><nav><a href="/a">Home</a><a href="/b">Planets</a><a href="/c"><img src="/cat.svg" width="16" height="16"></a></nav></header>
+<main><div class="card"><h2>Meet Captain Whiskers</h2><p id="intro">Captain Whiskers has flown to the moon 12 times.</p><p class="faint">This text is very hard to read.</p><button id="go">Launch!</button><input placeholder="Your name"></div>
+<div class="card"><h4>Mission log</h4><ul><li>Day 1: liftoff</li><li>Day 2: found tuna</li></ul><img src="/big.svg" width="200" height="120"></div></main>
+<script src="/app.js"></script><script>document.cookie='favouriteCat=whiskers; max-age=86400'; localStorage.setItem('highScore','4200'); sessionStorage.setItem('visits','1'); console.log('Space Cats loaded', {cats: 3, fuel: 'tuna'}); console.warn('Fuel is running low'); fetch('/missing.json').catch(()=>{}); setTimeout(() => { undefinedFunction(); }, 300);</script></body></html>`;
+    const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 60"><circle cx="30" cy="30" r="28" fill="#ffb347"/><circle cx="20" cy="25" r="4"/><circle cx="40" cy="25" r="4"/></svg>';
+    const srv = require('https').createServer({ key: fs.readFileSync('/tmp/claude-0/k.pem'), cert: fs.readFileSync('/tmp/claude-0/c.pem') }, (req, res) => {
+      const u = req.url.split('?')[0];
+      if (u === '/cat.svg' || u === '/big.svg') { res.writeHead(200, { 'content-type': 'image/svg+xml' }); return res.end(svg); }
+      if (u === '/style.css') { res.writeHead(200, { 'content-type': 'text/css' }); return res.end('h2{letter-spacing:.5px}'); }
+      if (u === '/app.js') { res.writeHead(200, { 'content-type': 'text/javascript' }); return res.end('(function(){var score=0;function addPoint(n){score+=n;if(score>10){console.log("big score",score)}return score}window.game={addPoint:addPoint,name:"Space Cats"};for(var i=0;i<3;i++){addPoint(i)}document.getElementById("go").onclick=function(){alert("Launch!")}})();'); }
+      if (u === '/data.json') { res.writeHead(200, { 'content-type': 'application/json' }); return res.end(JSON.stringify({ cats: [{ name: 'Whiskers', missions: 12, crew: ['Mittens', 'Tom'] }, { name: 'Luna', missions: 4, crew: [] }], updated: '2026-10-27', ok: true, rating: 4.5, nothing: null })); }
+      if (u === '/missing.json') { res.writeHead(404, { 'content-type': 'application/json' }); return res.end('{"error":"not found"}'); }
+      res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' }); res.end(page);
+    });
+    srv.listen(443, '127.0.0.1', async () => {
+      const win = [...windows][0]; const ui = win.webContents; const js = (c) => ui.executeJavaScript(c);
+      const shot = async (n) => { await sleep(300); const img = await win.webContents.capturePage(); fs.writeFileSync(path.join(OUT, n + '.png'), img.toPNG()); };
+      const step = async (name, fn) => { try { await fn(); log('ok', name); } catch (e) { log('FAIL', name, e.stack || String(e)); } };
+      const tabWc = async () => webContents.fromId(await js('state.active.wcId'));
+      const body = () => js(`DL.body.innerText.replace(/\\s+/g,' ').slice(0,400)`);
+      await sleep(3000);
+      await js(`state.active.navigate('https://news.example.org/')`); await sleep(2500);
+      await step('open', async () => { await js(`shortcut({key:'f12'})`); await sleep(1500); log('open', await js('DL.open'), await js('DL.wcId'), await js(`document.querySelector('.dl-status').innerText`)); await shot('dl-01-home'); });
+      await step('reload capture', async () => { await js(`DL.tab.wv.reload()`); await sleep(3000); });
+      await step('console', async () => { await js(`DL.show('console')`); await sleep(500); log('console', await body()); await shot('dl-02-console');
+        await js(`(() => { const i = document.getElementById('co-in'); i.value = 'game.addPoint(5)'; document.getElementById('co-run').click(); })()`); await sleep(700);
+        await js(`(() => { const i = document.getElementById('co-in'); i.value = 'window.game'; document.getElementById('co-run').click(); })()`); await sleep(700);
+        await js(`document.querySelectorAll('.co-obj')[document.querySelectorAll('.co-obj').length-1].click()`); await sleep(600);
+        log('console after', await js(`[...document.querySelectorAll('.co-msg')].slice(-4).map(m=>m.innerText.replace(/\\s+/g,' ')).join(' || ')`)); await shot('dl-03-console-run'); });
+      await step('network', async () => { await js(`DL.show('network')`); await sleep(600); log('network', await body()); await shot('dl-04-network');
+        await js(`document.querySelector('.nw-row[data-id]:nth-child(3)').click()`); await sleep(900); await shot('dl-05-network-detail'); });
+      await step('explore', async () => { await js(`DL.show('explore')`); await sleep(400);
+        const wcId = await js('DL.wcId'); const wc = webContents.fromId(wcId);
+        const pos = await wc.executeJavaScript(`(() => { const r = document.querySelector('h2').getBoundingClientRect(); return [r.left + 20, r.top + 10]; })()`);
+        await js(`DL.handlers.explore.selectAt(${pos[0]}, ${pos[1]})`); await sleep(1200);
+        log('explore', await body()); await shot('dl-06-explore');
+        await js(`(() => { const t = document.getElementById('ex-text'); t.value = 'Meet Captain Noam'; t.dispatchEvent(new Event('input')); const c = document.getElementById('ex-color'); c.value = '#e5484d'; c.dispatchEvent(new Event('input')); })()`); await sleep(600);
+        log('page h2 now', await wc.executeJavaScript(`document.querySelector('h2').textContent + ' ' + getComputedStyle(document.querySelector('h2')).color`));
+        await js(`document.querySelector('[data-fun^="noam-spin"]').click()`); await sleep(400);
+        await js(`document.getElementById('ex-parent').click()`); await sleep(800); log('parent', await js(`document.querySelector('.ex-title').innerText`));
+        await js(`document.getElementById('ex-measure').click()`); await sleep(500); await shot('dl-07-measure'); await js(`document.getElementById('ex-measure').click()`); await sleep(300);
+        // real pick through the overlay
+        await js(`document.getElementById('ex-pick').click()`); await sleep(500);
+        const r = await js(`(() => { const b = DL.tab.wv.getBoundingClientRect(); return [b.left, b.top]; })()`);
+        const bp = await wc.executeJavaScript(`(() => { const r = document.getElementById('go').getBoundingClientRect(); return [r.left + 10, r.top + 8]; })()`);
+        wc.sendInputEvent({ type: 'mouseMove', x: bp[0], y: bp[1] }); await sleep(300);
+        wc.sendInputEvent({ type: 'mouseDown', x: bp[0], y: bp[1], button: 'left', clickCount: 1 }); wc.sendInputEvent({ type: 'mouseUp', x: bp[0], y: bp[1], button: 'left', clickCount: 1 }); await sleep(1200);
+        log('picked', await js(`document.querySelector('.ex-title') && document.querySelector('.ex-title').innerText`), 'missions', await js('JSON.stringify(Object.keys(DL.done))'));
+      });
+      await step('remix', async () => { await js(`DL.show('remix')`); await sleep(400); await js(`document.querySelectorAll('[data-r]')[3].click()`); await sleep(900);
+        const wc = webContents.fromId(await js('DL.wcId')); log('remix font', await wc.executeJavaScript(`getComputedStyle(document.querySelector('p')).fontFamily`)); await shot('dl-08-remix'); });
+      await step('colors', async () => { await js(`DL.show('colors')`); await sleep(1500); log('colors', await body()); await shot('dl-09-colors');
+        await js(`document.getElementById('cf-eye').click()`); await sleep(1200);
+        const r = await js(`(() => { const c = document.querySelector('.dl-eye canvas').getBoundingClientRect(); return [c.left + 60, c.top + 20]; })()`);
+        ui.sendInputEvent({ type: 'mouseMove', x: r[0], y: r[1] }); await sleep(200); await shot('dl-10-eyedropper');
+        ui.sendInputEvent({ type: 'mouseDown', x: r[0], y: r[1], button: 'left', clickCount: 1 }); ui.sendInputEvent({ type: 'mouseUp', x: r[0], y: r[1], button: 'left', clickCount: 1 }); await sleep(800);
+        log('picked colour', await js('JSON.stringify(DL.body.querySelector(".cf-vals") && DL.body.querySelector(".cf-vals").innerText)')); });
+      await step('devices', async () => { await js(`DL.show('devices')`); await sleep(400); await js(`document.querySelector('[data-d="0"]').click()`); await sleep(1500);
+        const wc = webContents.fromId(await js('DL.wcId')); log('device width', await wc.executeJavaScript('innerWidth + "x" + innerHeight + " " + navigator.userAgent.slice(13,40)'));
+        await js(`document.querySelector('[data-v="deuteranopia"]').click()`); await sleep(800); await shot('dl-11-devices');
+        await js(`document.querySelector('[data-v="none"]').click()`); await js(`document.querySelector('[data-d="-1"]').click()`); await sleep(800); log('device reset', await wc.executeJavaScript('innerWidth')); });
+      await step('access', async () => { await js(`DL.show('access')`); await sleep(300); await js(`document.getElementById('ax-run').click()`); await sleep(1500); log('access', await body()); await shot('dl-12-access'); });
+      await step('storage', async () => { await js(`DL.show('storage')`); await sleep(1500); log('storage', await body()); await shot('dl-13-storage'); });
+      await step('speed', async () => { await js(`DL.show('speed')`); await sleep(300); await js(`document.getElementById('sp-run').click()`); await sleep(1500); log('speed', await body());
+        await js(`document.getElementById('sp-fps').click()`); await sleep(800); await shot('dl-14-speed'); await js(`document.getElementById('sp-fps').click()`); });
+      await step('scripts', async () => { await js(`DL.show('scripts')`); await sleep(800); await js(`document.querySelector('.sc-item').click()`); await sleep(1200); log('scripts', await body()); await shot('dl-15-scripts');
+        await js(`document.getElementById('sc-pause').click()`); await sleep(1200); log('paused', await js(`DL.body.querySelector('#sc-pause').innerText`)); await js(`document.getElementById('sc-pause').click()`); await sleep(600); });
+      await step('home', async () => { await js(`DL.show('home')`); await sleep(400); log('missions', await js(`document.querySelector('.dl-missions h3').innerText`)); await shot('dl-16-home-missions'); });
+      await step('close', async () => { await js(`shortcut({key:'f12'})`); await sleep(600); log('closed', await js('DL.open'), await js(`document.getElementById('views').getBoundingClientRect().height`)); });
+      await step('json viewer', async () => { await js(`state.active.navigate('https://news.example.org/data.json')`); await sleep(2000); await shot('dl-17-json'); const wc = webContents.fromId(await js('state.active.wcId')); log('json', await wc.executeJavaScript(`document.body.innerText.slice(0,200)`)); });
+      await step('playground', async () => {
+        await js(`newTab({url:'noam://playground/'})`); await sleep(3000);
+        const wc = webContents.fromId(await js('state.active.wcId'));
+        const frames = () => wc.mainFrame.framesInSubtree.filter((f) => f !== wc.mainFrame);
+        log('pg frames', frames().map((f) => f.url));
+        const f = frames()[0];
+        log('pg preview', f && await f.executeJavaScript(`document.querySelector('h1') && document.querySelector('h1').textContent`));
+        log('pg sandbox', f && await f.executeJavaScript(`(() => { try { return parent.noam ? 'LEAK: noam api visible' : 'no api'; } catch (e) { return 'blocked: ' + e.name; } })()`));
+        await f.executeJavaScript(`document.getElementById('btn').click()`); await sleep(500);
+        log('pg console', await wc.executeJavaScript(`document.getElementById('conlist').innerText`));
+        await wc.executeJavaScript(`(() => { document.querySelector('[data-l=js]').click(); const c = document.getElementById('code'); c.value += '\\nconsole.log(scroe);'; c.dispatchEvent(new Event('input')); })()`); await sleep(1800);
+        log('pg error', await wc.executeJavaScript(`document.getElementById('conlist').innerText`));
+        await shot('dl-18-playground');
+        await wc.executeJavaScript(`document.getElementById('new').click()`); await sleep(500); await shot('dl-19-playground-new');
+        await wc.executeJavaScript(`document.querySelectorAll('[data-t]')[2].click()`); await sleep(2000); await shot('dl-20-playground-ball');
+        log('pg projects', await wc.executeJavaScript(`JSON.parse(localStorage.getItem('pg-projects')).map(p=>p.name)`));
+      });
+      await step('context explore', async () => {
+        await js(`activate(state.tabs[0])`); await sleep(500); await js(`state.active.navigate('https://news.example.org/')`); await sleep(2000);
+        const wcId = await js('state.active.wcId'); const wc = webContents.fromId(wcId);
+        const pos = await wc.executeJavaScript(`(() => { const r = document.querySelector('#intro').getBoundingClientRect(); return [r.left + 30, r.top + 8]; })()`);
+        ui.send('devlab:explore-at', { wcId, x: pos[0], y: pos[1] }); await sleep(3000);
+        log('context explore', await js(`document.querySelector('.ex-title') && document.querySelector('.ex-title').innerText`));
+        await js(`document.getElementById('ex-parent').click()`); await sleep(800); log('parent now', await js(`document.querySelector('.ex-title').innerText.split('\\n')[0]`));
+        await shot('dl-21-explore-context');
+      });
+      await step('3d view', async () => {
+        await js(`state.active.navigate('https://news.example.org/')`); await sleep(2500);
+        await js(`DL.show('3d')`); await sleep(1200);
+        await js(`document.getElementById('d3-go').click()`); await sleep(1800);
+        log('3d info', await js(`document.querySelector('.d3 .muted') && document.querySelector('.d3 .muted').textContent`));
+        log('3d overlay in page', await (await tabWc()).executeJavaScript(`!!document.getElementById('__noam3d')`));
+        await shot('dl-22-3d');
+        await js(`document.querySelector('[data-v="side"]').click()`); await sleep(900); await shot('dl-23-3d-side');
+        await js(`document.querySelector('#d3-col').value='type'; document.querySelector('#d3-col').dispatchEvent(new Event('change'))`); await sleep(1500); await shot('dl-24-3d-type');
+        await js(`document.getElementById('d3-go').click()`); await sleep(800);
+        log('3d removed', !(await (await tabWc()).executeJavaScript(`!!document.getElementById('__noam3d')`)));
+      });
+      log('DONE'); setTimeout(() => app.exit(0), 300);
+    });
+    return;
+  }
   if (process.env.NOAM_TEST_ZL) {
     const srv = require('https').createServer({ key: fs.readFileSync('/tmp/claude-0/k.pem'), cert: fs.readFileSync('/tmp/claude-0/c.pem') }, (req, res) => {
       res.writeHead(200, { 'content-type': 'application/json' });
