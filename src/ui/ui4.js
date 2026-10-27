@@ -17,7 +17,7 @@
     }
     if (b.schedule === 'sunset' && window.NoamZmanim) {
       const c = (state.settings.widgets || {}).city || { lat: 31.769, lon: 35.2163, tz: 'Asia/Jerusalem' };
-      const z = NoamZmanim.zmanim(c, now);
+      const z = NoamZmanim.zmanim(c, now, { elevation: !!(state.settings.widgets || {}).elevation });
       if (z.polar) return { on: false, since: 0 };
       const start = new Date(+z.sunset - (+b.sunsetOffset || 0) * 60000);
       const on = now >= start || now < z.sunrise;

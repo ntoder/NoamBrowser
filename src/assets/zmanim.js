@@ -36,11 +36,15 @@
     return date;
   }
 
-  function zmanim({ lat, lon, tz }, date = new Date()) {
+  // opts.elevation: true = sunrise/sunset as seen from the place's height (city.elevation, metres);
+  // default false = sea level, the same as timeanddate.com and most printed calendars.
+  function zmanim({ lat, lon, tz, elevation = 0 }, date = new Date(), opts = {}) {
     const { y, m, d } = ymdIn(tz, date);
     const noonGuess = 12 - lon / 15;
-    const sr = at(y, m, d, sunUTC(y, m, d, lat, lon, 90.833, true), noonGuess);
-    const ss = at(y, m, d, sunUTC(y, m, d, lat, lon, 90.833, false), noonGuess);
+    const h = opts.elevation && elevation > 0 ? elevation : 0;
+    const horizon = 90.833 + 0.0347 * Math.sqrt(h); // dip of the horizon from height h
+    const sr = at(y, m, d, sunUTC(y, m, d, lat, lon, horizon, true), noonGuess);
+    const ss = at(y, m, d, sunUTC(y, m, d, lat, lon, horizon, false), noonGuess);
     const alot = at(y, m, d, sunUTC(y, m, d, lat, lon, 106.1, true), noonGuess);
     const misheyakir = at(y, m, d, sunUTC(y, m, d, lat, lon, 101.0, true), noonGuess);
     const tzeit = at(y, m, d, sunUTC(y, m, d, lat, lon, 98.5, false), noonGuess);

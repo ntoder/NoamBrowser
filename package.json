@@ -1,6 +1,6 @@
 {
   "name": "noambrowser",
-  "version": "2.2.0",
+  "version": "2.2.1",
   "description": "NoamBrowser — a private web browser with built-in ad blocking and VPN",
   "main": "src/main.js",
   "scripts": {
@@ -157,7 +157,7 @@
           ]
         }
       ],
-      "icon": "build/icon.png",
+      "icon": "build/linux-icons",
       "category": "Network;WebBrowser",
       "executableName": "noambrowser",
       "maintainer": "Noam <noam@noambrowser.local>",
@@ -169,7 +169,7 @@
       ],
       "desktop": {
         "entry": {
-          "StartupWMClass": "NoamBrowser",
+          "StartupWMClass": "noambrowser",
           "Keywords": "browser;web;internet;privacy;vpn;"
         }
       },
@@ -194,5 +194,6 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/ntoder/NoamBrowser.git"
-  }
+  },
+  "desktopName": "noambrowser.desktop"
 }

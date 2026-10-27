@@ -20,7 +20,7 @@ module.exports = function setupZmanimAlerts({ settings, pageHandle, windows }) {
     const c = city(); const out = [];
     for (const dayOffset of [0, 1]) {
       const d = new Date(+from + dayOffset * 86400000);
-      const z = Z.zmanim(c, d); if (z.polar) continue;
+      const z = Z.zmanim(c, d, { elevation: !!(settings.get('widgets') || {}).elevation }); if (z.polar) continue;
       const fri = new Intl.DateTimeFormat('en-US', { weekday: 'short', timeZone: c.tz }).format(d) === 'Fri';
       const candle = (settings.get('widgets') || {}).candle || 40;
       for (const [k, name] of ZMANIM) {

@@ -17,6 +17,10 @@
     $$('[data-w]').forEach((c) => (c.checked = !!w[c.dataset.w]));
     $('#w-candle').value = String(w.candle || 18);
     $('#city-now').textContent = [city().name, city().country].filter(Boolean).join(', ');
+    $('#w-elev').checked = !!w.elevation;
+    const P = (window.NoamPlaces || {}).PLACES || [];
+    if (!$('#city-preset').options.length) $('#city-preset').innerHTML = '<option value="">Choose a city…</option><optgroup label="Israel">' + P.filter((p) => p.country).map((p) => `<option value="${esc(p.name)}">${esc(p.name)}${p.he ? ' · ' + esc(p.he) : ''}</option>`).join('') + '</optgroup><optgroup label="Abroad">' + P.filter((p) => !p.country).map((p) => `<option value="${esc(p.name)}">${esc(p.name)}</option>`).join('') + '</optgroup>';
+    $('#city-preset').value = P.some((p) => p.name === city().name) ? city().name : '';
     $('#wx-units').textContent = w.units === 'f' ? '°F' : '°C';
     tickClock(); if (w.weather) loadWeather(); if (w.zmanim) renderZmanim(); if (w.todo) loadTodos();
   }
@@ -28,7 +32,7 @@
     $('#clock-t').textContent = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     $('#clock-d').textContent = now.toLocaleDateString([], { weekday: 'long', day: 'numeric', month: 'long' });
     if (Z) {
-      const c = city(); const z = Z.zmanim(c, now);
+      const c = city(); const z = Z.zmanim(c, now, { elevation: !!W().elevation });
       const afterSunset = z.sunset && now > z.sunset;
       const hd = Z.hebrewDate(afterSunset ? new Date(+now + 86400000) : now, c.tz);
       $('#clock-hd').innerHTML = `<b dir="rtl">${esc(hd.he)}</b> · ${esc(hd.en)}${afterSunset ? ' (after sunset)' : ''}`;
@@ -65,7 +69,7 @@
     if (!Z) return;
     const c = city(); const now = new Date();
     $('#zm-place').textContent = c.name;
-    const z = Z.zmanim(c, now);
+    const z = Z.zmanim(c, now, { elevation: !!W().elevation });
     if (z.polar) { $('#zm-body').innerHTML = '<span class="muted">The sun doesn’t rise or set here today.</span>'; return; }
     const fri = new Intl.DateTimeFormat('en-US', { weekday: 'short', timeZone: c.tz }).format(now) === 'Fri';
     const sat = new Intl.DateTimeFormat('en-US', { weekday: 'short', timeZone: c.tz }).format(now) === 'Sat';
@@ -89,7 +93,7 @@
     $('#zm-body').innerHTML = `<div class="heb" dir="rtl">${esc(hd.he)}</div><div class="sub">${esc(hd.en)}${candles && !fri ? ' · Candles ' + esc(new Date(candles.date).toLocaleDateString([], { weekday: 'short' })) + ' ' + esc(tfmt(new Date(candles.date), c.tz)) : ''}</div>`
       + tags.map((t) => `<span class="tag">${esc(t)}</span>`).join('')
       + `<ul>${rows.map(([n, t]) => `<li class="${t === (next && next[1]) ? 'next' : t && t < now ? 'past' : ''}"><span>${esc(n)}</span><b>${esc(tfmt(t, c.tz))}</b></li>`).join('')}</ul>`
-      + `<div class="note">Calculated for sea level (GRA). Check your local luach for halachic use.</div>`;
+      + `<div class="note">${W().elevation ? `Sunrise &amp; sunset at ${Math.round(c.elevation || 0)} m elevation` : 'Sea-level times (same as timeanddate.com)'} · GRA. Check your local luach for halachic use.</div>`;
   }
   async function loadJewish() {
     const c = city();
@@ -119,6 +123,9 @@
   // ---------- customize
   $('#w-edit').onclick = () => { const c = $('#w-cfg'); c.hidden = !c.hidden; $('#w-edit').textContent = c.hidden ? 'Customize widgets' : 'Done'; };
   $$('[data-w]').forEach((c) => (c.onchange = () => save({ [c.dataset.w]: c.checked })));
+  $('#w-elev').onchange = (e) => save({ elevation: e.target.checked });
+  $('#city-preset').onchange = (e) => { const p = ((window.NoamPlaces || {}).PLACES || []).find((x) => x.name === e.target.value); if (p) save({ city: { ...p } }).then(loadJewish); };
+  $('#zm-place').onclick = () => { $('#w-cfg').hidden = false; $('#w-edit').textContent = 'Done'; $('#w-cfg').scrollIntoView({ behavior: 'smooth', block: 'center' }); };
   $('#w-candle').onchange = (e) => { save({ candle: +e.target.value }); loadJewish(); };
   let geoT;
   $('#city-q').oninput = (e) => {

@@ -141,7 +141,7 @@
   const links = $$('#nav a');
   const mark = () => {
     let cur = 'general';
-    for (const sec of $$('section')) if (sec.getBoundingClientRect().top < 140) cur = sec.id;
+    for (const sec of $$('section, #zmanim')) if (sec.getBoundingClientRect().top < 140) cur = sec.id;
     links.forEach((a) => a.classList.toggle('on', a.getAttribute('href') === '#' + cur));
   };
   addEventListener('scroll', mark, { passive: true });

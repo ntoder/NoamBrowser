@@ -128,6 +128,8 @@
   .todo li button:hover { color: var(--danger); }
   .todo .empty { color: var(--muted); font-size: 13px; padding: 8px 2px; }
   .w-cfg { margin-top: 12px; }
+  .zm-place { cursor: pointer; } .zm-place:hover { text-decoration: underline; }
+  #city-preset { font: inherit; font-size: 13px; padding: 5px 8px; border-radius: 9px; border: 1px solid var(--line); background: var(--surface); color: var(--text); max-width: 200px; }
   .w-cfg .row { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; font-size: 13px; }
   .w-cfg label { display: flex; gap: 6px; align-items: center; }
   .w-cfg input[type=checkbox] { accent-color: var(--accent); }
@@ -167,7 +169,7 @@
     <div class="w-grid" id="wgrid">
       <div class="w clock" id="w-clock" hidden><div class="t" id="clock-t"></div><div class="d" id="clock-d"></div><div class="hd" id="clock-hd"></div></div>
       <div class="w weather" id="w-weather" hidden><h3><span id="wx-place">Weather</span><button id="wx-units" title="Switch units">°C</button></h3><div id="wx-body" class="muted">Loading…</div></div>
-      <div class="w zm" id="w-zmanim" hidden><h3><span>Zmanim</span><span id="zm-place"></span></h3><div id="zm-body"></div></div>
+      <div class="w zm" id="w-zmanim" hidden><h3><span>Zmanim</span><span id="zm-place" class="zm-place" title="Change location"></span></h3><div id="zm-body"></div></div>
       <div class="w todo" id="w-todo" hidden><h3><span>To-do</span><button id="todo-clear" title="Remove finished items">Clear done</button></h3>
         <form id="todo-f"><input type="text" id="todo-in" placeholder="Add a task" maxlength="300"></form><ul id="todo-list"></ul></div>
     </div>
@@ -180,13 +182,15 @@
         <label><input type="checkbox" data-w="todo"> To-do list</label>
         <label>Candle lighting <select id="w-candle"><option value="18">18 min</option><option value="20">20 min</option><option value="22">22 min</option><option value="30">30 min</option><option value="40">40 min (Jerusalem)</option></select></label>
       </div>
-      <div class="city"><span>Location: <b id="city-now"></b></span><input id="city-q" placeholder="Search a city" autocomplete="off"><ul id="city-list" hidden></ul></div>
+      <div class="city"><span>Location: <b id="city-now"></b></span><select id="city-preset" title="Choose a city"></select><input id="city-q" placeholder="…or search any city" autocomplete="off"><ul id="city-list" hidden></ul></div>
+      <div class="row" style="margin-top:8px"><label><input type="checkbox" id="w-elev"> Use elevation for sunrise &amp; sunset</label><a href="noam://settings/#zmanim" style="margin-left:auto">More zmanim settings</a></div>
     </div>
   </section>
   <footer><a href="noam://settings/">Settings</a> &nbsp; <a href="noam://history/">History</a> &nbsp; <a href="noam://bookmarks/">Bookmarks</a></footer>
 <script src="assets/apply-theme.js"></script>
 <script src="common.js"></script>
 <script src="assets/zmanim.js"></script>
+<script src="assets/places.js"></script>
 <script src="newtab.js"></script>
 <script src="widgets.js"></script>
 </body>

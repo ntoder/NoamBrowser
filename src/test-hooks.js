@@ -287,6 +287,42 @@ fetch('/player').then(r=>r.text()).then(t=>{window.r3=Object.keys(JSON.parse(t))
     });
     return;
   }
+  if (process.env.NOAM_TEST_ZL) {
+    const srv = require('https').createServer({ key: fs.readFileSync('/tmp/claude-0/k.pem'), cert: fs.readFileSync('/tmp/claude-0/c.pem') }, (req, res) => {
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({ results: [{ name: 'Kiryat Sefer', admin1: 'Central', country: 'Israel', latitude: 31.933, longitude: 35.041, timezone: 'Asia/Jerusalem', elevation: 320 }, { name: 'Kiryat Gat', admin1: 'Southern', country: 'Israel', latitude: 31.61, longitude: 34.76, timezone: 'Asia/Jerusalem', elevation: 140 }] }));
+    });
+    srv.listen(443, '127.0.0.1', async () => {
+      const win = [...windows][0]; const ui = win.webContents; const js = (c) => ui.executeJavaScript(c);
+      const shot = async (n) => { const img = await win.webContents.capturePage(); fs.writeFileSync(path.join(OUT, n + '.png'), img.toPNG()); };
+      await sleep(3000);
+      await js(`state.active.navigate('noam://settings/#zmanim')`); await sleep(2500);
+      const wc = webContents.fromId(await js('state.active.wcId')); const p = (c) => wc.executeJavaScript(c);
+      log('now', await p(`document.getElementById('zl-now').textContent`), await p(`document.getElementById('zl-today').innerText.replace(/\\s+/g,' ')`));
+      log('nav on', await p(`document.querySelector('#nav a.on')?.textContent`));
+      await shot('zl-01');
+      await p(`(() => { const s=document.getElementById('zl-preset'); s.value='Beit Shemesh'; s.dispatchEvent(new Event('change')); })()`); await sleep(800);
+      log('beit shemesh', await p(`document.getElementById('zl-now').textContent`), await p(`document.getElementById('zl-today').innerText.replace(/\\s+/g,' ')`));
+      await p(`document.getElementById('zl-elev-on').click()`); await sleep(800);
+      log('with elevation', settings.get('widgets').elevation, await p(`document.getElementById('zl-today').innerText.replace(/\\s+/g,' ')`));
+      await p(`(() => { const q=document.getElementById('zl-q'); q.value='Kiryat'; q.dispatchEvent(new Event('input')); })()`); await sleep(1500);
+      log('search', await p(`document.getElementById('zl-list').innerText.replace(/\\n/g,' | ')`));
+      await shot('zl-02-search');
+      await p(`document.querySelector('#zl-list li[data-i]').click()`); await sleep(800);
+      log('picked', JSON.stringify(settings.get('widgets').city));
+      await p(`(() => { document.querySelector('.zl-manual').open=true; document.getElementById('zl-name').value='My shul'; document.getElementById('zl-lat').value='31.7166'; document.getElementById('zl-lon').value='34.993'; document.getElementById('zl-elev').value='340'; document.getElementById('zl-tz').value='Asia/Jerusalem'; document.getElementById('zl-save').click(); })()`); await sleep(800);
+      log('manual', JSON.stringify(settings.get('widgets').city));
+      await js(`state.active.navigate('noam://newtab/')`); await sleep(2500);
+      const wc2 = webContents.fromId(await js('state.active.wcId'));
+      await wc2.executeJavaScript(`document.getElementById('zm-place').click()`); await sleep(800);
+      log('newtab place', await wc2.executeJavaScript(`document.getElementById('zm-place').textContent + ' | ' + document.querySelector('#zm-body .note').textContent`));
+      await wc2.executeJavaScript(`(() => { const s=document.getElementById('city-preset'); s.value='Jerusalem'; s.dispatchEvent(new Event('change')); })()`); await sleep(1200);
+      log('newtab after preset', JSON.stringify(settings.get('widgets').city.name));
+      await shot('zl-03-newtab');
+      log('DONE'); setTimeout(() => app.exit(0), 300);
+    });
+    return;
+  }
   if (process.env.NOAM_TEST_ST) {
     const srv = require('https').createServer({ key: fs.readFileSync('/tmp/claude-0/k.pem'), cert: fs.readFileSync('/tmp/claude-0/c.pem') }, (req, res) => { res.writeHead(200, { 'content-type': 'text/html' }); res.end('<title>' + req.headers.host + '</title><h1>' + req.headers.host + '</h1>'); });
     srv.listen(443, '127.0.0.1', async () => {

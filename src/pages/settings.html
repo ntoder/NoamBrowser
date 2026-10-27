@@ -78,6 +78,18 @@
   .za-list { display: grid; grid-template-columns: repeat(2, minmax(150px, auto)); gap: 6px 16px; font-size: 13px; font-weight: 600; }
   .za-list label { display: flex; gap: 7px; align-items: center; cursor: pointer; white-space: nowrap; }
   .za-list input { accent-color: var(--accent); width: 16px; height: 16px; }
+  .zl-pick select { min-width: 230px; }
+  .zl-search { position: relative; } .zl-search input { width: 230px; }
+  .zl-search ul { position: absolute; right: 0; top: 100%; margin: 4px 0 0; padding: 4px; list-style: none; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 12px 30px rgba(0,0,0,.18); width: 300px; z-index: 5; max-height: 260px; overflow: auto; }
+  .zl-search li { padding: 8px 10px; border-radius: 8px; cursor: pointer; font-size: 13px; } .zl-search li:hover { background: var(--surface-2); }
+  .zl-search li span { color: var(--muted); }
+  .zl-manual { padding: 10px 18px 14px; border-top: 1px solid var(--line); } .zl-manual summary { cursor: pointer; font-weight: 700; font-size: 13.5px; padding: 6px 0; }
+  .zl-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 8px; align-items: end; } .zl-grid label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; font-weight: 700; color: var(--muted); } .zl-grid .field { width: 100%; box-sizing: border-box; }
+  .zl-today { padding: 14px 18px; border-top: 1px solid var(--line); }
+  .zl-today .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; margin-top: 8px; }
+  .zl-today .z { background: var(--surface-2); border-radius: 10px; padding: 8px 10px; font-size: 12px; color: var(--muted); font-weight: 650; } .zl-today .z b { display: block; color: var(--text); font-size: 15px; font-variant-numeric: tabular-nums; }
+  .zl-today .z.next { outline: 2px solid var(--accent); }
+  .zl-today .hd { display: flex; justify-content: space-between; align-items: center; font-weight: 750; font-size: 13.5px; gap: 10px; flex-wrap: wrap; }
   kbd { font: 700 11px var(--font); padding: 1px 5px; border-radius: 5px; background: var(--surface-2); border: 1px solid var(--line); }
 </style></head>
 <body>
@@ -89,6 +101,7 @@
     <a href="#shields">Shields</a>
     <a href="#vpn">VPN</a>
     <a href="#tools">Tools &amp; gestures</a>
+    <a href="#zmanim">Zmanim</a>
     <a href="#passwords">Passwords</a>
     <a href="#privacy">Privacy &amp; data</a>
     <a href="#translate">Translate</a>
@@ -201,7 +214,20 @@
       <div class="card">
         <div class="item"><div class="txt"><b>See how long you spend on each site</b><span>Daily and weekly totals, top sites and daily limits. Stays on this computer; private tabs are never counted.</span></div><a class="btn primary" href="noam://screentime/">Open screen time</a></div>
       </div>
-      <h2 style="margin-top:26px;font-size:16px">Zmanim reminders</h2>
+      <h2 style="margin-top:26px;font-size:16px" id="zmanim">Zmanim — location &amp; reminders</h2>
+      <div class="card">
+        <div class="item"><div class="txt"><b>Location</b><span id="zl-now"></span></div>
+          <span class="zl-pick"><select class="field" id="zl-preset"></select></span></div>
+        <div class="item"><div class="txt"><b>Search for another place</b><span>Any city in the world (needs internet).</span></div>
+          <span class="zl-search"><input class="field" id="zl-q" placeholder="Type a city name" autocomplete="off"><ul id="zl-list" hidden></ul></span></div>
+        <details class="zl-manual"><summary>Enter exact coordinates</summary>
+          <div class="zl-grid"><label>Name <input class="field" id="zl-name" placeholder="My shul"></label><label>Latitude <input class="field" id="zl-lat" placeholder="31.7690" inputmode="decimal"></label><label>Longitude <input class="field" id="zl-lon" placeholder="35.2163" inputmode="decimal"></label><label>Elevation (m) <input class="field" id="zl-elev" placeholder="0" inputmode="decimal"></label><label>Time zone <select class="field" id="zl-tz"></select></label><button class="btn primary" id="zl-save">Use this place</button></div>
+          <p class="note" style="margin:6px 0 0">Tip: in Google Maps, right-click a spot and click the numbers at the top to copy its latitude and longitude.</p>
+        </details>
+        <div class="item"><div class="txt"><b>Use elevation for sunrise &amp; sunset</b><span>Off: sea-level times — the same as timeanddate.com and most calendars. On: the visible sunrise/sunset from the place's height (Jerusalem is about 750 m up, which makes sunrise ~5 minutes earlier).</span></div><button class="switch" id="zl-elev-on" role="switch"></button></div>
+        <div class="zl-today" id="zl-today"></div>
+      </div>
+      <h2 style="margin-top:18px;font-size:15px">Reminders</h2>
       <div class="card">
         <div class="item"><div class="txt"><b>Remind me before zmanim</b><span id="za-note">Shows a notification on your computer while NoamBrowser is open.</span></div><button class="switch" id="za-on" role="switch"></button></div>
         <div class="item"><div class="txt"><b>How long before</b></div>
@@ -313,6 +339,8 @@
 <script src="common.js"></script>
 <script src="settings.js"></script>
 <script src="settings2.js"></script>
+<script src="assets/zmanim.js"></script>
+<script src="assets/places.js"></script>
 <script src="settings3.js"></script>
 </body>
 </html>

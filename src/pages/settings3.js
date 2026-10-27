@@ -63,6 +63,49 @@
     blPreview();
   }
 
+  // ---- zmanim location
+  const Z = window.NoamZmanim, P = (window.NoamPlaces || {}).PLACES || [], TAD = (window.NoamPlaces || {}).TIMEANDDATE || {};
+  const city = () => (s.widgets && s.widgets.city) || P[0];
+  const setCity = async (c) => { s = await noam.invoke('settings:set', { widgets: { ...(s.widgets || {}), city: c } }); render(); };
+  $('#zl-preset').innerHTML = '<option value="">— choose a city —</option><optgroup label="Israel">' + P.filter((p) => p.country).map((p) => `<option value="${esc(p.name)}">${esc(p.name)}${p.he ? ' · ' + esc(p.he) : ''}</option>`).join('') + '</optgroup><optgroup label="Abroad">' + P.filter((p) => !p.country).map((p) => `<option value="${esc(p.name)}">${esc(p.name)}</option>`).join('') + '</optgroup>';
+  $('#zl-preset').onchange = (e) => { const p = P.find((x) => x.name === e.target.value); if (p) setCity({ ...p }); };
+  const zones = (() => { try { return Intl.supportedValuesOf('timeZone'); } catch { return ['Asia/Jerusalem', 'Europe/London', 'America/New_York']; } })();
+  $('#zl-tz').innerHTML = zones.map((z) => `<option>${esc(z)}</option>`).join('');
+  $('#zl-save').onclick = () => {
+    const lat = parseFloat($('#zl-lat').value), lon = parseFloat($('#zl-lon').value);
+    if (!(Math.abs(lat) <= 90 && Math.abs(lon) <= 180)) { $('#zl-lat').focus(); $('#zl-now').textContent = 'Those coordinates don’t look right — latitude is −90 to 90, longitude −180 to 180.'; return; }
+    setCity({ name: $('#zl-name').value.trim() || `${lat.toFixed(3)}, ${lon.toFixed(3)}`, lat, lon, elevation: parseFloat($('#zl-elev').value) || 0, tz: $('#zl-tz').value, country: '' });
+    $('.zl-manual').open = false;
+  };
+  $('#zl-elev-on').onclick = () => noam.invoke('settings:set', { widgets: { ...(s.widgets || {}), elevation: !(s.widgets || {}).elevation } }).then((ns) => { s = ns; render(); });
+  let zlT;
+  $('#zl-q').oninput = (e) => {
+    clearTimeout(zlT); const q = e.target.value.trim(); const ul = $('#zl-list');
+    if (q.length < 2) { ul.hidden = true; return; }
+    zlT = setTimeout(async () => {
+      const local = P.filter((p) => p.name.toLowerCase().includes(q.toLowerCase()) || (p.he && p.he.includes(q))).map((p) => ({ ...p, admin: '' }));
+      let res = []; try { res = await noam.invoke('widgets:geocode', q); } catch {}
+      const all = [...local, ...res.filter((r) => !local.some((l) => Math.abs(l.lat - r.lat) < 0.02 && Math.abs(l.lon - r.lon) < 0.02))].slice(0, 10);
+      ul.innerHTML = all.length ? all.map((r, i) => `<li data-i="${i}">${esc(r.name)}${r.he ? ' · ' + esc(r.he) : ''}<span>${esc([r.admin, r.country].filter(Boolean).join(', ') ? ' — ' + [r.admin, r.country].filter(Boolean).join(', ') : '')}</span></li>`).join('') : '<li><span>No places found (or you’re offline)</span></li>';
+      ul.hidden = false;
+      $$('#zl-list li[data-i]').forEach((li) => (li.onclick = () => { ul.hidden = true; $('#zl-q').value = ''; setCity(all[+li.dataset.i]); }));
+    }, 300);
+  };
+  function renderZL() {
+    const c = city(); const elev = !!(s.widgets || {}).elevation;
+    $('#zl-now').textContent = `${c.name}${c.country ? ', ' + c.country : ''} · ${(+c.lat).toFixed(4)}, ${(+c.lon).toFixed(4)} · ${Math.round(c.elevation || 0)} m · ${c.tz}`;
+    $('#zl-preset').value = P.some((p) => p.name === c.name) ? c.name : '';
+    setSw($('#zl-elev-on'), elev);
+    if (!$('#zl-lat').value) { $('#zl-lat').placeholder = String(c.lat); $('#zl-lon').placeholder = String(c.lon); $('#zl-tz').value = c.tz; }
+    if (!Z) return;
+    const now = new Date(); const z = Z.zmanim(c, now, { elevation: elev });
+    const f = (t) => t ? t.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', timeZone: c.tz }) : '—';
+    const rows = [['Alot HaShachar', z.alot], ['Sunrise', z.sunrise], ['Latest Shema', z.shma], ['Latest Shacharit', z.tefila], ['Chatzot', z.chatzot], ['Mincha Gedola', z.minchaGedola], ['Plag HaMincha', z.plag], ['Sunset', z.sunset], ['Tzeit', z.tzeit]];
+    const next = rows.find(([, t]) => t && t > now);
+    const link = TAD[c.name] ? `<a href="${TAD[c.name]}">Compare with timeanddate.com ↗</a>` : '';
+    $('#zl-today').innerHTML = z.polar ? '<span class="note">The sun doesn’t rise or set here today.</span>' : `<div class="hd"><span>Today in ${esc(c.name)} ${elev ? '(with elevation)' : '(sea level)'}</span>${link}</div><div class="grid">${rows.map(([n, t]) => `<div class="z${next && t === next[1] ? ' next' : ''}">${esc(n)}<b>${esc(f(t))}</b></div>`).join('')}</div>`;
+  }
+
   // ---- zmanim reminders
   const ZA = () => s.zmanimAlerts || {};
   $('#za-on').onclick = () => save({ zmanimAlerts: { enabled: !ZA().enabled } });
@@ -85,7 +128,7 @@
   }
 
   function render() {
-    renderBL(); renderZA();
+    renderBL(); renderZA(); renderZL();
     $$('[data-g]').forEach((el) => setSw(el, (s.gestures || {})[el.dataset.g]));
     $$('[data-m]').forEach((el) => setSw(el, (s.media || {})[el.dataset.m]));
     $$('[data-dl]').forEach((el) => setSw(el, (s.downloads || {})[el.dataset.dl]));

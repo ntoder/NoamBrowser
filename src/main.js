@@ -90,7 +90,7 @@ const settings = new Store(userData, 'settings', {
   topSitesHidden: {},
   gestures: { enabled: true, trail: true },
   media: { speedKeys: true, speedOverlay: true },
-  widgets: { clock: true, weather: true, zmanim: true, todo: true, units: 'c', candle: 40, city: { name: 'Jerusalem', admin: 'Jerusalem', country: 'Israel', lat: 31.769, lon: 35.2163, tz: 'Asia/Jerusalem', elevation: 786 } },
+  widgets: { clock: true, weather: true, zmanim: true, todo: true, units: 'c', candle: 40, city: { name: 'Jerusalem', admin: 'Jerusalem', country: 'Israel', lat: 31.769, lon: 35.2163, tz: 'Asia/Jerusalem', elevation: 754 }, elevation: false },
   sidePanel: { show: true, width: 380, panels: [
     { id: 'notes', kind: 'notes', name: 'Notes' },
     { id: 'reading', kind: 'reading', name: 'Reading list' },
