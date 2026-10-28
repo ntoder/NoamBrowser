@@ -45,20 +45,22 @@ module.exports = function setupScreenTime({ settings, userData, uiHandle, pageHa
     return keyOf(wc.getURL());
   }
 
+  const tickListeners = [], activeListeners = [];
   function tick() {
     const now = Date.now(); const dt = Math.min(15, (now - last) / 1000); last = now;
-    if (!cfg().enabled || dt <= 0) return;
+    if (dt <= 0) return;
     const idle = powerMonitor.getSystemIdleTime() >= (cfg().idleMinutes || 2) * 60;
     const focused = BrowserWindow.getFocusedWindow();
-    const counted = new Set();
+    const counted = new Set(); const seen = [];
     for (const w of windows) {
       if (w.isDestroyed()) continue;
-      const a = activeByWin.get(w.webContents.id); if (!a) continue;
+      const a = activeByWin.get(w.webContents.id); if (!a || !a.wcId) continue;
       const wc = webContents.fromId(a.wcId); const key = countable(wc); if (!key || counted.has(key)) continue;
       const audible = wc.isCurrentlyAudible();
       const looking = w === focused && !w.isMinimized() && !idle;
       if (!looking && !audible) continue;
-      counted.add(key);
+      counted.add(key); seen.push({ key, wcId: a.wcId, url: wc.getURL(), looking, audible });
+      if (!cfg().enabled) continue;
       const day = dayKey(); const days = store.get('days');
       days[day] = days[day] || {};
       days[day][key] = (days[day][key] || 0) + dt;
@@ -67,6 +69,7 @@ module.exports = function setupScreenTime({ settings, userData, uiHandle, pageHa
       store.save();
       checkLimit(key, days[day][key]);
     }
+    for (const fn of tickListeners) try { fn(seen, dt, idle, !!focused); } catch (e) { console.error(e); }
   }
   function checkLimit(key, sec) {
     const lim = +cfg().limits[key]; if (!lim) return;
@@ -81,7 +84,12 @@ module.exports = function setupScreenTime({ settings, userData, uiHandle, pageHa
   setInterval(tick, 5000);
   if (process.env.NOAM_TEST) require('electron').app.on('noam-test-seed-screentime', (days) => { const cur = store.get('days'); for (const [d, m] of Object.entries(days)) cur[d] = { ...m, ...(cur[d] || {}) }; store.save(); });
 
-  uiHandle('screentime:active', (e, { wcId, favicon }) => { activeByWin.set(e.sender.id, { wcId, favicon }); return true; });
+  uiHandle('screentime:active', (e, { wcId, favicon }) => {
+    const prev = activeByWin.get(e.sender.id);
+    activeByWin.set(e.sender.id, { wcId, favicon });
+    if (!prev || prev.wcId !== wcId) for (const fn of activeListeners) try { fn(wcId, prev && prev.wcId); } catch {}
+    return true;
+  });
 
   function report(range) {
     const days = store.get('days');
@@ -115,6 +123,6 @@ module.exports = function setupScreenTime({ settings, userData, uiHandle, pageHa
     for (const [d, m] of Object.entries(store.get('days')).sort()) for (const [k, v] of Object.entries(m)) rows.push([d, k, Math.round(v / 6) / 10]);
     return rows.map((r) => r.map((x) => /[",\n]/.test(String(x)) ? `"${String(x).replace(/"/g, '""')}"` : x).join(',')).join('\n');
   });
-  return { tick, report, keyOf, store };
+  return { tick, report, keyOf, store, onTick: (fn) => tickListeners.push(fn), onActive: (fn) => activeListeners.push(fn) };
 };
 module.exports.keyOf = keyOf;

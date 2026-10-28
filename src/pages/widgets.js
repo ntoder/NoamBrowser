@@ -141,6 +141,25 @@
     }, 300);
   };
 
+  // ---------- focus timer chip
+  let fst = null, ftick = Date.now();
+  const ffmt = (ms) => { const t = Math.max(0, Math.round(ms / 1000)); return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`; };
+  function drawFocus() {
+    const el = $('#focus-chip'); if (!el || !fst) return;
+    el.hidden = false;
+    const left = fst.paused ? fst.left : fst.left - (Date.now() - ftick);
+    if (fst.phase === 'idle') {
+      el.innerHTML = `<span>🍅</span><span class="k">${fst.today ? `${fst.today}/${fst.goal} focus sessions today` : 'Ready to get something done?'}</span><button class="go" id="fc-go">Start focusing</button><button id="fc-stats">Progress</button>`;
+      $('#fc-go').onclick = async () => { fst = await noam.invoke('focus:start', {}); ftick = Date.now(); drawFocus(); };
+    } else {
+      el.innerHTML = `<span>${fst.phase === 'break' ? '☕' : '🍅'}</span><span class="t">${ffmt(left)}</span><span class="k">${fst.phase === 'break' ? 'Break time' : fst.paused ? 'Paused' : fst.task ? esc(fst.task) : 'Focusing'}</span><button id="fc-stats">Progress</button>`;
+    }
+    $('#fc-stats').onclick = () => (location.href = 'noam://focus/');
+  }
+  noam.invoke('focus:state').then((x) => { fst = x; ftick = Date.now(); drawFocus(); }).catch(() => {});
+  noam.on('focus', (x) => { const ch = !fst || x.phase !== fst.phase; fst = x; ftick = Date.now(); if (ch) drawFocus(); });
+  setInterval(() => { if (fst && fst.phase !== 'idle' && !fst.paused) { const t = $('#focus-chip .t'); if (t) t.textContent = ffmt(fst.left - (Date.now() - ftick)); } }, 1000);
+
   noam.on('settings', (ns) => { const before = JSON.stringify(W()); s = ns; if (JSON.stringify(W()) !== before) render(); });
   render();
   loadJewish();

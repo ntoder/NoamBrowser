@@ -127,7 +127,15 @@
       : 'Shows a notification on your computer while NoamBrowser is open.';
   }
 
+  // ---- dictionary
+  const DI = () => s.dictionary || {};
+  $('#dict-on').onclick = () => save({ dictionary: { ...DI(), enabled: DI().enabled === false } });
+  $('#dict-speak').onclick = () => save({ dictionary: { ...DI(), speak: DI().speak === false } });
+  $('#dict-to').onchange = (e) => save({ dictionary: { ...DI(), to: e.target.value } });
+  function renderDI() { setSw($('#dict-on'), DI().enabled !== false); setSw($('#dict-speak'), DI().speak !== false); $('#dict-to').value = DI().to || 'auto'; }
+
   function render() {
+    renderDI();
     renderBL(); renderZA(); renderZL();
     $$('[data-g]').forEach((el) => setSw(el, (s.gestures || {})[el.dataset.g]));
     $$('[data-m]').forEach((el) => setSw(el, (s.media || {})[el.dataset.m]));

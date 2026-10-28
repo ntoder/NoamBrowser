@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Price tracker</title><link rel="stylesheet" href="pages.css"><link rel="stylesheet" href="assets/themes.css">
+<style>
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; margin-top: 18px; }
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; overflow: hidden; display: flex; flex-direction: column; }
+  .img { height: 140px; background: var(--surface-2) center/contain no-repeat; border-bottom: 1px solid var(--line); position: relative; }
+  .img .badge { position: absolute; left: 10px; top: 10px; padding: 4px 10px; border-radius: 999px; font-weight: 800; font-size: 12px; background: var(--safe); color: #fff; }
+  .img .badge.up { background: var(--danger); }
+  .body { padding: 14px 16px; display: flex; flex-direction: column; gap: 8px; flex: 1; }
+  .t { font-weight: 750; font-size: 14px; line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; color: var(--text); text-decoration: none; }
+  .site { color: var(--muted); font-size: 12px; }
+  .price { display: flex; align-items: baseline; gap: 10px; } .price b { font-size: 26px; font-weight: 850; letter-spacing: -.02em; } .price span { color: var(--muted); font-size: 12.5px; }
+  svg.spark { width: 100%; height: 54px; display: block; }
+  .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; font-size: 12.5px; }
+  .row label { display: flex; gap: 6px; align-items: center; color: var(--muted); font-weight: 700; }
+  .row input { width: 90px; }
+  .meta { color: var(--muted); font-size: 11.5px; } .err { color: var(--danger); font-size: 12px; }
+  .acts { display: flex; gap: 6px; margin-top: auto; padding-top: 6px; } .acts .btn { flex: 1; justify-content: center; white-space: nowrap; padding: 0 8px; } .acts .btn:last-child { flex: none; }
+  .empty { text-align: center; color: var(--muted); padding: 50px 20px; } .empty .big { font-size: 54px; }
+  .lows { display: flex; gap: 14px; font-size: 12px; color: var(--muted); font-weight: 700; } .lows b { color: var(--text); }
+  .hit { background: color-mix(in srgb, var(--safe) 14%, transparent); color: var(--safe); border-radius: 10px; padding: 6px 10px; font-weight: 800; font-size: 12.5px; }
+</style></head>
+<body>
+<div class="page" style="max-width:1100px">
+  <div class="page-head"><h1>🏷️ Price tracker</h1><span style="display:flex;gap:8px;align-items:center"><select class="field" id="every" style="width:auto"></select><button class="btn" id="checkall">Check all now</button></span></div>
+  <p style="color:var(--muted);margin:-8px 0 0">On a product page, click 🏷️ in the address bar to start tracking. NoamBrowser checks the price in the background (while it’s open) and tells you when it drops.</p>
+  <div class="grid" id="grid"></div>
+</div>
+<script src="assets/apply-theme.js"></script>
+<script src="common.js"></script>
+<script src="prices.js"></script>
+</body>
+</html>

@@ -309,6 +309,7 @@ fetch('/player').then(r=>r.text()).then(t=>{window.r3=Object.keys(JSON.parse(t))
       const step = async (name, fn) => { try { await fn(); log('ok', name); } catch (e) { log('FAIL', name, e.stack || String(e)); } };
       const tabWc = async () => webContents.fromId(await js('state.active.wcId'));
       const body = () => js(`DL.body.innerText.replace(/\\s+/g,' ').slice(0,400)`);
+      await js(`localStorage.setItem('dl-mode','lab'); DL.mode = 'lab'`);
       await sleep(3000);
       await js(`state.active.navigate('https://news.example.org/')`); await sleep(2500);
       await step('open', async () => { await js(`shortcut({key:'f12'})`); await sleep(1500); log('open', await js('DL.open'), await js('DL.wcId'), await js(`document.querySelector('.dl-status').innerText`)); await shot('dl-01-home'); });
@@ -396,6 +397,239 @@ fetch('/player').then(r=>r.text()).then(t=>{window.r3=Object.keys(JSON.parse(t))
         await js(`document.querySelector('#d3-col').value='type'; document.querySelector('#d3-col').dispatchEvent(new Event('change'))`); await sleep(1500); await shot('dl-24-3d-type');
         await js(`document.getElementById('d3-go').click()`); await sleep(800);
         log('3d removed', !(await (await tabWc()).executeJavaScript(`!!document.getElementById('__noam3d')`)));
+      });
+      log('DONE'); setTimeout(() => app.exit(0), 300);
+    });
+    return;
+  }
+  if (process.env.NOAM_TEST_TOOLS) {
+    let price = 199, version = 1;
+    const article = () => `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>School news</title></head><body style="font:18px Georgia,serif;padding:30px;max-width:700px"><h1>School news</h1>
+<p>The science fair is on Thursday. Bring your apple experiments!</p><p>Lunch today: pasta and salad.</p>${version > 1 ? '<p><b>NEW:</b> The trip to the zoo moved to Monday.</p>' : '<p>The zoo trip is on Friday.</p>'}<p>Remember your library books.</p></body></html>`;
+    const shop = () => `<!doctype html><html><head><meta charset="utf-8"><title>Super Sneakers – Shop</title><meta property="og:image" content="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='120'%3E%3Crect width='200' height='120' fill='%233e8deb'/%3E%3Ctext x='100' y='70' font-size='40' text-anchor='middle'%3E👟%3C/text%3E%3C/svg%3E">
+<script type="application/ld+json">${JSON.stringify({ '@context': 'https://schema.org', '@type': 'Product', name: 'Super Sneakers', offers: { '@type': 'Offer', price: String(price), priceCurrency: 'ILS' } })}</script></head><body style="font:18px sans-serif;padding:30px"><h1>Super Sneakers</h1><p class="price">₪${price}</p><button>Add to cart</button></body></html>`;
+    const srv = require('https').createServer({ key: fs.readFileSync('/tmp/claude-0/k.pem'), cert: fs.readFileSync('/tmp/claude-0/c.pem') }, (req, res) => { res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' }); res.end(req.url.startsWith('/shop') ? shop() : article()); });
+    srv.listen(443, '127.0.0.1', async () => {
+      const win = [...windows][0]; const ui = win.webContents; const js = (c) => ui.executeJavaScript(c);
+      const shot = async (n) => { await sleep(300); const img = await win.webContents.capturePage(); fs.writeFileSync(path.join(OUT, n + '.png'), img.toPNG()); };
+      const tab = async () => webContents.fromId(await js('state.active.wcId'));
+      const step = async (name, fn) => { try { await fn(); log('ok', name); } catch (e) { log('FAIL', name, e.stack || String(e)); } };
+      await sleep(3000); win.show(); win.focus();
+      // stand-in translator (the real one downloads language models from the internet)
+      const DICT = { apple: 'תפוח', experiments: 'ניסויים', 'פסטה': 'pasta' };
+      features.translator.call = async (op, a) => { if (op !== 'translate') throw new Error('x'); return a.texts.map((t) => DICT[t.toLowerCase()] || '[' + a.to + '] ' + t); };
+      await step('dictionary', async () => {
+        await js(`state.active.navigate('https://news.example.org/news')`); await sleep(2000);
+        const wc = await tab();
+        const p = await wc.executeJavaScript(`(() => { const r = document.createRange(); const n = document.querySelectorAll('p')[0].firstChild; const i = n.textContent.indexOf('apple'); r.setStart(n, i); r.setEnd(n, i + 5); const b = r.getBoundingClientRect(); return { x: Math.round(b.left + 12), y: Math.round(b.top + b.height / 2) }; })()`);
+        wc.sendInputEvent({ type: 'mouseMove', x: p.x, y: p.y });
+        wc.sendInputEvent({ type: 'mouseDown', x: p.x, y: p.y, button: 'left', clickCount: 1 }); wc.sendInputEvent({ type: 'mouseUp', x: p.x, y: p.y, button: 'left', clickCount: 1 });
+        wc.sendInputEvent({ type: 'mouseDown', x: p.x, y: p.y, button: 'left', clickCount: 2 }); wc.sendInputEvent({ type: 'mouseUp', x: p.x, y: p.y, button: 'left', clickCount: 2 });
+        await sleep(1200);
+        log('selection', await wc.executeJavaScript('getSelection().toString()'));
+        await shot('t-01-dictionary');
+      });
+      await step('time machine', async () => {
+        await js(`shortcut({key:'snapshot'})`); await sleep(1500);
+        version = 2;
+        await js(`state.active.wv.reload()`); await sleep(2000);
+        await js(`shortcut({key:'snapshot'})`); await sleep(1500);
+        await js(`newTab({url:'noam://timemachine/?url=' + encodeURIComponent('https://news.example.org/news')})`); await sleep(2500);
+        const wc = await tab();
+        await shot('t-02-timemachine');
+        await wc.executeJavaScript(`(() => { const s = document.getElementById('cmp'); s.value = s.options[1].value; s.dispatchEvent(new Event('change')); })()`); await sleep(1500);
+        log('diff', await wc.executeJavaScript(`document.querySelector('.diff .sum').innerText`));
+        await shot('t-03-compare');
+        await wc.executeJavaScript(`(() => { const s = document.getElementById('watch'); s.value = '12'; s.dispatchEvent(new Event('change')); })()`); await sleep(1000);
+        version = 3; // unchanged text from v2 → no new copy
+        await wc.executeJavaScript(`document.getElementById('checknow').click()`); await sleep(9000);
+        log('copies', await wc.executeJavaScript(`document.querySelectorAll('.tl button').length`), await wc.executeJavaScript(`document.querySelector('.pg .eye') && document.querySelector('.pg .eye').textContent`));
+      });
+      await step('prices', async () => {
+        await js(`state.active.navigate('https://news.example.org/shop')`); await sleep(3500);
+        log('price button', await js(`!document.getElementById('price-btn').hidden`), await js(`document.getElementById('price-btn').title`));
+        await shot('t-04-price-btn');
+        await js(`document.getElementById('price-btn').click()`); await sleep(1500);
+        log('tracked', await js(`document.getElementById('price-btn').classList.contains('on')`));
+        price = 169;
+        let notified = null; const { Notification } = require('electron'); Notification.isSupported = () => true; const orig = Notification.prototype.show; Notification.prototype.show = function () { notified = this.title + ' | ' + this.body; };
+        await js(`newTab({url:'noam://prices/'})`); await sleep(2000);
+        const wc = await tab();
+        await wc.executeJavaScript(`document.querySelector('[data-a=check]').click()`); await sleep(9000);
+        log('notified', notified);
+        await wc.executeJavaScript(`(() => { const i = document.querySelector('[data-target]'); i.value = '150'; i.dispatchEvent(new Event('change')); })()`); await sleep(800);
+        price = 145; await wc.executeJavaScript(`document.querySelector('[data-a=check]').click()`); await sleep(9000);
+        log('notified 2', notified);
+        Notification.prototype.show = orig;
+        await shot('t-05-prices');
+      });
+      log('DONE'); setTimeout(() => app.exit(0), 300);
+    });
+    return;
+  }
+  if (process.env.NOAM_TEST_BUDDY) {
+    const page = `<!doctype html><html><head><meta charset="utf-8"><title>My Pets</title><style>body{font-family:Georgia,serif;margin:0;background:#f4f8ff}header{background:#2c6e49;color:#fff;padding:20px 30px}main{padding:20px 30px}.card{background:#fff;border-radius:10px;padding:16px;max-width:520px;box-shadow:0 3px 10px rgba(0,0,0,.08)}button{font-size:16px;padding:8px 14px}</style></head>
+<body><header><h1 id="title">My Pets 🐶</h1><nav><a href="https://www.youtube.com/">Pet videos</a> · <a href="#about">About</a></nav></header>
+<main><div class="card"><h2>Rex the dog</h2><p>Rex likes to run in the park and chase balls.</p><img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='90'%3E%3Crect width='160' height='90' fill='%23ffb347'/%3E%3C/svg%3E" width="160" height="90"><p><button>Feed Rex</button> <input placeholder="Your name"></p></div></main></body></html>`;
+    const srv = require('https').createServer({ key: fs.readFileSync('/tmp/claude-0/k.pem'), cert: fs.readFileSync('/tmp/claude-0/c.pem') }, (req, res) => { res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' }); res.end(page); });
+    srv.listen(443, '127.0.0.1', async () => {
+      const win = [...windows][0]; const ui = win.webContents; const js = (c) => ui.executeJavaScript(c);
+      const shot = async (n) => { await sleep(300); const img = await win.webContents.capturePage(); fs.writeFileSync(path.join(OUT, n + '.png'), img.toPNG()); };
+      const tab = async () => webContents.fromId(await js('state.active.wcId'));
+      const step = async (name, fn) => { try { await fn(); log('ok', name); } catch (e) { log('FAIL', name, e.stack || String(e)); } };
+      await sleep(3000); win.show(); win.focus();
+      await js(`state.active.navigate('https://news.example.org/')`); await sleep(2000);
+      const wc = await tab();
+      const at = async (sel) => wc.executeJavaScript(`(() => { const r = document.querySelector(${JSON.stringify(sel)}).getBoundingClientRect(); return { x: Math.round(r.left + Math.min(40, r.width / 2)), y: Math.round(r.top + r.height / 2) }; })()`);
+      const hover = async (sel) => { const p = await at(sel); for (let i = 0; i < 4; i++) { wc.sendInputEvent({ type: 'mouseMove', x: p.x + i, y: p.y }); await sleep(60); } return p; };
+      const click = async (sel) => { const p = await at(sel); wc.sendInputEvent({ type: 'mouseMove', x: p.x, y: p.y }); await sleep(80); wc.sendInputEvent({ type: 'mouseDown', x: p.x, y: p.y, button: 'left', clickCount: 1 }); wc.sendInputEvent({ type: 'mouseUp', x: p.x, y: p.y, button: 'left', clickCount: 1 }); await sleep(700); };
+      await step('open buddy', async () => {
+        await js(`shortcut({key:'f12'})`); await sleep(1500);
+        log('mode', await js('DL.mode'), await js(`document.querySelector('.bd-nav') ? 'buddy ui' : 'no buddy ui'`));
+        await shot('b-01-home');
+      });
+      await step('hover explain', async () => {
+        await hover('nav a'); await sleep(500); await shot('b-02-hover-link');
+        await hover('img'); await sleep(500); await shot('b-03-hover-img');
+      });
+      await step('pick + change', async () => {
+        await js(`document.getElementById('bd-pick').click()`); await sleep(500);
+        await click('h2'); await sleep(800);
+        log('picked', await js(`document.querySelector('.bd-info') ? document.querySelector('.bd-info').innerText.replace(/\\s+/g,' ') : 'none'`));
+        await shot('b-04-picked');
+        await js(`document.querySelector('[data-go="change"]').click()`); await sleep(600);
+        await js(`document.getElementById('bd-text').value='Rex the SUPER dog'; document.getElementById('bd-text-go').click()`); await sleep(700);
+        await js(`document.querySelector('[data-color="#e5484d"]').click()`); await sleep(600);
+        await js(`document.querySelector('[data-ch="bigger"]').click()`); await sleep(600);
+        await js(`document.querySelector('[data-round="14"]').click()`); await sleep(600);
+        await js(`document.querySelector('[data-ch="rainbow"]').click()`); await sleep(900);
+        log('page h2', await wc.executeJavaScript(`(() => { const h = document.querySelector('h2'); const c = getComputedStyle(h); return h.innerText + ' | ' + c.color + ' | ' + c.fontSize + ' | ' + c.borderRadius; })()`));
+        log('my code', await js(`document.querySelector('.bd-pre').innerText`));
+        await shot('b-05-change');
+        await js(`document.getElementById('bd-undo').click()`); await sleep(600);
+        log('after undo bg', await wc.executeJavaScript(`getComputedStyle(document.querySelector('h2')).backgroundImage`));
+      });
+      await step('code view', async () => {
+        await js(`document.querySelector('[data-view="code"]').click()`); await sleep(600);
+        await js(`document.getElementById('bd-parent').click()`); await sleep(800);
+        await shot('b-06-code');
+        log('code', (await js(`document.querySelector('.bd-pre.big').innerText`)).slice(0, 200));
+      });
+      await step('quests', async () => {
+        await js(`document.querySelector('[data-view="what"]').click()`); await sleep(400);
+        await js(`document.getElementById('bd-pick').click()`); await sleep(400); await click('nav a');
+        await js(`document.getElementById('bd-pick').click()`); await sleep(400); await click('img');
+        await js(`document.querySelector('[data-view="quests"]').click()`); await sleep(600);
+        await shot('b-07-quests');
+        log('quests', await js(`document.querySelector('.bd-qhead').innerText`));
+      });
+      await step('playground handoff', async () => {
+        await js(`document.querySelector('[data-view="change"]').click()`); await sleep(500);
+        await js(`document.getElementById('bd-play') && document.getElementById('bd-play').click()`); await sleep(2500);
+        log('pg', (await tab()).getURL(), (await (await tab()).executeJavaScript(`document.getElementById('name').value + ' || ' + document.getElementById('code').value.slice(0,120)`)));
+        await shot('b-08-playground');
+      });
+      await step('teach everywhere', async () => {
+        await js(`DL.toggle(false)`); await sleep(400);
+        await js(`activate(state.tabs[0])`); await sleep(500);
+        await js(`(() => { const p = commands().find(c => c.id === 'teach'); p.run(); })()`); await sleep(1200);
+        const w0 = await tab(); const r = await w0.executeJavaScript(`(() => { const b = document.querySelector('button').getBoundingClientRect(); return { x: b.left + 20, y: b.top + 10 }; })()`);
+        for (let i = 0; i < 4; i++) { w0.sendInputEvent({ type: 'mouseMove', x: r.x + i, y: r.y }); await sleep(60); }
+        await sleep(900); await shot('b-09-teach');
+      });
+      await step('switch to lab', async () => {
+        await js(`DL.toggle(true)`); await sleep(800);
+        await js(`document.querySelector('[data-mode="lab"]').click()`); await sleep(1000);
+        log('lab tabs visible', await js(`getComputedStyle(document.querySelector('.dl-tabs')).visibility`), await js('DL.tool'));
+        await shot('b-10-lab');
+      });
+      log('DONE'); setTimeout(() => app.exit(0), 300);
+    });
+    return;
+  }
+  if (process.env.NOAM_TEST_FOCUS) {
+    const srv = require('https').createServer({ key: fs.readFileSync('/tmp/claude-0/k.pem'), cert: fs.readFileSync('/tmp/claude-0/c.pem') }, (req, res) => {
+      res.writeHead(200, { 'content-type': 'text/html' });
+      const h = req.headers.host.split(':')[0];
+      res.end(h.includes('youtube') ? '<title>YouTube</title><body style="background:#111;color:#fff;font:30px sans-serif"><h1>▶ Cat videos</h1></body>' : '<title>Homework</title><body style="font:20px sans-serif;padding:30px"><h1>Maths homework</h1><p>Question 1: 12 × 7 = ?</p></body>');
+    });
+    srv.listen(443, '127.0.0.1', async () => {
+      const win = [...windows][0]; const ui = win.webContents; const js = (c) => ui.executeJavaScript(c);
+      const shot = async (n) => { await sleep(250); const img = await win.webContents.capturePage(); fs.writeFileSync(path.join(OUT, n + '.png'), img.toPNG()); };
+      const tab = async () => webContents.fromId(await js('state.active.wcId'));
+      const step = async (name, fn) => { try { await fn(); log('ok', name); } catch (e) { log('FAIL', name, e.stack || String(e)); } };
+      await sleep(3000);
+      win.show(); win.focus();
+      await js(`nb.invoke('settings:set',{screenTime:{idleMinutes:100000}, focus:{short:1, autoBreak:true}})`);
+      await js(`state.active.navigate('https://news.example.org/')`); await sleep(1500);
+      await step('panel', async () => {
+        await js(`document.getElementById('focus-btn').click()`); await sleep(900);
+        await js(`document.getElementById('fp-task').value='Maths homework'; document.getElementById('fp-promise').value='Finish questions 1 to 10'; document.getElementById('fp-custom').value='1'; document.getElementById('fp-custom').dispatchEvent(new Event('input'));`);
+        await shot('f-01-panel');
+        await js(`document.getElementById('fp-start').click()`); await sleep(1600);
+        log('state', JSON.stringify(await js(`nb.invoke('focus:state')`)));
+        await shot('f-02-running');
+      });
+      await step('gentle block', async () => {
+        await js(`state.active.navigate('https://www.youtube.com/watch?v=cats')`); await sleep(1800);
+        const wc = await tab();
+        log('blocked url', wc.getURL());
+        await shot('f-03-blocked-gentle');
+        await sleep(10500);
+        await shot('f-04-blocked-reasons');
+        await wc.executeJavaScript(`document.querySelector('[data-r="quick"]').click()`); await sleep(1800);
+        log('after quick look', (await tab()).getURL());
+        await sleep(6000); // time on YouTube counts
+        await js(`state.active.navigate('https://news.example.org/')`); await sleep(1000);
+        await js(`newTab({url:'https://news.example.org/'})`); await sleep(800); await js(`activate(state.tabs[0])`); await sleep(600);
+        log('live', JSON.stringify(await js(`nb.invoke('focus:state')`)));
+      });
+      await step('report card', async () => {
+        for (let i = 0; i < 70; i++) { if (await js(`!document.getElementById('focus-modal').hidden`)) break; await sleep(1000); }
+        await sleep(800);
+        await js(`document.querySelector('.fm-opts[data-k="kept"] [data-v="yes"]')?.click(); document.querySelector('.fm-opts[data-k="mood"] [data-v="good"]')?.click()`);
+        await shot('f-05-report');
+        log('report', await js(`document.querySelector('.fm-card').innerText.replace(/\\s+/g,' ').slice(0,500)`));
+        await js(`document.getElementById('fm-ok').click()`); await sleep(800);
+        await shot('f-06-break');
+        log('phase', (await js(`nb.invoke('focus:state')`)).phase);
+        await js(`document.getElementById('fm-skip')?.click()`); await sleep(500);
+      });
+      await step('strict block', async () => {
+        await js(`nb.invoke('focus:start',{minutes:5, task:'Science project', mode:'strict'})`); await sleep(800);
+        await js(`state.active.navigate('https://www.youtube.com/')`); await sleep(1800);
+        const wc = await tab();
+        await wc.executeJavaScript(`document.getElementById('need').click()`); await sleep(1500);
+        await shot('f-07-blocked-strict');
+        await wc.executeJavaScript(`document.getElementById('back').click()`); await sleep(1200);
+        log('after back', (await tab()).getURL());
+        await js(`nb.invoke('focus:stop',{reason:'test'})`); await sleep(600);
+        await js(`document.getElementById('focus-modal').hidden = true`);
+      });
+      await step('stats page', async () => {
+        const list = []; const now = Date.now();
+        const sites = ['YouTube', 'WhatsApp', 'Instagram', 'Reddit'];
+        for (let d = 1; d <= 16; d++) for (let k = 0; k < 1 + (d % 3); k++) {
+          const start = now - d * 86400000 + (9 + k * 2 + (d % 4)) * 3600000 - new Date().getHours() * 3600000;
+          const dist = {}; const nVisits = d > 7 ? 3 + (d % 3) : d % 2;
+          for (let v = 0; v < nVisits; v++) { const key = sites[(d + v) % sites.length]; dist[key] = dist[key] || { visits: 0, sec: 0, blocked: 0, overrides: 0 }; dist[key].visits++; dist[key].sec += 40; }
+          const score = Math.max(30, 100 - nVisits * 12 - (d > 7 ? 10 : 0));
+          list.push({ id: 'seed' + d + k, start, end: start + 1500000, planned: 1500000, focusMs: 1500000, completed: true, task: ['Maths homework', 'Reading', 'Science project', 'Coding'][(d + k) % 4], mode: 'gentle', distractions: dist, tabSwitches: 8, awaySec: 30, pauses: 0, score, mood: ['great', 'good', 'meh'][d % 3], promise: d % 2 ? 'Finish the chapter' : '', kept: d % 2 ? (d % 4 === 1 ? 'yes' : 'partly') : undefined });
+        }
+        app.emit('noam-test-seed-focus', list); await sleep(300);
+        await js(`newTab({url:'noam://focus/'})`); await sleep(2500);
+        await shot('f-08-stats');
+        const wc = await tab();
+        await wc.executeJavaScript(`document.querySelector('.two').scrollIntoView()`); await sleep(500); await shot('f-09-stats-trend');
+        await wc.executeJavaScript(`document.getElementById('badges').scrollIntoView()`); await sleep(500); await shot('f-10-badges');
+        await wc.executeJavaScript(`document.getElementById('settings').scrollIntoView()`); await sleep(500); await shot('f-11-settings');
+        log('stats', await wc.executeJavaScript(`[...document.querySelectorAll('.stat')].map(e=>e.innerText.replace(/\\s+/g,' ')).join(' | ')`));
+      });
+      await step('newtab chip', async () => {
+        await js(`state.active.navigate('noam://newtab/')`); await sleep(2000);
+        const wc = await tab(); await wc.executeJavaScript(`document.getElementById('focus-chip').scrollIntoView({block:'center'})`); await sleep(400);
+        log('chip', await wc.executeJavaScript(`document.getElementById('focus-chip').innerText`));
+        await shot('f-12-newtab');
       });
       log('DONE'); setTimeout(() => app.exit(0), 300);
     });

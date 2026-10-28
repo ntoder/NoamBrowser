@@ -209,6 +209,8 @@ class Shields {
     const isFrame = isMain || resourceType === 'subFrame';
     const host = hostOf(url);
 
+    // Focus mode can stop a tab from opening a distracting site (it then shows its own reminder page).
+    if (isFrame && webContentsId && this.navGuard) { const g = this.navGuard(details); if (g) return g; }
     if (isMain && webContentsId) {
       const t = this.tab(webContentsId);
       if (t.url !== url && siteOf(url) !== t.site) this.resetTab(webContentsId, url);

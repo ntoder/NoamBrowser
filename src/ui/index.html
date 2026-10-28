@@ -9,6 +9,7 @@
 <link rel="stylesheet" href="fx.css">
 <link rel="stylesheet" href="features.css">
 <link rel="stylesheet" href="features2.css">
+<link rel="stylesheet" href="focus.css">
 <link rel="stylesheet" href="devlab/devlab.css">
 <style>#bluelight,#bl-dim{position:fixed;inset:0;z-index:2147483000;pointer-events:none;opacity:0;transition:opacity var(--blf,1.2s) ease}#bluelight{background:var(--blc,#ff8a1c);mix-blend-mode:multiply}#bl-dim{background:#000;z-index:2147483001}#bluelight.on{opacity:var(--bl,.45)}#bl-dim.on{opacity:var(--bld,0)}#bl-btn.on{color:#e8890c;background:rgba(255,150,40,.16)}</style>
 </head>
@@ -91,6 +92,7 @@
       <button id="translate-btn" class="icon-btn small omni-act" title="Translate this page" hidden><svg><use href="#i-translate"/></svg></button>
       <button id="reader-btn" class="icon-btn small omni-act" title="Reader view (F9)" hidden><svg><use href="#i-book"/></svg></button>
       <button id="key-btn" class="icon-btn small omni-act" title="Saved passwords for this site" hidden><svg><use href="#i-key"/></svg></button>
+      <button id="price-btn" class="icon-btn small omni-act price-btn" title="Track this price" hidden><span>🏷️</span></button>
       <button id="rl-btn" class="icon-btn small omni-act" title="Add to reading list" hidden><svg><use href="#i-reading"/></svg></button>
       <button id="star" class="icon-btn small" title="Bookmark this page (Ctrl+D)"><svg><use href="#i-star"/></svg></button>
       <div id="suggest" role="listbox" hidden></div>
@@ -103,6 +105,7 @@
       <span class="dot"></span><span id="vpn-label">VPN</span>
     </button>
     <button id="media-btn" class="icon-btn" title="Media playing" hidden><svg><use href="#i-music"/></svg><i class="eq"><b></b><b></b><b></b></i></button>
+    <button id="focus-btn" class="focus-btn" title="Focus timer (Ctrl+Shift+F)"><span class="ring"><span class="tm">🍅</span></span><span class="lbl" id="focus-lbl"></span></button>
     <button id="bl-btn" class="icon-btn" title="Blue light filter (Ctrl+Shift+L) — right-click for options"><svg><use href="#i-moon"/></svg></button>
     <button id="shot-btn" class="icon-btn" title="Screenshot (Ctrl+Shift+X)"><svg><use href="#i-camera"/></svg></button>
     <button id="pip-btn" class="icon-btn" title="Picture in picture" hidden><svg><use href="#i-pip"/></svg></button>
@@ -219,6 +222,8 @@
     <div class="panel-foot"><button id="dl-all" class="btn ghost">Show all downloads</button></div>
   </section>
 
+  <section id="focus-panel" class="panel" hidden></section>
+  <div id="focus-modal" hidden></div>
   <section id="media-panel" class="panel" hidden>
     <h3>Playing now</h3>
     <div id="media-list"></div>
@@ -250,9 +255,13 @@
 <script src="ui3.js"></script>
 <script src="../assets/zmanim.js"></script>
 <script src="ui4.js"></script>
+<script src="ui5.js"></script>
+<script src="ui6.js"></script>
 <script src="devlab/core.js"></script>
 <script src="devlab/tools1.js"></script>
 <script src="devlab/tools2.js"></script>
 <script src="devlab/tools3.js"></script>
+<script src="devlab/buddy-page.js"></script>
+<script src="devlab/buddy.js"></script>
 </body>
 </html>

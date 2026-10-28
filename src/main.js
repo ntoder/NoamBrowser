@@ -100,6 +100,8 @@ const settings = new Store(userData, 'settings', {
   ] },
   downloads: { autoSort: false, limitKBps: 0 },
   forceDarkAll: false,
+  focus: {},
+  dictionary: { enabled: true, to: 'auto', speak: true },
   screenTime: { enabled: true, idleMinutes: 2, limits: {} },
   zmanimAlerts: { enabled: false, before: 60, sound: true, which: { shma: true, tefila: true, candles: true, sunset: true } },
   blueLight: { enabled: false, strength: 45, tint: 'amber', color: '#ff8a1c', dim: 0, fade: 1.2, schedule: 'off', from: '21:00', to: '07:00', sunsetOffset: 0, ramp: false, pauseVideo: true, button: true },
@@ -119,6 +121,8 @@ const sessionSecret = crypto.randomBytes(16).toString('hex');
 let mainWindow = null;
 const windows = new Set();
 let screenTime = null;
+let focusApi = null;
+let timeMachine = null;
 let shields;
 let vpn;
 const downloads = new Map(); // id -> { item, info }
@@ -157,6 +161,12 @@ function setupNoamProtocol(ses) {
     const page = u.hostname || 'newtab';
     let rel = decodeURIComponent(u.pathname.replace(/^\/+/, ''));
     let file;
+    if (page === 'timemachine' && rel === 'view') {
+      // a saved copy of a page — shown with scripts switched off
+      const h = timeMachine && timeMachine.html(u.searchParams.get('id') || '');
+      if (!h) return new Response('This copy was deleted.', { status: 404, headers: { 'content-type': 'text/plain; charset=utf-8' } });
+      return new Response(h, { headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store', 'content-security-policy': "script-src 'none'; object-src 'none'; frame-ancestors noam:" } });
+    }
     if (page === 'wallpaper') {
       const wp = wallpaperFile();
       if (!wp) return new Response('none', { status: 404 });
@@ -195,6 +205,7 @@ function prepareSession(ses) {
   shields.attach(ses, { framePreload: FRAME_PRELOAD });
   ses.setPermissionRequestHandler(permissionRequest);
   ses.setPermissionCheckHandler((wc, permission, origin) => {
+    if (permission === 'notifications' && focusApi && focusApi.holding()) return false;
     if (['fullscreen', 'clipboard-sanitized-write', 'pointerLock', 'background-sync', 'accessibility-events'].includes(permission)) return true;
     const p = settings.get('permissions')[originOf(origin)];
     return p && p[permission] === 'allow';
@@ -213,6 +224,7 @@ function originOf(u) { try { return new URL(u).origin; } catch { return u || '';
 // ---------- permissions ----------
 const ASKABLE = new Set(['media', 'geolocation', 'notifications', 'midi', 'midiSysex', 'idle-detection', 'display-capture', 'window-management', 'storage-access', 'top-level-storage-access', 'speaker-selection', 'keyboardLock']);
 function permissionRequest(wc, permission, callback, details) {
+  if (permission === 'notifications' && focusApi && focusApi.holding()) return callback(false);
   if (['fullscreen', 'clipboard-sanitized-write', 'pointerLock'].includes(permission)) return callback(true);
   if (permission === 'openExternal') {
     const ext = details && details.externalURL;
@@ -660,7 +672,8 @@ ipcMain.on('noam:frame-config', (e, url) => {
   const pw = !isUI && /^https?:/.test(url) && !!features && features.pwEnabled();
   const gestures = !isUI && isWeb && topFrame && !!settings.get('gestures').enabled;
   const media = !isUI && isWeb ? settings.get('media') : null;
-  e.returnValue = { fp, internal, seed, googleAuth, firefoxUA: FIREFOX_UA, youtube, dark, pw, topFrame, gestures, gestureTrail: !!settings.get('gestures').trail, media };
+  const dict = !isUI && isWeb && (settings.get('dictionary') || {}).enabled !== false;
+  e.returnValue = { fp, internal, seed, googleAuth, firefoxUA: FIREFOX_UA, youtube, dark, pw, topFrame, gestures, gestureTrail: !!settings.get('gestures').trail, media, dict, dictSpeak: (settings.get('dictionary') || {}).speak !== false };
 });
 ipcMain.on('noam:yt-blocked', (e) => {
   try { if (/(^|\.)youtube\.com$/.test(hostOf(e.sender.getURL()))) shields.countBlocked(e.sender.id, 'https://www.youtube.com/(video ad)'); } catch {}
@@ -757,15 +770,15 @@ function downloadAction(id, action) {
 }
 
 function setSettings(patch) {
-  const allowed = ['searchEngine', 'homepage', 'theme', 'accent', 'showBookmarksBar', 'restoreTabs', 'clearOnExit', 'askDownloadLocation', 'downloadDir', 'newTabShowStats', 'newTabShowTopSites', 'dns', 'shields', 'vpn', 'appearance', 'passwords', 'translate', 'updates', 'tabs', 'forceDarkAll', 'gestures', 'media', 'widgets', 'sidePanel', 'downloads', 'blueLight', 'zmanimAlerts', 'screenTime'];
+  const allowed = ['searchEngine', 'homepage', 'theme', 'accent', 'showBookmarksBar', 'restoreTabs', 'clearOnExit', 'askDownloadLocation', 'downloadDir', 'newTabShowStats', 'newTabShowTopSites', 'dns', 'shields', 'vpn', 'appearance', 'passwords', 'translate', 'updates', 'tabs', 'forceDarkAll', 'gestures', 'media', 'widgets', 'sidePanel', 'downloads', 'blueLight', 'zmanimAlerts', 'screenTime', 'focus', 'dictionary'];
   for (const [k, v] of Object.entries(patch || {})) {
     if (!allowed.includes(k)) continue;
-    if (['shields', 'vpn', 'appearance', 'passwords', 'translate', 'updates', 'tabs', 'gestures', 'media', 'widgets', 'sidePanel', 'downloads', 'blueLight', 'zmanimAlerts', 'screenTime'].includes(k) && v && typeof v === 'object' && !Array.isArray(v)) settings.set(k, { ...settings.get(k), ...v });
-    else if (['gestures', 'media', 'widgets', 'sidePanel', 'downloads', 'blueLight', 'zmanimAlerts', 'screenTime'].includes(k)) continue;
+    if (['shields', 'vpn', 'appearance', 'passwords', 'translate', 'updates', 'tabs', 'gestures', 'media', 'widgets', 'sidePanel', 'downloads', 'blueLight', 'zmanimAlerts', 'screenTime', 'focus', 'dictionary'].includes(k) && v && typeof v === 'object' && !Array.isArray(v)) settings.set(k, { ...settings.get(k), ...v });
+    else if (['gestures', 'media', 'widgets', 'sidePanel', 'downloads', 'blueLight', 'zmanimAlerts', 'screenTime', 'focus', 'dictionary'].includes(k)) continue;
     else settings.set(k, v);
   }
   if ('theme' in patch || 'appearance' in patch) applyThemeToWindows();
-  if (features && Object.keys(patch || {}).some((k) => ['searchEngine', 'homepage', 'theme', 'accent', 'appearance', 'shields', 'showBookmarksBar', 'widgets', 'gestures', 'media', 'sidePanel', 'blueLight', 'zmanimAlerts'].includes(k))) { features.syncer.touchSettings(); features.syncTouch(); }
+  if (features && Object.keys(patch || {}).some((k) => ['searchEngine', 'homepage', 'theme', 'accent', 'appearance', 'shields', 'showBookmarksBar', 'widgets', 'gestures', 'media', 'sidePanel', 'blueLight', 'zmanimAlerts', 'focus', 'dictionary'].includes(k))) { features.syncer.touchSettings(); features.syncTouch(); }
   if (patch.downloads && 'limitKBps' in patch.downloads) for (const d of downloads.values()) if (d.td) { d.td.setLimit(Math.max(0, +patch.downloads.limitKBps || 0) * 1024); d.info.limited = d.td.limit > 0; }
   if ('dns' in patch) applyDns();
   if (patch.vpn && vpn.wantOn && ('mode' in patch.vpn || 'customProxy' in patch.vpn)) vpn.connect();
@@ -801,7 +814,12 @@ function appMenu(sender, wcId, x, y) {
     { label: 'Downloads', accelerator: 'CmdOrCtrl+J', click: () => send('tab:open', { url: 'noam://downloads/' }) },
     { label: 'Bookmarks', click: () => send('tab:open', { url: 'noam://bookmarks/' }) },
     { label: 'Passwords', click: () => send('tab:open', { url: 'noam://passwords/' }) },
+    { label: 'Focus timer 🍅', accelerator: 'CmdOrCtrl+Shift+F', click: () => send('shortcut', { key: 'focus' }) },
+    { label: 'Focus progress', click: () => send('tab:open', { url: 'noam://focus/' }) },
     { label: 'Screen time', click: () => send('tab:open', { url: 'noam://screentime/' }) },
+    { label: 'Save a copy of this page 🕰️', enabled: !!wc, click: () => send('shortcut', { key: 'snapshot' }) },
+    { label: 'Time machine', click: () => send('tab:open', { url: 'noam://timemachine/' }) },
+    { label: 'Price tracker 🏷️', click: () => send('tab:open', { url: 'noam://prices/' }) },
     { type: 'separator' },
     { label: 'Command palette…', accelerator: 'CmdOrCtrl+K', click: () => send('shortcut', { key: 'k', ctrl: true }) },
     { label: 'Reader view', accelerator: 'F9', enabled: !!wc, click: () => send('shortcut', { key: 'reader' }) },
@@ -978,6 +996,9 @@ app.whenReady().then(async () => {
   try { require('./devlab')({ uiHandle }); } catch (e) { console.error('dev lab', e); }
   try { require('./zmanim-alerts')({ settings, pageHandle, windows }); } catch (e) { console.error('zmanim alerts', e); }
   try { screenTime = require('./screentime')({ settings, userData, uiHandle, pageHandle, windows, privatePartition: PRIVATE_PARTITION }); } catch (e) { console.error('screen time', e); }
+  try { timeMachine = require('./timemachine')({ userData, uiHandle, pageHandle, broadcast, broadcastPages, getSession: () => mainSession(), windows }); } catch (e) { console.error('time machine', e); }
+  try { require('./prices')({ userData, uiHandle, pageHandle, broadcast, broadcastPages, getSession: () => mainSession(), windows }); } catch (e) { console.error('prices', e); }
+  try { focusApi = require('./focus')({ settings, userData, uiHandle, pageHandle, windows, broadcast, broadcastPages, shields, screenTime, keyOf: require('./screentime').keyOf, privatePartition: PRIVATE_PARTITION }); } catch (e) { console.error('focus', e); }
   features.syncer.extra = { snapshot: features2.snapshot, merge: features2.merge };
   pageHandle('passwords:check', () => ctx2.passwordsCheck(features.vault));
 

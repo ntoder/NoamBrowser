@@ -117,6 +117,24 @@ module.exports = function setupFeatures(ctx) {
 
   // ------------------------------------------------------------ translation
   const translator = new Translator();
+  // Double-click dictionary: translate one word or a short phrase on any page (works offline once the model is downloaded)
+  const LANG_TESTS = [['he', /[\u0590-\u05FF]/], ['ar', /[\u0600-\u06FF]/], ['ru', /[\u0400-\u04FF]/], ['el', /[\u0370-\u03FF]/]];
+  ipcMain.handle('noam:dict', async (e, { text }) => {
+    const d = settings.get('dictionary') || {};
+    if (d.enabled === false) return { error: 'off' };
+    text = String(text || '').trim().slice(0, 80);
+    if (!text) return { error: 'empty' };
+    const from = (LANG_TESTS.find(([, re]) => re.test(text)) || ['en'])[0];
+    let to = d.to && d.to !== 'auto' ? d.to : from === 'he' ? 'en' : 'he';
+    if (to === from) to = from === 'en' ? 'he' : 'en';
+    try {
+      const [out] = await translator.call('translate', { from, to, texts: [text] }, 90000);
+      return { text, from, to, translation: out };
+    } catch (err) {
+      const m = String(err.message || err);
+      return { text, from, to, error: /model|download|fetch|network/i.test(m) ? 'The dictionary needs to download its language pack once (about 20 MB). Make sure you’re online and try again.' : m };
+    }
+  });
   uiHandle('translate:detect', async (_e, wcId) => {
     const r = await translator.detect(wcId);
     if (!r) return null;

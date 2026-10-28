@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Time machine</title><link rel="stylesheet" href="pages.css"><link rel="stylesheet" href="assets/themes.css">
+<style>
+  html, body { height: 100%; } body { overflow: hidden; }
+  .tm { display: grid; grid-template-columns: 300px 1fr; height: 100vh; }
+  .side { border-right: 1px solid var(--line); background: var(--surface); overflow: auto; padding: 18px 12px; }
+  .side h1 { font-size: 22px; margin: 0 6px 4px; } .side .lede { color: var(--muted); font-size: 12.5px; margin: 0 6px 14px; line-height: 1.45; }
+  .pg { display: grid; grid-template-columns: 64px 1fr; gap: 10px; padding: 8px; border-radius: 12px; cursor: pointer; align-items: center; }
+  .pg:hover { background: var(--surface-2); } .pg.on { background: var(--accent-soft); }
+  .pg .th { width: 64px; height: 42px; border-radius: 7px; background: #fff top center/cover no-repeat; box-shadow: 0 0 0 1px var(--line); }
+  .pg b { display: block; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .pg small { color: var(--muted); font-size: 11.5px; }
+  .pg .eye { font-size: 11px; color: var(--accent); font-weight: 800; }
+  .main { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+  .bar { display: flex; align-items: center; gap: 8px; padding: 12px 16px; border-bottom: 1px solid var(--line); background: var(--surface); flex-wrap: wrap; }
+  .bar h2 { margin: 0; font-size: 16px; max-width: 420px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .bar .grow { flex: 1; }
+  .tl { display: flex; gap: 6px; overflow-x: auto; padding: 10px 16px; border-bottom: 1px solid var(--line); background: var(--bg); }
+  .tl button { flex: none; padding: 6px 10px; border-radius: 10px; background: var(--surface); border: 1.5px solid var(--line); font: 700 12px var(--font); color: var(--text); cursor: pointer; text-align: left; }
+  .tl button small { display: block; color: var(--muted); font-weight: 600; font-size: 10.5px; }
+  .tl button.on { border-color: var(--accent); background: var(--accent-soft); } .tl button.cmp { border-color: #ee7a2e; border-style: dashed; }
+  .tl .ch { color: var(--safe); } .tl .rm { color: var(--danger); }
+  .view { flex: 1; min-height: 0; position: relative; background: #fff; }
+  .view iframe { width: 100%; height: 100%; border: 0; display: block; background: #fff; }
+  .diff { position: absolute; inset: 0; overflow: auto; background: var(--surface); padding: 16px 20px; font: 13px/1.6 var(--font); }
+  .diff .sum { font-weight: 800; margin-bottom: 10px; } .diff .sum .a { color: var(--safe); } .diff .sum .r { color: var(--danger); }
+  .diff .l { padding: 1px 10px; border-radius: 4px; white-space: pre-wrap; } .diff .l.add { background: color-mix(in srgb, var(--safe) 16%, transparent); } .diff .l.del { background: color-mix(in srgb, var(--danger) 14%, transparent); text-decoration: line-through; text-decoration-color: color-mix(in srgb, var(--danger) 50%, transparent); }
+  .diff .l.same { color: var(--muted); } .diff .gap { color: var(--muted); font-size: 12px; padding: 4px 10px; }
+  .empty { display: grid; place-items: center; height: 100%; color: var(--muted); text-align: center; padding: 30px; }
+  .empty .big { font-size: 54px; }
+  select.field { width: auto; }
+</style></head>
+<body>
+<div class="tm">
+  <aside class="side"><h1>🕰️ Time machine</h1><p class="lede">Copies of pages you saved. Save one from the ⋮ menu (“Save a copy of this page”), then come back later to see how it changed.</p><div id="pages"></div></aside>
+  <section class="main" id="main"><div class="empty"><div><div class="big">🕰️</div><h2>No saved pages yet</h2><p>Open any page and choose <b>⋮ → Save a copy of this page</b>.<br>You can also ask NoamBrowser to watch a page and tell you when it changes.</p></div></div></section>
+</div>
+<script src="assets/apply-theme.js"></script>
+<script src="common.js"></script>
+<script src="timemachine.js"></script>
+</body>
+</html>

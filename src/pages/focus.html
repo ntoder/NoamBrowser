@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Focus</title><link rel="stylesheet" href="pages.css"><link rel="stylesheet" href="assets/themes.css">
+<style>
+  .page { max-width: 1040px; }
+  .head-row { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+  .now { display: flex; align-items: center; gap: 10px; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 8px 12px; font-weight: 750; margin-left: auto; }
+  .now .t { font-variant-numeric: tabular-nums; font-size: 18px; }
+  .btn.tomato { background: #e5484d; color: #fff; }
+  .hero { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 20px 0; }
+  .stat { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 16px 18px; }
+  .stat .k { color: var(--muted); font-size: 11.5px; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; }
+  .stat .v { font-size: 30px; font-weight: 850; letter-spacing: -.02em; margin-top: 4px; font-variant-numeric: tabular-nums; }
+  .stat .s { color: var(--muted); font-size: 12.5px; margin-top: 2px; }
+  .up { color: var(--safe); font-weight: 800; } .down { color: var(--danger); font-weight: 800; }
+  .box { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 18px 20px; margin-bottom: 16px; }
+  .box h2 { margin: 0 0 4px; font-size: 16px; } .box .sub { color: var(--muted); font-size: 12.5px; margin: 0 0 12px; }
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  svg.chart { width: 100%; height: 190px; display: block; }
+  .legend { display: flex; gap: 14px; font-size: 12px; color: var(--muted); font-weight: 700; margin-top: 6px; }
+  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 5px; vertical-align: -1px; }
+  table.trend { width: 100%; border-collapse: collapse; font-size: 13px; }
+  table.trend td, table.trend th { padding: 8px 6px; border-bottom: 1px solid var(--line); text-align: left; }
+  table.trend th { color: var(--muted); font-size: 11.5px; text-transform: uppercase; letter-spacing: .05em; }
+  table.trend td.n { text-align: right; font-variant-numeric: tabular-nums; font-weight: 750; }
+  .heat { display: grid; grid-template-columns: 34px repeat(24, 1fr); gap: 2px; font-size: 10px; color: var(--muted); font-weight: 700; }
+  .heat i { aspect-ratio: 1; border-radius: 3px; background: var(--surface-2); }
+  .badges { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+  .badge { border-radius: 14px; padding: 12px; background: var(--surface-2); text-align: center; }
+  .badge .e { font-size: 30px; display: block; } .badge b { display: block; font-size: 13px; margin-top: 4px; } .badge small { color: var(--muted); font-size: 11.5px; }
+  .badge.locked .e { filter: grayscale(1); opacity: .35; } .badge.locked b { color: var(--muted); }
+  .badge.got { background: linear-gradient(135deg, #fff4d6, #ffe7c2); color: #5a3b00; } .badge.got small { color: #8a6420; }
+  .hist { list-style: none; margin: 0; padding: 0; }
+  .hist li { display: grid; grid-template-columns: 110px 1fr auto auto 26px; gap: 12px; align-items: center; padding: 10px 4px; border-bottom: 1px solid var(--line); font-size: 13px; }
+  .hist .d { color: var(--muted); font-size: 12px; } .hist .t b { display: block; } .hist .t small { color: var(--muted); }
+  .chip { padding: 3px 9px; border-radius: 999px; font-weight: 800; font-size: 12px; }
+  .hist button { background: none; border: 0; color: var(--muted); cursor: pointer; font-size: 14px; }
+  .set .row { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+  .set .row:last-child { border-bottom: 0; }
+  .set .row .txt b { display: block; } .set .row .txt span { color: var(--muted); font-size: 12.5px; }
+  .set input[type=number] { width: 70px; }
+  .sites { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .sites span { display: inline-flex; align-items: center; gap: 6px; padding: 5px 6px 5px 11px; border-radius: 999px; background: var(--surface-2); font-weight: 700; font-size: 12.5px; }
+  .sites span button { border: 0; background: none; color: var(--muted); cursor: pointer; font-size: 13px; padding: 0 3px; }
+  .add { display: flex; gap: 8px; margin-top: 10px; } .add input { flex: 1; }
+  .empty { color: var(--muted); text-align: center; padding: 26px; }
+  .promise { display: flex; gap: 10px; align-items: center; }
+  .bar { flex: 1; height: 12px; background: var(--surface-2); border-radius: 6px; overflow: hidden; display: flex; }
+  .bar i { display: block; height: 100%; }
+  @media (max-width: 860px) { .hero { grid-template-columns: 1fr 1fr; } .two { grid-template-columns: 1fr; } .hist li { grid-template-columns: 1fr auto; } }
+</style></head>
+<body>
+<div class="page">
+  <div class="head-row"><h1 style="margin:0">🍅 Focus</h1><div class="now" id="now"></div></div>
+  <div class="hero">
+    <div class="stat"><div class="k">Today</div><div class="v" id="h-today">—</div><div class="s" id="h-today-s"></div></div>
+    <div class="stat"><div class="k">Streak</div><div class="v" id="h-streak">—</div><div class="s" id="h-streak-s"></div></div>
+    <div class="stat"><div class="k">Focus score</div><div class="v" id="h-score">—</div><div class="s" id="h-score-s"></div></div>
+    <div class="stat"><div class="k">All time</div><div class="v" id="h-total">—</div><div class="s" id="h-total-s"></div></div>
+  </div>
+  <div class="box"><h2>Last 30 days</h2><p class="sub">Bars show minutes of focus each day; the line is your average focus score.</p><svg class="chart" id="chart"></svg>
+    <div class="legend"><span><i style="background:#e5484d"></i>Focus minutes</span><span><i style="background:var(--accent)"></i>Focus score</span></div></div>
+  <div class="two">
+    <div class="box"><h2>Are you getting better?</h2><p class="sub">How often each site distracted you per session — this week vs last week.</p><div id="trend"></div></div>
+    <div class="box"><h2>When you focus best</h2><p class="sub">Focus minutes by day and hour (last 60 days). Darker = more.</p><div class="heat" id="heat"></div>
+      <h2 style="margin-top:18px">Promises</h2><div id="promises"></div></div>
+  </div>
+  <div class="box"><h2>Badges</h2><p class="sub" id="badge-sub"></p><div class="badges" id="badges"></div></div>
+  <div class="box"><h2>Sessions</h2><ul class="hist" id="hist"></ul></div>
+  <div class="box set" id="settings"><h2>Settings</h2>
+    <div class="row"><div class="txt"><b>Focus length</b><span>Minutes per focus session.</span></div><input class="field" type="number" min="1" max="240" data-n="work"></div>
+    <div class="row"><div class="txt"><b>Short break / long break</b><span>Minutes. A long break comes after every few sessions.</span></div><span><input class="field" type="number" min="1" max="60" data-n="short"> / <input class="field" type="number" min="1" max="90" data-n="long"> after every <input class="field" type="number" min="2" max="12" data-n="longEvery"></span></div>
+    <div class="row"><div class="txt"><b>Daily goal</b><span>How many focus sessions you want each day.</span></div><input class="field" type="number" min="1" max="20" data-n="dailyGoal"></div>
+    <div class="row"><div class="txt"><b>Start breaks automatically</b></div><button class="switch" data-b="autoBreak" role="switch"></button></div>
+    <div class="row"><div class="txt"><b>Start the next session after a break automatically</b></div><button class="switch" data-b="autoNext" role="switch"></button></div>
+    <div class="row"><div class="txt"><b>Hold website notifications while focusing</b><span>Sites like WhatsApp or Facebook can’t pop up messages during a session.</span></div><button class="switch" data-b="holdNotifications" role="switch"></button></div>
+    <div class="row"><div class="txt"><b>Silence distracting tabs</b><span>Mutes YouTube and similar tabs that are playing sound when you start.</span></div><button class="switch" data-b="muteOthers" role="switch"></button></div>
+    <div class="row"><div class="txt"><b>Pause when I walk away</b><span>If you don’t touch the computer for 3 minutes, the timer pauses.</span></div><button class="switch" data-b="awayPause" role="switch"></button></div>
+    <div class="row"><div class="txt"><b>Sounds</b></div><button class="switch" data-b="sound" role="switch"></button></div>
+    <div class="row"><div class="txt"><b>Default blocking</b></div><select class="field" data-s="mode"><option value="track">👀 Just track</option><option value="gentle">🙂 Gentle</option><option value="strict">🔒 Strict</option></select></div>
+    <div class="row" style="display:block"><div class="txt"><b>Distracting sites</b><span>These are tracked (and blocked in Gentle/Strict mode) while you focus.</span></div>
+      <div class="sites" id="sites"></div><div class="add"><input class="field" id="add-site" placeholder="Add a site, e.g. youtube.com or minecraft.net"><button class="btn" id="add-btn">Add</button></div></div>
+    <div class="row"><div class="txt"><b>Super-strict: only allow work sites</b><span>Every site is a distraction except the ones below.</span></div><button class="switch" data-b="allowOnly" role="switch"></button></div>
+    <div class="row" style="display:block" id="allow-row"><div class="sites" id="allow"></div><div class="add"><input class="field" id="add-allow" placeholder="Allow a site, e.g. classroom.google.com"><button class="btn" id="allow-btn">Allow</button></div></div>
+  </div>
+</div>
+<script src="assets/apply-theme.js"></script>
+<script src="common.js"></script>
+<script src="focus.js"></script>
+</body>
+</html>

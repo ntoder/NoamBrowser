@@ -9,6 +9,16 @@
   const fromTemplate = (t) => ({ id: crypto.randomUUID(), name: t.id === 'blank' ? 'My page' : t.name, html: t.html, css: t.css, js: t.js, updated: Date.now() });
   let cur = projects.find((p) => p.id === localStorage.getItem(CUR));
   if (!cur) { cur = projects[0] || fromTemplate(T[0]); if (!projects.length) { projects = [cur]; persist(projects); } }
+  // Opened from Code Buddy with the styles you wrote: start a project with them
+  { const q = new URLSearchParams(location.search); const css = q.get('buddy-css');
+    if (css) {
+      const tags = [...new Set([...css.matchAll(/^([a-z][a-z0-9]*)/gim)].map((m) => m[1].toLowerCase()))];
+      const sample = { h1: '<h1>My big title</h1>', h2: '<h2>A heading</h2>', h3: '<h3>A smaller heading</h3>', p: '<p>Some words in a paragraph.</p>', a: '<a href="#">A link</a>', button: '<button>Click me</button>', img: '<img src="https://picsum.photos/300/160" alt="A photo">', li: '<ul><li>One</li><li>Two</li></ul>', div: '<div>A box</div>', span: '<p><span>A bit of text</span></p>' };
+      const html = ['<!-- Code Buddy made this page from the changes you tried. Edit anything! -->', ...tags.map((t) => sample[t] || `<${t}>Something</${t}>`)].join('\n');
+      const clean = css.split('\n').map((l) => l.replace(/^([^{]*?)(#[\w-]+|\.[\w-]+)(\s*\{)/, (m, a, b, c) => (a.trim() || b) + c)).join('\n');
+      cur = { id: crypto.randomUUID(), name: 'My Code Buddy styles', html, css: '/* The styles you made with Code Buddy */\n' + clean, js: '', updated: Date.now() };
+      projects.unshift(cur); persist(projects); history.replaceState(null, '', location.pathname);
+    } }
   let lang = 'html';
   const code = $('#code'), hl = $('#hl'), gut = $('#gut');
 

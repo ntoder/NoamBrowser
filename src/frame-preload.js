@@ -382,6 +382,47 @@ if (cfg.gestures) {
   addEventListener('blur', cleanup);
 }
 
+// ---------------------------------------------------------------- double-click dictionary
+if (cfg.dict) {
+  let host = null, root = null;
+  const close = () => { if (host) { host.remove(); host = null; } };
+  addEventListener('dblclick', async (e) => {
+    const t = e.target; if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
+    const sel = getSelection(); const text = (sel && sel.toString() || '').trim();
+    if (!text || text.length > 40 || text.split(/\s+/).length > 4 || !/\p{L}/u.test(text)) return;
+    const r = sel.getRangeAt(0).getBoundingClientRect();
+    close();
+    host = document.createElement('div'); host.style.cssText = 'all:initial;position:fixed;z-index:2147483647;left:0;top:0';
+    root = host.attachShadow({ mode: 'closed' });
+    const sheet = new CSSStyleSheet();
+    sheet.replaceSync(`.b{position:fixed;min-width:180px;max-width:320px;background:#fff;color:#1d1836;border-radius:14px;box-shadow:0 12px 34px rgba(0,0,0,.25),0 0 0 1px rgba(0,0,0,.06);padding:10px 12px;font:500 14px/1.4 system-ui,"Segoe UI",sans-serif;animation:p .12s ease-out}
+      @keyframes p{from{opacity:0;transform:translateY(4px)}} .w{color:#6b6488;font-size:12px;font-weight:700;display:flex;gap:6px;align-items:center}
+      .t{font-size:18px;font-weight:800;margin-top:3px} .t[dir=rtl]{text-align:right} .e{color:#c23040;font-size:12.5px} .x{margin-left:auto;cursor:pointer;border:0;background:none;color:#9c93b9;font-size:14px}
+      .s{cursor:pointer;border:0;background:#f2f0f8;border-radius:8px;padding:2px 7px;font-size:13px} @media (prefers-color-scheme:dark){.b{background:#221c3d;color:#ece8f7}.s{background:#2c2550}}`);
+    root.adoptedStyleSheets = [sheet];
+    const b = document.createElement('div'); b.className = 'b';
+    b.style.left = Math.max(8, Math.min(innerWidth - 330, r.left)) + 'px';
+    b.style.top = (r.bottom + 120 > innerHeight ? r.top - 90 : r.bottom + 8) + 'px';
+    b.innerHTML = '<div class="w"><span class="o"></span><button class="x" title="Close">✕</button></div><div class="t">…</div>';
+    b.querySelector('.o').textContent = '📖 ' + text;
+    b.querySelector('.x').onclick = close;
+    root.appendChild(b); (document.body || document.documentElement).appendChild(host);
+    let res; try { res = await ipcRenderer.invoke('noam:dict', { text }); } catch (err) { res = { error: String(err.message || err) }; }
+    if (!host || !root.contains(b)) return;
+    const tEl = b.querySelector('.t');
+    if (res.error) { if (res.error === 'off' || res.error === 'empty') return close(); tEl.className = 'e'; tEl.textContent = res.error; return; }
+    tEl.textContent = res.translation; if (res.to === 'he' || res.to === 'ar') tEl.dir = 'rtl';
+    if (cfg.dictSpeak && window.speechSynthesis) {
+      const sp = document.createElement('button'); sp.className = 's'; sp.textContent = '🔊'; sp.title = 'Say it';
+      sp.onclick = () => { const u = new SpeechSynthesisUtterance(text); u.lang = res.from === 'he' ? 'he-IL' : res.from === 'en' ? 'en-US' : res.from; speechSynthesis.cancel(); speechSynthesis.speak(u); };
+      b.querySelector('.w').insertBefore(sp, b.querySelector('.x'));
+    }
+  }, true);
+  addEventListener('mousedown', (e) => { if (host && !e.composedPath().includes(host)) close(); }, true);
+  addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); }, true);
+  addEventListener('scroll', close, true);
+}
+
 // ---------------------------------------------------------------- video speed keys
 // [ slower, ] faster, \ back to normal — on any site with a <video> (or playing audio).
 if (cfg.media && cfg.media.speedKeys) {
@@ -426,7 +467,7 @@ if (cfg.internal && location.protocol === 'noam:' && window.top === window) {
     'translate:languages', 'sitedark:list', 'sitedark:set', 'topsites:hide', 'topsites:unhide', 'topsites:reset',
     'widgets:geocode', 'widgets:weather', 'widgets:jewish', 'todos:list', 'todos:save', 'reading:list', 'reading:remove', 'reading:read',
     'notes:all', 'sessions:list', 'sessions:delete', 'sessions:open', 'screenshot:get', 'screenshot:copy', 'screenshot:save', 'passwords:check',
-    'sync:cloud-folders', 'zmanim:alerts-info', 'zmanim:alerts-test', 'screentime:get', 'screentime:set-limit', 'screentime:clear', 'screentime:csv',
+    'sync:cloud-folders', 'zmanim:alerts-info', 'zmanim:alerts-test', 'tm:list', 'tm:text', 'tm:thumb', 'tm:delete', 'tm:watch', 'tm:check', 'prices:list', 'prices:update', 'prices:remove', 'prices:check', 'prices:every', 'focus:state', 'focus:start', 'focus:pause', 'focus:resume', 'focus:stop', 'focus:break', 'focus:skip-break', 'focus:add-time', 'focus:rate', 'focus:stats', 'focus:delete', 'focus:resisted', 'focus:let-through', 'focus:block-info', 'screentime:get', 'screentime:set-limit', 'screentime:clear', 'screentime:csv',
   ]);
   const listeners = new Map();
   ipcRenderer.on('noam:page-event', (_e, name, data) => { for (const fn of listeners.get(name) || []) try { fn(data); } catch {} });

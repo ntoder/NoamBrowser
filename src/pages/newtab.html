@@ -127,6 +127,11 @@
   .todo li:hover button { opacity: 1; }
   .todo li button:hover { color: var(--danger); }
   .todo .empty { color: var(--muted); font-size: 13px; padding: 8px 2px; }
+  .focus-chip { display: flex; align-items: center; gap: 14px; margin: 0 auto 14px; width: fit-content; max-width: 100%; padding: 10px 12px 10px 18px; border-radius: 18px; background: color-mix(in srgb, var(--surface) 82%, transparent); backdrop-filter: blur(14px); border: 1px solid var(--line); font-weight: 700; box-shadow: 0 10px 30px -18px rgba(0,0,0,.4); }
+  .focus-chip .t { font-size: 22px; font-weight: 850; font-variant-numeric: tabular-nums; }
+  .focus-chip .k { color: var(--muted); font-size: 13px; }
+  .focus-chip button { height: 34px; padding: 0 14px; border-radius: 11px; border: 0; font: 750 13px var(--font); cursor: pointer; background: var(--surface-2); color: var(--text); }
+  .focus-chip button.go { background: #e5484d; color: #fff; }
   .w-cfg { margin-top: 12px; }
   .zm-place { cursor: pointer; } .zm-place:hover { text-decoration: underline; }
   #city-preset { font: inherit; font-size: 13px; padding: 5px 8px; border-radius: 9px; border: 1px solid var(--line); background: var(--surface); color: var(--text); max-width: 200px; }
@@ -166,6 +171,7 @@
     </section>
   </div>
   <section class="widgets" id="widgets" hidden>
+    <div class="focus-chip" id="focus-chip" hidden></div>
     <div class="w-grid" id="wgrid">
       <div class="w clock" id="w-clock" hidden><div class="t" id="clock-t"></div><div class="d" id="clock-d"></div><div class="hd" id="clock-hd"></div></div>
       <div class="w weather" id="w-weather" hidden><h3><span id="wx-place">Weather</span><button id="wx-units" title="Switch units">°C</button></h3><div id="wx-body" class="muted">Loading…</div></div>
