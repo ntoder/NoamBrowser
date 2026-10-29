@@ -104,7 +104,7 @@ $('#ws-btn').onclick = () => { const r = $('#ws-btn').getBoundingClientRect(); w
 
 // ====================================================================== right side panel
 const panels = () => ((state.settings.sidePanel || {}).panels || []);
-const PANEL_ICON = { notes: 'note', reading: 'reading', calc: 'calc', web: 'globe' };
+const PANEL_ICON = { notes: 'note', reading: 'reading', calc: 'calc', web: 'globe', ambient: 'music' };
 const webPanels = new Map(); // id -> webview (kept alive so chats stay signed in and loaded)
 let openPanelId = null;
 function renderRail() {
@@ -145,7 +145,7 @@ async function panelMenu(id, e) {
   else if (a === 'rename') { const n = await askText('Panel name', p.name); if (n) nb.invoke('settings:set', { sidePanel: { panels: panels().map((x) => (x.id === id ? { ...x, name: n } : x)) } }); }
   else if (a === 'remove') { if (openPanelId === id) closeSide(); const wv = webPanels.get(id); if (wv) { wv.remove(); webPanels.delete(id); } nb.invoke('settings:set', { sidePanel: { panels: panels().filter((x) => x.id !== id) } }); }
 }
-const BUILTIN_PANELS = { notes: { id: 'notes', kind: 'notes', name: 'Notes' }, reading: { id: 'reading', kind: 'reading', name: 'Reading list' }, calc: { id: 'calc', kind: 'calc', name: 'Calculator' } };
+const BUILTIN_PANELS = { notes: { id: 'notes', kind: 'notes', name: 'Notes' }, reading: { id: 'reading', kind: 'reading', name: 'Reading list' }, calc: { id: 'calc', kind: 'calc', name: 'Calculator' }, ambient: { id: 'ambient', kind: 'ambient', name: 'Ambient sounds' } };
 async function openKind(kind) {
   let p = panels().find((x) => x.kind === kind);
   if (!p) { p = BUILTIN_PANELS[kind]; const s = await nb.invoke('settings:set', { sidePanel: { panels: [...panels(), p] } }); state.settings = s; }
@@ -161,6 +161,8 @@ function openSide(id) {
   rp.style.setProperty('--rpw', ((state.settings.sidePanel || {}).width || 380) + 'px');
   $('#rp-title').textContent = p.name;
   $('#rp-pop').hidden = p.kind !== 'web';
+  $('#rp-zoom').hidden = p.kind !== 'web';
+  $('#rp-zval').textContent = Math.round(panelZoom(p) * 100) + '%';
   const body = $('#rp-body');
   for (const wv of webPanels.values()) wv.classList.remove('on');
   [...body.children].forEach((c) => { if (c.tagName !== 'WEBVIEW') c.remove(); });
@@ -173,15 +175,39 @@ function openSide(id) {
       wv.setAttribute('webpreferences', 'contextIsolation=yes,sandbox=yes,spellcheck=yes');
       wv.setAttribute('src', p.url);
       wv.className = 'rp-web';
+      wv.addEventListener('dom-ready', () => { try { wv.setZoomFactor(panelZoom(panels().find((x) => x.id === id) || p)); } catch {} });
       body.appendChild(wv); webPanels.set(id, wv);
     }
     wv.classList.add('on');
   } else if (p.kind === 'notes') renderNotesPanel(body);
   else if (p.kind === 'reading') renderReadingPanel(body);
   else if (p.kind === 'calc') renderCalcPanel(body);
+  else if (p.kind === 'ambient' && window.renderAmbientPanel) window.renderAmbientPanel(body);
   renderRail();
 }
 $('#rp-close').onclick = closeSide;
+// Web panels are narrow, so pages load a little zoomed out (WhatsApp's QR code and chats need the room)
+function panelZoom(p) { return p && p.zoom ? p.zoom : 0.85; }
+async function setPanelZoom(delta) {
+  const p = panels().find((x) => x.id === openPanelId); if (!p || p.kind !== 'web') return;
+  const z = Math.round(Math.min(1.5, Math.max(0.5, panelZoom(p) + delta)) * 100) / 100;
+  const wv = webPanels.get(p.id); try { wv && wv.setZoomFactor(z); } catch {}
+  $('#rp-zval').textContent = Math.round(z * 100) + '%';
+  await nb.invoke('settings:set', { sidePanel: { panels: panels().map((x) => (x.id === p.id ? { ...x, zoom: z } : x)) } });
+}
+$('#rp-zout').onclick = () => setPanelZoom(-0.1);
+$('#rp-zin').onclick = () => setPanelZoom(0.1);
+// A QR code in a panel (e.g. linking WhatsApp): offer a bigger view
+nb.on('qr:state', ({ wcId, on }) => {
+  const p = panels().find((x) => x.id === openPanelId); const wv = p && webPanels.get(p.id);
+  let mine = false; try { mine = wv && wv.getWebContentsId() === wcId; } catch {}
+  if (!mine) return;
+  let tip = $('#rp-qrtip');
+  if (!on) { if (tip) tip.remove(); return; }
+  if (!tip) { tip = document.createElement('div'); tip.id = 'rp-qrtip'; tip.className = 'rp-qrtip'; $('#rpanel').insertBefore(tip, $('#rp-body')); }
+  tip.innerHTML = '<span>📷 Scanning a QR code? It’s easier in a full tab.</span><button class="btn primary" id="rp-qrbig">Open bigger</button>';
+  $('#rp-qrbig').onclick = () => { tip.remove(); newTab({ url: (wv.getURL && wv.getURL()) || p.url }); };
+});
 $('#rp-pop').onclick = () => { const p = panels().find((x) => x.id === openPanelId); const wv = webPanels.get(openPanelId); if (p) newTab({ url: (wv && wv.getURL && wv.getURL()) || p.url }); };
 (() => {
   const h = $('#rp-resize'), rp = $('#rpanel');

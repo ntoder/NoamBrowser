@@ -6,6 +6,7 @@
   const DEFAULT_PANELS = [
     { id: 'notes', kind: 'notes', name: 'Notes' },
     { id: 'reading', kind: 'reading', name: 'Reading list' },
+    { id: 'ambient', kind: 'ambient', name: 'Ambient sounds' },
     { id: 'whatsapp', kind: 'web', name: 'WhatsApp', url: 'https://web.whatsapp.com/' },
     { id: 'chatgpt', kind: 'web', name: 'ChatGPT', url: 'https://chatgpt.com/' },
     { id: 'calc', kind: 'calc', name: 'Calculator' },
@@ -134,7 +135,31 @@
   $('#dict-to').onchange = (e) => save({ dictionary: { ...DI(), to: e.target.value } });
   function renderDI() { setSw($('#dict-on'), DI().enabled !== false); setSw($('#dict-speak'), DI().speak !== false); $('#dict-to').value = DI().to || 'auto'; }
 
+  // ---- containers
+  const CT = () => s.containers || [];
+  const CCOLORS = ['#3E8DEB', '#EE7A2E', '#3FAE5A', '#7C68FA', '#E5484D', '#14A89B', '#D9A21B', '#E055A3'];
+  const CICONS = ['🏠', '💼', '🎓', '🎮', '🛒', '👪', '💰', '🎵', '📺', '⭐', '🧪', '✈️', '❤️', '🐶'];
+  const saveCT = (list) => save({ containers: list });
+  $('#ctr-add').onclick = () => { const n = CT().length; saveCT([...CT(), { id: 'c' + Date.now().toString(36), name: 'Container ' + (n + 1), color: CCOLORS[n % CCOLORS.length], icon: CICONS[(n + 3) % CICONS.length] }]); };
+  function renderCT() {
+    const el = $('#ctr-list'); if (el.contains(document.activeElement)) return;
+    el.innerHTML = CT().length ? CT().map((c, i) => `<div class="ctr-row" data-i="${i}">
+      <select class="ic" title="Icon">${CICONS.map((e) => `<option ${e === c.icon ? 'selected' : ''}>${e}</option>`).join('')}</select>
+      <input class="field nm" value="${esc(c.name)}" maxlength="24">
+      <span class="ctr-cols">${CCOLORS.map((col) => `<button style="background:${col}" data-col="${col}" class="${col === c.color ? 'on' : ''}" title="Colour"></button>`).join('')}</span>
+      <button class="btn" data-clear>Sign out of everything</button><button class="btn" data-del title="Delete container">🗑️</button></div>`).join('') : '<div class="item"><div class="txt"><span>No containers yet.</span></div></div>';
+    $$('.ctr-row').forEach((row) => {
+      const i = +row.dataset.i; const upd = (patch) => saveCT(CT().map((c, j) => (j === i ? { ...c, ...patch } : c)));
+      row.querySelector('.ic').onchange = (e) => upd({ icon: e.target.value });
+      row.querySelector('.nm').onchange = (e) => upd({ name: e.target.value.trim() || 'Container' });
+      row.querySelectorAll('[data-col]').forEach((b) => (b.onclick = () => upd({ color: b.dataset.col })));
+      row.querySelector('[data-clear]').onclick = async (e) => { await noam.invoke('containers:clear', CT()[i].id); e.target.textContent = 'Done ✓'; setTimeout(() => (e.target.textContent = 'Sign out of everything'), 2000); };
+      row.querySelector('[data-del]').onclick = async () => { if (!confirm(`Delete “${CT()[i].name}”? Its logins are removed too. Tabs open in it keep working until you close them.`)) return; await noam.invoke('containers:clear', CT()[i].id); saveCT(CT().filter((_, j) => j !== i)); };
+    });
+  }
+
   function render() {
+    renderCT();
     renderDI();
     renderBL(); renderZA(); renderZL();
     $$('[data-g]').forEach((el) => setSw(el, (s.gestures || {})[el.dataset.g]));
@@ -147,7 +172,7 @@
     const sp = s.sidePanel || {};
     setSw($('#sp-show'), sp.show !== false);
     const panels = sp.panels || [];
-    $('#sp-list').innerHTML = panels.map((p, i) => `<div class="item"><div class="txt"><b>${esc(p.name)}</b><span>${esc(p.kind === 'web' ? p.url : { notes: 'Notes for the site you’re on', reading: 'Pages saved for later', calc: 'Calculator and unit converter' }[p.kind] || '')}</span></div>
+    $('#sp-list').innerHTML = panels.map((p, i) => `<div class="item"><div class="txt"><b>${esc(p.name)}</b><span>${esc(p.kind === 'web' ? p.url : { notes: 'Notes for the site you’re on', reading: 'Pages saved for later', calc: 'Calculator and unit converter', ambient: 'Rain, waves, café, lo-fi music and more' }[p.kind] || '')}</span></div>
       <span style="display:flex;gap:6px"><button class="btn" data-up="${i}" ${i ? '' : 'disabled'} title="Move up">↑</button><button class="btn" data-rm="${i}">Remove</button></span></div>`).join('');
     $$('[data-rm]').forEach((b) => (b.onclick = () => save({ sidePanel: { panels: panels.filter((_, i) => i !== +b.dataset.rm) } })));
     $$('#sp-list [data-up]').forEach((b) => (b.onclick = () => { const l = [...panels]; const i = +b.dataset.up; [l[i - 1], l[i]] = [l[i], l[i - 1]]; save({ sidePanel: { panels: l } }); }));

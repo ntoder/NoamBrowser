@@ -27,6 +27,10 @@
     return null;
   }
   let lastSched = null, manual = null, videoFs = false;
+  // QR codes on screen (WhatsApp login etc.): the tint makes them hard for phones to read
+  const qr = new Set(); let qrToast = false;
+  const qrVisible = () => [...qr].some((id) => id === (state.active && state.active.wcId) || (typeof webPanels !== 'undefined' && openPanelId && webPanels.get(openPanelId) && (() => { try { return webPanels.get(openPanelId).getWebContentsId() === id; } catch { return false; } })()));
+  nb.on('qr:state', ({ wcId, on }) => { if (on) qr.add(wcId); else qr.delete(wcId); const was = el.classList.contains('on'); apply(); if (on && was && !el.classList.contains('on') && !qrToast) { qrToast = true; toast('📷 QR code on screen — night tint paused so your phone can scan it', 4000); setTimeout(() => (qrToast = false), 60000); } });
   function apply() {
     const b = cfg();
     const sc = schedule();
@@ -34,6 +38,7 @@
     if (!sc) lastSched = null;
     let on = manual !== null ? manual : sc ? sc.on : !!b.enabled;
     if (videoFs && b.pauseVideo !== false) on = false;
+    if (on && qrVisible()) on = false;
     let strength = Math.min(0.85, Math.max(0.05, (b.strength ?? 45) / 100));
     // gradual: ease in over the first 45 minutes of a scheduled evening
     if (on && b.ramp && sc && sc.on && manual === null) strength *= Math.max(0.15, Math.min(1, sc.since / 45));

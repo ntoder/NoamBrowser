@@ -43,10 +43,11 @@ matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyTheme
 
 // ------------------------------------------------------------------ tabs
 class Tab {
-  constructor({ url = NEWTAB, private: priv = false, background = false, index, opener, ws }) {
+  constructor({ url = NEWTAB, private: priv = false, background = false, index, opener, ws, container, lazy }) {
     this.id = state.nextId++;
     this.ws = ws || state.ws || 'default';
     this.private = !!priv;
+    this.container = !priv && container && window.containerById && window.containerById(container) ? container : null;
     this.url = url;
     this.title = isInternal(url) ? 'New tab' : hostOf(url) || 'New tab';
     this.favicon = '';
@@ -64,7 +65,7 @@ class Tab {
     this.pendingPermissions = [];
 
     const wv = document.createElement('webview');
-    wv.setAttribute('partition', this.private ? state.paths.privatePartition : state.paths.mainPartition);
+    wv.setAttribute('partition', this.private ? state.paths.privatePartition : this.container ? 'persist:noam-c-' + this.container : state.paths.mainPartition);
     wv.setAttribute('allowpopups', '');
     wv.setAttribute('webpreferences', 'contextIsolation=yes,sandbox=yes,spellcheck=yes,javascript=yes');
     wv.setAttribute('src', url);
@@ -91,7 +92,9 @@ class Tab {
     const ref = index != null ? state.tabs[index] : null;
     if (ref) { strip.insertBefore(el, ref.el); state.tabs.splice(index, 0, this); }
     else { strip.appendChild(el); state.tabs.push(this); }
-    views.appendChild(wv);
+    // lazy tabs (restored from last time) don't load until you open them — fast startup with lots of tabs
+    if (lazy && background) { this.asleep = true; el.classList.add('asleep'); } else views.appendChild(wv);
+    if (window.hooks && window.hooks.tabCreated) window.hooks.tabCreated(this);
     if (state.booted) { replay(el, 'entering', 450); if (!background) replay(wv, 'view-new', 600); }
     this.render();
     if (!background || !state.active) activate(this);
@@ -105,6 +108,7 @@ class Tab {
       if (!this.ready) {
         this.ready = true;
         this.wcId = wv.getWebContentsId();
+        if (this.pendingRestore) { const h = this.pendingRestore; this.pendingRestore = null; nb.invoke('perf:restore', { wcId: this.wcId, ...h }).catch(() => wv.loadURL(this.url).catch(() => {})); }
         nb.invoke('shields:tab', this.wcId).then((s) => { Object.assign(this.shields, s); if (this === state.active) renderShield(); });
         if (this.muted) wv.setAudioMuted(true);
       }
@@ -218,8 +222,29 @@ class Tab {
   }
 }
 
+// ------------------------------------------------------------------ sleeping tabs
+// A sleeping tab has no running page (its memory is freed). It wakes up — with its back/forward history — when you open it.
+async function sleepTab(t) {
+  if (!t || t.asleep || t === state.active || !t.wcId) return false;
+  let hist = null; try { hist = await nb.invoke('perf:history', t.wcId); } catch {}
+  if (t === state.active || t.asleep || !state.tabs.includes(t)) return false;
+  t.sleepHistory = hist && hist.entries && hist.entries.length ? hist : null;
+  t.asleep = true; t.ready = false; t.wcId = null; t.audible = false; t.loading = false; t.sleptAt = Date.now();
+  t.wv.remove(); t.el.classList.add('asleep'); t.render();
+  window.hooks && window.hooks.slept && window.hooks.slept(t);
+  return true;
+}
+function wakeTab(t) {
+  if (!t || !t.asleep) return;
+  t.asleep = false; t.ready = false; t.wcId = null; t.el.classList.remove('asleep');
+  if (t.sleepHistory) { t.pendingRestore = t.sleepHistory; t.sleepHistory = null; t.wv.setAttribute('src', 'about:blank'); }
+  else t.wv.setAttribute('src', t.url);
+  $('#views').appendChild(t.wv);
+  window.hooks && window.hooks.woke && window.hooks.woke(t);
+}
 function activate(tab) {
   if (!tab) return;
+  if (tab.asleep) wakeTab(tab);
   if (state.active && state.active !== tab) {
     state.active.el.classList.remove('active');
     state.active.wv.classList.remove('active');
@@ -303,7 +328,7 @@ function setupDrag(tab) {
 let sessionTimer;
 function saveSession() {
   clearTimeout(sessionTimer);
-  sessionTimer = setTimeout(() => nb.invoke('session:save', state.tabs.filter((t) => !t.private).map((t) => ({ url: t.url, title: t.title, group: t.groupId || undefined, ws: t.ws && t.ws !== 'default' ? t.ws : undefined }))), 600);
+  sessionTimer = setTimeout(() => nb.invoke('session:save', state.tabs.filter((t) => !t.private).map((t) => ({ url: t.url, title: t.title, group: t.groupId || undefined, ws: t.ws && t.ws !== 'default' ? t.ws : undefined, container: t.container || undefined }))), 600);
 }
 
 // ------------------------------------------------------------------ toolbar
@@ -724,7 +749,7 @@ nb.on('shortcut', (s) => shortcut(s));
 nb.on('tab:open', ({ url, background, opener, private: priv }) => {
   const openerTab = opener && state.tabs.find((t) => t.wcId === opener);
   const index = openerTab ? state.tabs.indexOf(openerTab) + 1 + state.tabs.slice(state.tabs.indexOf(openerTab) + 1).filter((t) => t.opener === opener).length : undefined;
-  newTab({ url, background, opener, private: priv ?? openerTab?.private, index });
+  newTab({ url, background, opener, private: priv ?? openerTab?.private, index, container: openerTab && openerTab.container });
 });
 nb.on('shields:update', (s) => {
   const t = state.tabs.find((x) => x.wcId === s.wcId); if (!t) return;
@@ -763,7 +788,8 @@ nb.on('init', async (init) => {
   const tabs = init.tabs.length ? init.tabs : [{ url: NEWTAB }];
   state.groups = (init.settings.tabs && init.settings.tabs.groups) || [];
   state.ws = (init.settings.tabs && init.settings.tabs.activeWs) || 'default';
-  tabs.forEach((t, i) => { const nt = newTab({ url: t.url, ws: t.ws || 'default', private: init.privateTab && i === tabs.length - 1, background: i < tabs.length - 1 }); if (t.group && state.groups.some((g) => g.id === t.group)) { nt.groupId = t.group; nt.render(); } });
+  const lazy = ((init.settings || {}).perf || {}).lazyRestore !== false;
+  tabs.forEach((t, i) => { const nt = newTab({ url: t.url, ws: t.ws || 'default', container: t.container, lazy: lazy && i < tabs.length - 1, private: init.privateTab && i === tabs.length - 1, background: i < tabs.length - 1 }); if (t.group && state.groups.some((g) => g.id === t.group)) { nt.groupId = t.group; nt.render(); } });
   window.hooks && window.hooks.init && window.hooks.init(init);
   activate(visibleTabs()[visibleTabs().length - 1] || state.tabs[state.tabs.length - 1]);
   layoutTabs();

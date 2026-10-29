@@ -86,3 +86,18 @@
 .price-btn span { font-size: 14px; filter: grayscale(.4); }
 .price-btn.on { background: color-mix(in srgb, #3fae5a 16%, transparent); }
 .price-btn.on span { filter: none; }
+
+/* ---------- sleeping tabs ---------- */
+.tab.asleep .fav { opacity: .45; filter: grayscale(.8); outline: 1.5px dashed var(--muted); outline-offset: 2px; border-radius: 50%; }
+.tab.asleep .title { opacity: .6; font-style: italic; }
+#heavy-bar { z-index: 25; }
+/* energy saver & speed mode: drop the costly effects in the browser's own interface */
+html.energy-saver *, html.speed-mode * { animation-duration: 0s !important; transition-duration: 0s !important; }
+html.energy-saver [data-glass] *, html.energy-saver #titlebar, html.energy-saver #toolbar, html.speed-mode #titlebar, html.speed-mode #toolbar, html.speed-mode #rail, html.speed-mode #rpanel { backdrop-filter: none !important; }
+
+/* ---------- containers ---------- */
+.tab.in-ctr { box-shadow: inset 0 -3px 0 var(--cc); }
+.tab .ctr-ic { font-size: 11px; flex: none; margin-right: -2px; line-height: 1; }
+.ctr-chip { display: inline-flex; align-items: center; gap: 4px; height: 24px; padding: 0 9px 0 7px; margin-right: 6px; border-radius: 999px; font-weight: 800; font-size: 12px; flex: none;
+  color: var(--cc); background: color-mix(in srgb, var(--cc) 15%, transparent); border: 1px solid color-mix(in srgb, var(--cc) 45%, transparent); }
+.ctr-chip:hover { background: color-mix(in srgb, var(--cc) 24%, transparent); }

@@ -124,6 +124,8 @@ hooks.tabMenu = async (tab, e) => {
   if (inSplit) items.push({ id: 'unsplit', label: 'Close split view' });
   else if (tab !== state.active) items.push({ id: 'split', label: 'Open side by side with current tab' });
   else items.push({ id: 'split-next', label: 'Split view with another tab' });
+  const extra = (hooks.tabMenuExtra ? hooks.tabMenuExtra(tab) : []).filter(Boolean);
+  if (extra.length) items.push({ type: 'separator' }, ...extra);
   items.push({ type: 'separator' },
     { id: 'close', label: 'Close tab' },
     { id: 'others', label: 'Close other tabs', enabled: state.tabs.length > 1 },
@@ -132,9 +134,9 @@ hooks.tabMenu = async (tab, e) => {
     { id: 'reopen', label: 'Reopen closed tab', enabled: state.closed.length > 0 });
   const id = await popup(items, e.clientX, e.clientY);
   if (!id) return;
-  if (id === 'newright') { const t = newTab({ url: NEWTAB, index: idx + 1, private: tab.private }); if (tab.groupId) { t.groupId = tab.groupId; t.render(); renderGroups(); } }
+  if (id === 'newright') { const t = newTab({ url: NEWTAB, index: idx + 1, private: tab.private, container: tab.container }); if (tab.groupId) { t.groupId = tab.groupId; t.render(); renderGroups(); } }
   else if (id === 'reload') reloadTab(tab);
-  else if (id === 'dup') newTab({ url: tab.url, index: idx + 1, private: tab.private });
+  else if (id === 'dup') newTab({ url: tab.url, index: idx + 1, private: tab.private, container: tab.container });
   else if (id === 'mute') { tab.muted = !tab.muted; try { tab.wv.setAudioMuted(tab.muted); } catch {} tab.render(); }
   else if (id === 'group-new') addToGroup(tab, null);
   else if (id.startsWith('group:')) addToGroup(tab, state.groups.find((g) => g.id === id.slice(6)));
@@ -146,6 +148,7 @@ hooks.tabMenu = async (tab, e) => {
   else if (id === 'others') state.tabs.filter((t) => t !== tab).forEach((t) => closeTab(t));
   else if (id === 'right') state.tabs.slice(idx + 1).forEach((t) => closeTab(t));
   else if (id === 'reopen') shortcut({ key: 't', ctrl: true, shift: true });
+  else if (hooks.tabMenuAction) hooks.tabMenuAction(tab, id);
 };
 
 // ====================================================================== split view

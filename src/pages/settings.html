@@ -90,6 +90,12 @@
   .zl-today .z { background: var(--surface-2); border-radius: 10px; padding: 8px 10px; font-size: 12px; color: var(--muted); font-weight: 650; } .zl-today .z b { display: block; color: var(--text); font-size: 15px; font-variant-numeric: tabular-nums; }
   .zl-today .z.next { outline: 2px solid var(--accent); }
   .zl-today .hd { display: flex; justify-content: space-between; align-items: center; font-weight: 750; font-size: 13.5px; gap: 10px; flex-wrap: wrap; }
+  .ctr-row { display: grid; grid-template-columns: 54px minmax(0, 1fr) auto auto auto; gap: 10px; align-items: center; padding: 10px 18px; border-bottom: 1px solid var(--line); }
+  .ctr-row:last-child { border-bottom: 0; }
+  .ctr-row select.ic { font-size: 18px; padding: 2px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface-2); }
+  .ctr-row input.nm { font-weight: 700; }
+  .ctr-cols { display: flex; gap: 4px; } .ctr-cols button { width: 20px; height: 20px; border-radius: 50%; border: 2px solid var(--surface); box-shadow: 0 0 0 1px var(--line); padding: 0; }
+  .ctr-cols button.on { box-shadow: 0 0 0 2px var(--text); }
   kbd { font: 700 11px var(--font); padding: 1px 5px; border-radius: 5px; background: var(--surface-2); border: 1px solid var(--line); }
 </style></head>
 <body>
@@ -100,6 +106,7 @@
     <a href="#appearance">Appearance</a>
     <a href="#shields">Shields</a>
     <a href="#vpn">VPN</a>
+    <a href="#containers">Accounts &amp; containers</a>
     <a href="#tools">Tools &amp; gestures</a>
     <a href="#zmanim">Zmanim</a>
     <a href="#passwords">Passwords</a>
@@ -187,6 +194,14 @@
         <div class="item"><div class="txt"><b>New identity</b><span>Generates fresh WireGuard keys and a new WARP device.</span></div><button class="btn" id="newid">New identity</button></div>
       </div>
       <p class="note" style="margin-top:10px">WARP hides your IP address from websites and encrypts traffic between you and Cloudflare. Your exit is usually in your own country, so it won’t unlock other regions. For a specific country, use your own proxy.</p>
+    </section>
+
+    <section id="containers">
+      <h2>Accounts &amp; containers</h2>
+      <p class="lede">Be signed in to the same website with different accounts at the same time — for example one YouTube for relaxing, one for work and one for school. Each container keeps its own logins and cookies, completely separate from the others (it also stops sites tracking you between them).</p>
+      <div class="card" id="ctr-list"></div>
+      <div style="display:flex;gap:8px;margin-top:10px"><button class="btn primary" id="ctr-add">➕ New container</button></div>
+      <p class="note" style="margin-top:10px">How to use: right-click the <b>+</b> new-tab button, or right-click a tab → <b>Open in container</b>. Tabs in a container have a coloured line and an icon, and links you open from them stay in the same container.</p>
     </section>
 
     <section id="tools">

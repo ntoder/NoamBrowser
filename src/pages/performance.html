@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Speed & memory</title><link rel="stylesheet" href="pages.css"><link rel="stylesheet" href="assets/themes.css">
+<style>
+  .page { max-width: 980px; }
+  .hero { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 18px 0; }
+  .stat { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 16px 18px; }
+  .stat .k { color: var(--muted); font-size: 11.5px; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; }
+  .stat .v { font-size: 28px; font-weight: 850; letter-spacing: -.02em; margin-top: 4px; font-variant-numeric: tabular-nums; }
+  .stat .s { color: var(--muted); font-size: 12.5px; margin-top: 2px; }
+  .box { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 16px 18px; margin-bottom: 16px; }
+  .box h2 { margin: 0 0 4px; font-size: 16px; display: flex; align-items: center; gap: 10px; } .box h2 .btn { margin-left: auto; }
+  .box .sub { color: var(--muted); font-size: 12.5px; margin: 0 0 10px; }
+  .t { display: grid; grid-template-columns: 22px minmax(0, 1fr) 120px 110px auto; gap: 12px; align-items: center; padding: 8px 4px; border-bottom: 1px solid var(--line); font-size: 13px; }
+  .t:last-child { border-bottom: 0; }
+  .t img, .t .g { width: 18px; height: 18px; border-radius: 4px; }
+  .t .n { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 650; } .t .n small { display: block; color: var(--muted); font-weight: 500; font-size: 11.5px; overflow: hidden; text-overflow: ellipsis; }
+  .meter { display: flex; align-items: center; gap: 8px; font-variant-numeric: tabular-nums; font-weight: 750; font-size: 12px; }
+  .meter i { flex: 1; height: 7px; border-radius: 4px; background: var(--surface-2); overflow: hidden; position: relative; }
+  .meter i b { position: absolute; inset: 0 auto 0 0; border-radius: 4px; }
+  .acts { display: flex; gap: 4px; } .acts .btn { height: 28px; padding: 0 10px; font-size: 12px; }
+  .hot { color: var(--danger); }
+  .set .row { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+  .set .row:last-child { border-bottom: 0; } .set .txt b { display: block; } .set .txt span { color: var(--muted); font-size: 12.5px; }
+  .note { background: color-mix(in srgb, #d9a21b 14%, transparent); border-radius: 10px; padding: 8px 12px; font-size: 12.5px; margin-top: 8px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; } .chips span { padding: 4px 6px 4px 10px; border-radius: 999px; background: var(--surface-2); font-weight: 700; font-size: 12px; display: inline-flex; gap: 4px; align-items: center; } .chips button { border: 0; background: none; color: var(--muted); cursor: pointer; }
+  .empty { color: var(--muted); text-align: center; padding: 16px; font-size: 13px; }
+  @media (max-width: 800px) { .hero { grid-template-columns: 1fr 1fr; } .t { grid-template-columns: 22px 1fr auto; } .t .meter { display: none; } }
+</style></head>
+<body>
+<div class="page">
+  <div class="page-head"><h1>⚡ Speed &amp; memory</h1><button class="btn primary" id="sleepall">💤 Put unused tabs to sleep</button></div>
+  <div class="hero">
+    <div class="stat"><div class="k">Memory used</div><div class="v" id="mem">—</div><div class="s">by NoamBrowser right now</div></div>
+    <div class="stat"><div class="k">Saved by sleeping tabs</div><div class="v" id="saved">—</div><div class="s" id="saved-s"></div></div>
+    <div class="stat"><div class="k">Processor</div><div class="v" id="cpu">—</div><div class="s" id="cpu-s"></div></div>
+    <div class="stat"><div class="k">Power</div><div class="v" id="power">—</div><div class="s" id="power-s"></div></div>
+  </div>
+  <div class="box"><h2>Open tabs</h2><p class="sub">The busiest tabs are at the top. Putting a tab to sleep frees its memory — it comes back exactly where you left it when you click it.</p><div id="awake"></div></div>
+  <div class="box"><h2>💤 Sleeping tabs</h2><div id="asleep"></div></div>
+  <div class="box set"><h2>Settings</h2>
+    <div class="row"><div class="txt"><b>Put tabs I’m not using to sleep</b><span>Like Brave’s and Chrome’s Memory Saver. Tabs playing sound, with something typed in them, or in split view never sleep.</span></div><span><button class="switch" data-b="sleep" role="switch"></button></span></div>
+    <div class="row"><div class="txt"><b>After</b></div><select class="field" data-n="sleepAfter" style="width:auto"><option value="5">5 minutes</option><option value="10">10 minutes</option><option value="15">15 minutes</option><option value="30">30 minutes</option><option value="60">1 hour</option><option value="120">2 hours</option><option value="240">4 hours</option></select></div>
+    <div class="row"><div class="txt"><b>Warn me about tabs that slow my computer down</b><span>When a tab in the background keeps the processor busy, you can put it to sleep with one click.</span></div><button class="switch" data-b="heavyAlerts" role="switch"></button></div>
+    <div class="row"><div class="txt"><b>…or just put them to sleep automatically</b></div><button class="switch" data-b="autoSleepHeavy" role="switch"></button></div>
+    <div class="row"><div class="txt"><b>🍃 Energy saver</b><span>Tabs sleep after 10 minutes, heavy tabs are paused automatically, and the browser skips its fancy animations and blur.</span></div><select class="field" data-s="energySaver" style="width:auto"><option value="battery">When on battery</option><option value="always">Always</option><option value="off">Never</option></select></div>
+    <div class="row"><div class="txt"><b>⚡ Speed mode</b><span>For older or slower computers: no animations, tabs sleep after 15 minutes, videos don’t start by themselves, and websites are asked to use less motion.</span></div><button class="switch" data-b="speedMode" role="switch"></button></div>
+    <div class="row"><div class="txt"><b>Instant links</b><span>When your mouse rests on a link to another page of the same site, it starts loading so the click feels instant. (Never contacts other sites.)</span></div><button class="switch" data-b="prefetch" role="switch"></button></div>
+    <div class="row"><div class="txt"><b>Fast start</b><span>When reopening lots of tabs from last time, only load each one when you click it.</span></div><button class="switch" data-b="lazyRestore" role="switch"></button></div>
+    <div class="row"><div class="txt"><b>Stop videos playing by themselves</b></div><button class="switch" data-b="noAutoplay" role="switch"></button></div>
+    <div class="row" style="display:block"><div class="txt"><b>Always keep these sites awake</b><span>For example a music site or a chat you need to hear.</span></div><div class="chips" id="keep"></div>
+      <div style="display:flex;gap:8px;margin-top:8px"><input class="field" id="keep-in" placeholder="e.g. spotify.com"><button class="btn" id="keep-add">Add</button></div></div>
+    <div class="note" id="restart" hidden>Speed mode and the video setting take effect the next time you start NoamBrowser.</div>
+  </div>
+</div>
+<script src="assets/apply-theme.js"></script>
+<script src="common.js"></script>
+<script src="performance.js"></script>
+</body>
+</html>

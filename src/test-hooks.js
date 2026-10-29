@@ -402,6 +402,109 @@ fetch('/player').then(r=>r.text()).then(t=>{window.r3=Object.keys(JSON.parse(t))
     });
     return;
   }
+  if (process.env.NOAM_TEST_V25) {
+    const srv = require('https').createServer({ key: fs.readFileSync('/tmp/claude-0/k.pem'), cert: fs.readFileSync('/tmp/claude-0/c.pem') }, (req, res) => {
+      const u = new URL(req.url, 'https://x'); const cookie = (req.headers.cookie || '').match(/user=(\w+)/);
+      if (u.pathname === '/login') { res.writeHead(302, { 'set-cookie': `user=${u.searchParams.get('u')}; Path=/; Max-Age=86400; Secure`, location: '/' }); return res.end(); }
+      res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+      if (u.pathname === '/heavy') return res.end('<title>Crypto miner (test)</title><h1>Busy page</h1><script>const w = new Worker(URL.createObjectURL(new Blob(["for(;;){Math.sqrt(Math.random())}"])));</script>');
+      if (u.pathname === '/qr') return res.end('<title>Link a device</title><body style="font:18px sans-serif;padding:30px"><h1>Scan to log in</h1><canvas aria-label="Scan this QR code to link a device" width="264" height="264" style="width:264px;height:264px;background:#fff"></canvas><script>const c=document.querySelector("canvas").getContext("2d");for(let y=0;y<33;y++)for(let x=0;x<33;x++)if(Math.random()<.5){c.fillRect(x*8,y*8,8,8)}</script></body>');
+      if (u.pathname.startsWith('/page')) return res.end(`<title>Page ${u.pathname}</title><h1>${u.pathname}</h1><a href="/page3">next</a>`);
+      res.end(`<title>VideoSite</title><body style="font:20px sans-serif;padding:30px"><h1>▶ VideoSite</h1><p id="who">${cookie ? 'Signed in as <b>' + cookie[1] + '</b>' : 'Not signed in'}</p></body>`);
+    });
+    srv.listen(443, '127.0.0.1', async () => {
+      const win = [...windows][0]; const ui = win.webContents; const js = (c) => ui.executeJavaScript(c);
+      const shot = async (n) => { await sleep(300); const img = await win.webContents.capturePage(); fs.writeFileSync(path.join(OUT, n + '.png'), img.toPNG()); };
+      const tab = async () => webContents.fromId(await js('state.active.wcId'));
+      const step = async (name, fn) => { try { await fn(); log('ok', name); } catch (e) { log('FAIL', name, e.stack || String(e)); } };
+      await sleep(3000); win.show(); win.focus();
+      await step('containers', async () => {
+        await js(`state.active.navigate('https://www.youtube.com/login?u=relax')`); await sleep(1800);
+        await js(`(async () => { await openIn('ctr:work', 'https://www.youtube.com/login?u=business'); })()`).catch(async () => { await js(`newTab({url:'https://www.youtube.com/login?u=business', container:'work'})`); });
+        await sleep(2200);
+        await js(`newTab({url:'https://www.youtube.com/login?u=student', container:'school'})`); await sleep(2200);
+        await js(`newTab({url:'https://www.youtube.com/'})`); await sleep(1800);
+        const texts = [];
+        for (let i = 0; i < 4; i++) { await js(`activate(state.tabs[${i}])`); await sleep(400); texts.push((await (await tab()).executeJavaScript(`document.getElementById('who').innerText`)) + ' [' + (await js(`state.tabs[${i}].container || 'default'`)) + ']'); }
+        log('who', JSON.stringify(texts));
+        await js(`activate(state.tabs[1])`); await sleep(500);
+        log('chip', await js(`document.getElementById('ctr-chip').hidden ? 'hidden' : document.getElementById('ctr-chip').innerText`));
+        await shot('p-01-containers');
+      });
+      await step('sleep + history', async () => {
+        await js(`newTab({url:'https://news.example.org/page1'})`); await sleep(1500);
+        await js(`state.active.navigate('https://news.example.org/page2')`); await sleep(1500);
+        const t = await js('state.tabs.length - 1');
+        await js(`activate(state.tabs[0])`); await sleep(500);
+        log('slept', await js(`sleepTab(state.tabs[${t}])`), await js(`state.tabs[${t}].asleep`), await js(`state.tabs[${t}].wv.isConnected`));
+        await shot('p-02-asleep-tab');
+        await js(`activate(state.tabs[${t}])`); await sleep(2500);
+        log('woke', await js(`state.active.url`), 'canGoBack', await js(`state.active.wv.canGoBack()`));
+        await js(`newTab({url:'https://news.example.org/page9', lazy:true, background:true})`); await sleep(1500);
+        log('lazy tab loaded?', await js(`state.tabs[state.tabs.length-1].wv.isConnected`), await js(`state.tabs[state.tabs.length-1].asleep`));
+      });
+      await step('heavy tab', async () => {
+        await js(`newTab({url:'https://news.example.org/heavy', background:true})`); await sleep(2000);
+        let shown = false; for (let i = 0; i < 30 && !shown; i++) { await sleep(1000); shown = await js(`!document.getElementById('heavy-bar').hidden`); }
+        log('heavy bar', shown, shown ? await js(`document.getElementById('heavy-bar').innerText.replace(/\\s+/g,' ')`) : '');
+        await shot('p-03-heavy');
+        if (shown) { await js(`document.querySelector('#heavy-bar [data-a=sleep]').click()`); await sleep(1500); log('heavy slept', await js(`state.tabs.find(t => t.url.includes('heavy')).asleep`)); }
+      });
+      await step('performance page', async () => {
+        await js(`newTab({url:'noam://performance/'})`); await sleep(7000);
+        await shot('p-04-performance');
+        log('perf', (await (await tab()).executeJavaScript(`document.querySelector('.hero').innerText.replace(/\\s+/g,' ')`)));
+      });
+      await step('ambient', async () => {
+        await js(`document.querySelector('.rail-btn[data-id="ambient"]').click()`); await sleep(800);
+        await js(`document.querySelector('.amb [data-p="3"]').click()`); await sleep(1500);
+        log('ambient', JSON.stringify(await js(`window.ambient.state()`)));
+        await shot('p-05-ambient');
+        await js(`window.ambient.pause()`);
+        await js(`document.getElementById('rp-close').click()`); await sleep(300);
+      });
+      await step('qr + blue light', async () => {
+        await js(`nb.invoke('settings:set',{blueLight:{enabled:true, fade:0}})`); await sleep(800);
+        log('tint before', await js(`document.getElementById('bluelight').classList.contains('on')`));
+        await js(`state.active.navigate('https://news.example.org/qr')`); await sleep(2500);
+        log('tint with QR', await js(`document.getElementById('bluelight').classList.contains('on')`));
+        await shot('p-06-qr');
+        await js(`state.active.navigate('https://news.example.org/page1')`); await sleep(2000);
+        log('tint after', await js(`document.getElementById('bluelight').classList.contains('on')`));
+        await js(`nb.invoke('settings:set',{blueLight:{enabled:false}})`);
+      });
+      await step('panel zoom', async () => {
+        await js(`nb.invoke('settings:set',{sidePanel:{panels:[...state.settings.sidePanel.panels, {id:'wa', kind:'web', name:'WA', url:'https://news.example.org/qr'}]}})`); await sleep(800);
+        await js(`openSide('wa')`); await sleep(3000);
+        log('panel zoom', await js(`webPanels.get('wa').getZoomFactor()`), await js(`document.getElementById('rp-zval').textContent`), 'qr tip', await js(`!!document.getElementById('rp-qrtip')`));
+        await js(`document.getElementById('rp-zout').click()`); await sleep(500);
+        log('after zoom out', await js(`webPanels.get('wa').getZoomFactor()`));
+        await shot('p-07-panel');
+      });
+      await step('settings containers', async () => {
+        await js(`closeSide()`); await js(`newTab({url:'noam://settings/#containers'})`); await sleep(2500);
+        await shot('p-08-settings');
+      });
+      log('DONE'); setTimeout(() => app.exit(0), 300);
+    });
+    return;
+  }
+  if (process.env.NOAM_TEST_VIS) {
+    const srv = require('https').createServer({ key: fs.readFileSync('/tmp/claude-0/k.pem'), cert: fs.readFileSync('/tmp/claude-0/c.pem') }, (req, res) => { res.writeHead(200, { 'content-type': 'text/html' }); res.end('<title>anim</title><script>window.frames_=0;(function f(){window.frames_++;requestAnimationFrame(f)})();window.ticks_=0;setInterval(()=>window.ticks_++,10)</script><h1>hi</h1>'); });
+    srv.listen(443, '127.0.0.1', async () => {
+      const win = [...windows][0]; const ui = win.webContents; const js = (c) => ui.executeJavaScript(c);
+      await sleep(3000); win.show(); win.focus();
+      await js(`state.active.navigate('https://news.example.org/')`); await sleep(2000);
+      const bg = webContents.fromId(await js('state.active.wcId'));
+      await js(`newTab({url:'https://news.example.org/'})`); await sleep(2000);
+      const a = await bg.executeJavaScript('({v: document.visibilityState, f: frames_, t: ticks_})');
+      await sleep(3000);
+      const b = await bg.executeJavaScript('({v: document.visibilityState, f: frames_, t: ticks_})');
+      log('background tab', JSON.stringify(a), JSON.stringify(b), 'fps', (b.f - a.f) / 3, 'timer/s', (b.t - a.t) / 3);
+      log('DONE'); setTimeout(() => app.exit(0), 300);
+    });
+    return;
+  }
   if (process.env.NOAM_TEST_TOOLS) {
     let price = 199, version = 1;
     const article = () => `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>School news</title></head><body style="font:18px Georgia,serif;padding:30px;max-width:700px"><h1>School news</h1>

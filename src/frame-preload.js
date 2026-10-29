@@ -254,9 +254,10 @@ if (cfg.fp) {
 // ---------------------------------------------------------------- dark mode
 // Forced dark mode for sites that don't have one. Skipped automatically when
 // the page is already dark.
+let darkKey = null;
 if (cfg.dark) {
   try {
-    const key = webFrame.insertCSS(`
+    const key = darkKey = webFrame.insertCSS(`
       html { filter: invert(.92) hue-rotate(180deg) !important; background: #fff !important; }
       img, video, picture, canvas, iframe, embed, object, svg image, [style*="background-image"], [data-noam-keep] { filter: invert(1) hue-rotate(180deg) !important; }
       img[src*=".svg"], [role="img"] svg { filter: none !important; }
@@ -268,6 +269,42 @@ if (cfg.dark) {
     };
     document.addEventListener('DOMContentLoaded', () => setTimeout(check, 50), { once: true });
   } catch {}
+}
+
+// ---------------------------------------------------------------- instant links
+// Hovering a link to another page of the same site for a moment starts loading it, so the click feels instant.
+if (cfg.prefetch && window.top === window) {
+  const done = new Set(); let timer = null;
+  const ok = (a) => {
+    if (!a || !a.href || a.hasAttribute('download') || a.target === '_blank') return false;
+    let u; try { u = new URL(a.href, location.href); } catch { return false; }
+    if (u.origin !== location.origin || !/^https?:$/.test(u.protocol)) return false;
+    if (u.pathname === location.pathname && u.search === location.search) return false; // just a #jump
+    if (/log-?out|sign-?out|logoff|delete|remove|unsubscribe|cart\/add|add-to-cart/i.test(u.pathname + u.search)) return false;
+    return !done.has(u.href) && done.size < 40;
+  };
+  const go = (a) => { const u = new URL(a.href, location.href).href; done.add(u); const l = document.createElement('link'); l.rel = 'prefetch'; l.href = u; l.as = 'document'; (document.head || document.documentElement).appendChild(l); };
+  addEventListener('mouseover', (e) => { const a = e.target && e.target.closest && e.target.closest('a[href]'); clearTimeout(timer); if (ok(a) && !(navigator.connection && navigator.connection.saveData)) timer = setTimeout(() => go(a), 65); }, { passive: true, capture: true });
+  addEventListener('mouseout', () => clearTimeout(timer), { passive: true, capture: true });
+  addEventListener('touchstart', (e) => { const a = e.target && e.target.closest && e.target.closest('a[href]'); if (ok(a)) go(a); }, { passive: true, capture: true });
+}
+
+// ---------------------------------------------------------------- QR codes (WhatsApp / Telegram / Discord logins…)
+// Phones need a crisp black-on-white QR code. When one is on screen, tell the browser so the
+// night tint pauses, and drop forced dark mode on this page (it would flip the colours).
+if (/^https?:/.test(location.href) && window.top === window) {
+  const QR_SEL = 'canvas[aria-label*="QR" i], [aria-label*="QR" i] canvas, [aria-label*="scan" i] canvas, [data-ref] canvas, img[alt*="QR" i], svg[aria-label*="QR" i], [class*="qr" i] canvas, [class*="qr" i] svg, [class*="qrcode" i] img, [class*="qr-code" i] img, [data-testid*="qr" i] canvas, [data-testid*="qr" i] svg';
+  let shown = false, t = null;
+  const visibleQR = () => { for (const el of document.querySelectorAll(QR_SEL)) { const r = el.getBoundingClientRect(); if (r.width >= 90 && r.height >= 90 && Math.abs(r.width - r.height) < r.width * 0.25 && r.bottom > 0 && r.top < innerHeight) return el; } return null; };
+  const check = () => {
+    t = null; const el = visibleQR(); const on = !!el;
+    if (on && darkKey) { try { webFrame.removeInsertedCSS(darkKey); } catch {} darkKey = null; }
+    if (on !== shown) { shown = on; try { ipcRenderer.send('noam:qr', on); } catch {} }
+  };
+  const soon = () => { if (!t) t = setTimeout(check, 400); };
+  const start = () => { new MutationObserver(soon).observe(document.documentElement, { subtree: true, childList: true, attributes: true, attributeFilter: ['class', 'style', 'aria-label', 'data-ref', 'hidden'] }); addEventListener('resize', soon); addEventListener('scroll', soon, { passive: true }); check(); };
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start, { once: true }); else start();
+  addEventListener('pagehide', () => { if (shown) try { ipcRenderer.send('noam:qr', false); } catch {} });
 }
 
 // ---------------------------------------------------------------- passwords
@@ -467,7 +504,7 @@ if (cfg.internal && location.protocol === 'noam:' && window.top === window) {
     'translate:languages', 'sitedark:list', 'sitedark:set', 'topsites:hide', 'topsites:unhide', 'topsites:reset',
     'widgets:geocode', 'widgets:weather', 'widgets:jewish', 'todos:list', 'todos:save', 'reading:list', 'reading:remove', 'reading:read',
     'notes:all', 'sessions:list', 'sessions:delete', 'sessions:open', 'screenshot:get', 'screenshot:copy', 'screenshot:save', 'passwords:check',
-    'sync:cloud-folders', 'zmanim:alerts-info', 'zmanim:alerts-test', 'tm:list', 'tm:text', 'tm:thumb', 'tm:delete', 'tm:watch', 'tm:check', 'prices:list', 'prices:update', 'prices:remove', 'prices:check', 'prices:every', 'focus:state', 'focus:start', 'focus:pause', 'focus:resume', 'focus:stop', 'focus:break', 'focus:skip-break', 'focus:add-time', 'focus:rate', 'focus:stats', 'focus:delete', 'focus:resisted', 'focus:let-through', 'focus:block-info', 'screentime:get', 'screentime:set-limit', 'screentime:clear', 'screentime:csv',
+    'sync:cloud-folders', 'zmanim:alerts-info', 'zmanim:alerts-test', 'perf:state', 'perf:action', 'containers:clear', 'tm:list', 'tm:text', 'tm:thumb', 'tm:delete', 'tm:watch', 'tm:check', 'prices:list', 'prices:update', 'prices:remove', 'prices:check', 'prices:every', 'focus:state', 'focus:start', 'focus:pause', 'focus:resume', 'focus:stop', 'focus:break', 'focus:skip-break', 'focus:add-time', 'focus:rate', 'focus:stats', 'focus:delete', 'focus:resisted', 'focus:let-through', 'focus:block-info', 'screentime:get', 'screentime:set-limit', 'screentime:clear', 'screentime:csv',
   ]);
   const listeners = new Map();
   ipcRenderer.on('noam:page-event', (_e, name, data) => { for (const fn of listeners.get(name) || []) try { fn(data); } catch {} });

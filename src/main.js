@@ -94,6 +94,7 @@ const settings = new Store(userData, 'settings', {
   sidePanel: { show: true, width: 380, panels: [
     { id: 'notes', kind: 'notes', name: 'Notes' },
     { id: 'reading', kind: 'reading', name: 'Reading list' },
+    { id: 'ambient', kind: 'ambient', name: 'Ambient sounds' },
     { id: 'whatsapp', kind: 'web', name: 'WhatsApp', url: 'https://web.whatsapp.com/' },
     { id: 'chatgpt', kind: 'web', name: 'ChatGPT', url: 'https://chatgpt.com/' },
     { id: 'calc', kind: 'calc', name: 'Calculator' },
@@ -101,6 +102,8 @@ const settings = new Store(userData, 'settings', {
   downloads: { autoSort: false, limitKBps: 0 },
   forceDarkAll: false,
   focus: {},
+  perf: {},
+  containers: [{ id: 'personal', name: 'Personal', color: '#3E8DEB', icon: '🏠' }, { id: 'work', name: 'Work', color: '#EE7A2E', icon: '💼' }, { id: 'school', name: 'School', color: '#3FAE5A', icon: '🎓' }],
   dictionary: { enabled: true, to: 'auto', speak: true },
   screenTime: { enabled: true, idleMinutes: 2, limits: {} },
   zmanimAlerts: { enabled: false, before: 60, sound: true, which: { shma: true, tefila: true, candles: true, sunset: true } },
@@ -111,6 +114,9 @@ const settings = new Store(userData, 'settings', {
   updates: { auto: true },
   tabs: { layout: 'horizontal', sidebarWidth: 240, sidebarCollapsed: false, groups: [] },
 });
+// Speed mode / no-autoplay are engine switches, so they apply from the next start.
+{ const pf = settings.get('perf') || {}; if (pf.noAutoplay || pf.speedMode) cl.appendSwitch('autoplay-policy', 'document-user-activation-required'); if (pf.speedMode) cl.appendSwitch('force-prefers-reduced-motion'); }
+
 const stats = new Store(userData, 'stats', { totalBlocked: 0, bytesSaved: 0, since: Date.now(), days: {} });
 const history = new Store(userData, 'history', { items: [] });
 const bookmarks = new Store(userData, 'bookmarks', { items: [], tombstones: [] });
@@ -217,6 +223,8 @@ function prepareSession(ses) {
   return ses;
 }
 function mainSession() { return prepareSession(session.fromPartition(MAIN_PARTITION)); }
+// Container tabs: each container is its own browsing session (own cookies and logins), with the same protection as normal tabs.
+function prepareContainers() { for (const c of settings.get('containers') || []) if (/^[\w-]{1,40}$/.test(c.id)) prepareSession(session.fromPartition('persist:noam-c-' + c.id)); }
 function privateSession() { return prepareSession(session.fromPartition(PRIVATE_PARTITION)); }
 
 function originOf(u) { try { return new URL(u).origin; } catch { return u || ''; } }
@@ -571,6 +579,7 @@ app.on('web-contents-created', (_e, wc) => {
 });
 
 const pendingMenus = new Map();
+ipcMain.on('noam:qr', (e, on) => { const host = e.sender.hostWebContents; if (host && !host.isDestroyed()) host.send('qr:state', { wcId: e.sender.id, on: !!on }); });
 ipcMain.on('noam:gesture-end', (e, g) => {
   const wc = e.sender; const pending = pendingMenus.get(wc.id); pendingMenus.delete(wc.id);
   g = String(g || '');
@@ -673,7 +682,8 @@ ipcMain.on('noam:frame-config', (e, url) => {
   const gestures = !isUI && isWeb && topFrame && !!settings.get('gestures').enabled;
   const media = !isUI && isWeb ? settings.get('media') : null;
   const dict = !isUI && isWeb && (settings.get('dictionary') || {}).enabled !== false;
-  e.returnValue = { fp, internal, seed, googleAuth, firefoxUA: FIREFOX_UA, youtube, dark, pw, topFrame, gestures, gestureTrail: !!settings.get('gestures').trail, media, dict, dictSpeak: (settings.get('dictionary') || {}).speak !== false };
+  const prefetch = !isUI && isWeb && topFrame && (settings.get('perf') || {}).prefetch !== false;
+  e.returnValue = { fp, internal, seed, googleAuth, firefoxUA: FIREFOX_UA, youtube, dark, pw, topFrame, gestures, gestureTrail: !!settings.get('gestures').trail, media, dict, prefetch, dictSpeak: (settings.get('dictionary') || {}).speak !== false };
 });
 ipcMain.on('noam:yt-blocked', (e) => {
   try { if (/(^|\.)youtube\.com$/.test(hostOf(e.sender.getURL()))) shields.countBlocked(e.sender.id, 'https://www.youtube.com/(video ad)'); } catch {}
@@ -753,6 +763,10 @@ uiHandle('page:screenshot', async (_e, wcId) => {
   return file;
 });
 uiHandle('shell:show', (_e, p) => shell.showItemInFolder(p));
+uiHandle('containers:prepare', () => { prepareContainers(); return true; });
+const clearContainer = async (id) => { if (!/^[\w-]{1,40}$/.test(String(id))) return false; await session.fromPartition('persist:noam-c-' + id).clearStorageData(); return true; };
+uiHandle('containers:clear', (_e, id) => clearContainer(id));
+pageHandle('containers:clear', (_e, id) => clearContainer(id));
 uiHandle('webview:prepare', (_e, isPrivate) => { if (isPrivate) privateSession(); else mainSession(); return true; });
 
 function downloadAction(id, action) {
@@ -770,16 +784,17 @@ function downloadAction(id, action) {
 }
 
 function setSettings(patch) {
-  const allowed = ['searchEngine', 'homepage', 'theme', 'accent', 'showBookmarksBar', 'restoreTabs', 'clearOnExit', 'askDownloadLocation', 'downloadDir', 'newTabShowStats', 'newTabShowTopSites', 'dns', 'shields', 'vpn', 'appearance', 'passwords', 'translate', 'updates', 'tabs', 'forceDarkAll', 'gestures', 'media', 'widgets', 'sidePanel', 'downloads', 'blueLight', 'zmanimAlerts', 'screenTime', 'focus', 'dictionary'];
+  const allowed = ['searchEngine', 'homepage', 'theme', 'accent', 'showBookmarksBar', 'restoreTabs', 'clearOnExit', 'askDownloadLocation', 'downloadDir', 'newTabShowStats', 'newTabShowTopSites', 'dns', 'shields', 'vpn', 'appearance', 'passwords', 'translate', 'updates', 'tabs', 'forceDarkAll', 'gestures', 'media', 'widgets', 'sidePanel', 'downloads', 'blueLight', 'zmanimAlerts', 'screenTime', 'focus', 'dictionary', 'perf', 'containers'];
   for (const [k, v] of Object.entries(patch || {})) {
     if (!allowed.includes(k)) continue;
-    if (['shields', 'vpn', 'appearance', 'passwords', 'translate', 'updates', 'tabs', 'gestures', 'media', 'widgets', 'sidePanel', 'downloads', 'blueLight', 'zmanimAlerts', 'screenTime', 'focus', 'dictionary'].includes(k) && v && typeof v === 'object' && !Array.isArray(v)) settings.set(k, { ...settings.get(k), ...v });
-    else if (['gestures', 'media', 'widgets', 'sidePanel', 'downloads', 'blueLight', 'zmanimAlerts', 'screenTime', 'focus', 'dictionary'].includes(k)) continue;
+    if (['shields', 'vpn', 'appearance', 'passwords', 'translate', 'updates', 'tabs', 'gestures', 'media', 'widgets', 'sidePanel', 'downloads', 'blueLight', 'zmanimAlerts', 'screenTime', 'focus', 'dictionary', 'perf'].includes(k) && v && typeof v === 'object' && !Array.isArray(v)) settings.set(k, { ...settings.get(k), ...v });
+    else if (['gestures', 'media', 'widgets', 'sidePanel', 'downloads', 'blueLight', 'zmanimAlerts', 'screenTime', 'focus', 'dictionary', 'perf'].includes(k)) continue;
     else settings.set(k, v);
   }
   if ('theme' in patch || 'appearance' in patch) applyThemeToWindows();
-  if (features && Object.keys(patch || {}).some((k) => ['searchEngine', 'homepage', 'theme', 'accent', 'appearance', 'shields', 'showBookmarksBar', 'widgets', 'gestures', 'media', 'sidePanel', 'blueLight', 'zmanimAlerts', 'focus', 'dictionary'].includes(k))) { features.syncer.touchSettings(); features.syncTouch(); }
+  if (features && Object.keys(patch || {}).some((k) => ['searchEngine', 'homepage', 'theme', 'accent', 'appearance', 'shields', 'showBookmarksBar', 'widgets', 'gestures', 'media', 'sidePanel', 'blueLight', 'zmanimAlerts', 'focus', 'dictionary', 'perf', 'containers'].includes(k))) { features.syncer.touchSettings(); features.syncTouch(); }
   if (patch.downloads && 'limitKBps' in patch.downloads) for (const d of downloads.values()) if (d.td) { d.td.setLimit(Math.max(0, +patch.downloads.limitKBps || 0) * 1024); d.info.limited = d.td.limit > 0; }
+  if (patch.containers) prepareContainers();
   if ('dns' in patch) applyDns();
   if (patch.vpn && vpn.wantOn && ('mode' in patch.vpn || 'customProxy' in patch.vpn)) vpn.connect();
   const pub = publicSettings();
@@ -817,6 +832,7 @@ function appMenu(sender, wcId, x, y) {
     { label: 'Focus timer 🍅', accelerator: 'CmdOrCtrl+Shift+F', click: () => send('shortcut', { key: 'focus' }) },
     { label: 'Focus progress', click: () => send('tab:open', { url: 'noam://focus/' }) },
     { label: 'Screen time', click: () => send('tab:open', { url: 'noam://screentime/' }) },
+    { label: 'Speed & memory ⚡', click: () => send('tab:open', { url: 'noam://performance/' }) },
     { label: 'Save a copy of this page 🕰️', enabled: !!wc, click: () => send('shortcut', { key: 'snapshot' }) },
     { label: 'Time machine', click: () => send('tab:open', { url: 'noam://timemachine/' }) },
     { label: 'Price tracker 🏷️', click: () => send('tab:open', { url: 'noam://prices/' }) },
@@ -990,6 +1006,7 @@ app.whenReady().then(async () => {
 
   mainSession();
   privateSession();
+  prepareContainers();
   features = setupFeatures({ settings, bookmarks, history, userData, broadcast, broadcastPages, uiHandle, pageHandle, siteOf, hostOf, applyThemeToWindows, publicSettings });
   const ctx2 = { settings, userData, broadcast, broadcastPages, uiHandle, pageHandle, siteOf, hostOf, getFetchSession: () => mainSession(), syncTouch: () => features.syncTouch() };
   features2 = setupFeatures2(ctx2);
@@ -998,6 +1015,7 @@ app.whenReady().then(async () => {
   try { screenTime = require('./screentime')({ settings, userData, uiHandle, pageHandle, windows, privatePartition: PRIVATE_PARTITION }); } catch (e) { console.error('screen time', e); }
   try { timeMachine = require('./timemachine')({ userData, uiHandle, pageHandle, broadcast, broadcastPages, getSession: () => mainSession(), windows }); } catch (e) { console.error('time machine', e); }
   try { require('./prices')({ userData, uiHandle, pageHandle, broadcast, broadcastPages, getSession: () => mainSession(), windows }); } catch (e) { console.error('prices', e); }
+  try { require('./perf')({ settings, uiHandle, pageHandle, broadcast, broadcastPages }); } catch (e) { console.error('perf', e); }
   try { focusApi = require('./focus')({ settings, userData, uiHandle, pageHandle, windows, broadcast, broadcastPages, shields, screenTime, keyOf: require('./screentime').keyOf, privatePartition: PRIVATE_PARTITION }); } catch (e) { console.error('focus', e); }
   features.syncer.extra = { snapshot: features2.snapshot, merge: features2.merge };
   pageHandle('passwords:check', () => ctx2.passwordsCheck(features.vault));
