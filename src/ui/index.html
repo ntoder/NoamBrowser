@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self' file:; img-src 'self' file: https: http: data: noam:; style-src 'self' file: 'unsafe-inline'; font-src 'self' file:; script-src 'self' file:">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self' file:; img-src 'self' file: https: http: data: noam: crx:; style-src 'self' file: 'unsafe-inline'; font-src 'self' file:; script-src 'self' file:">
 <title>NoamBrowser</title>
 <link rel="stylesheet" href="ui.css">
 <link rel="stylesheet" href="../assets/themes.css">
@@ -94,6 +94,7 @@
       <button id="key-btn" class="icon-btn small omni-act" title="Saved passwords for this site" hidden><svg><use href="#i-key"/></svg></button>
       <button id="price-btn" class="icon-btn small omni-act price-btn" title="Track this price" hidden><span>🏷️</span></button>
       <button id="rl-btn" class="icon-btn small omni-act" title="Add to reading list" hidden><svg><use href="#i-reading"/></svg></button>
+      <button id="share-btn" class="icon-btn small omni-act" title="Share this page: clean link and QR code"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3.5M7.5 8 12 3.5 16.5 8"/><path d="M5 12.5V19a1.5 1.5 0 0 0 1.5 1.5h11A1.5 1.5 0 0 0 19 19v-6.5"/></svg></button>
       <button id="star" class="icon-btn small" title="Bookmark this page (Ctrl+D)"><svg><use href="#i-star"/></svg></button>
       <div id="suggest" role="listbox" hidden></div>
     </div>
@@ -113,6 +114,8 @@
     <button id="dl-btn" class="icon-btn" title="Downloads (Ctrl+J)" hidden>
       <svg><use href="#i-download"/></svg><i id="dl-ring"></i>
     </button>
+    <browser-action-list id="ext-actions" alignment="bottom left"></browser-action-list>
+    <button id="ext-btn" class="icon-btn" title="Extensions" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 3.5a2 2 0 1 1 4 0V5h3a2 2 0 0 1 2 2v3h-1.5a2 2 0 1 0 0 4H19v3a2 2 0 0 1-2 2h-3v-1.5a2 2 0 1 0-4 0V19H7a2 2 0 0 1-2-2v-3h1.5a2 2 0 1 0 0-4H5V7a2 2 0 0 1 2-2h3z"/></svg></button>
     <button id="menu-btn" class="icon-btn" title="Menu"><svg><use href="#i-menu"/></svg></button>
   </nav>
 
@@ -180,6 +183,7 @@
       <div><b id="sp-params">0</b><span>tracking tags removed from links</span></div>
     </div>
     <details id="sp-list-wrap"><summary>Blocked on this page</summary><ul id="sp-list"></ul></details>
+    <div class="sp-row" id="sp-forgetme-row"><span>🗑️ Forget me when I close this site<small>Cookies and site data are wiped when its last tab closes</small></span><button id="sp-forgetme" class="switch" role="switch" aria-checked="false"><span></span></button></div>
     <div class="sp-row" id="sp-dark-row"><span>Dark mode for this site<small>Turns bright pages dark</small></span><button id="sp-dark" class="switch" role="switch" aria-checked="false"><span></span></button></div>
     <div class="panel-foot">
       <button id="sp-forget" class="btn ghost">Forget this site</button>
@@ -259,6 +263,7 @@
 <script src="ui6.js"></script>
 <script src="ui7.js"></script>
 <script src="ambient.js"></script>
+<script src="ui8.js"></script>
 <script src="devlab/core.js"></script>
 <script src="devlab/tools1.js"></script>
 <script src="devlab/tools2.js"></script>

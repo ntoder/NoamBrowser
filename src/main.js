@@ -43,7 +43,7 @@ cl.appendSwitch('disable-breakpad');
 cl.appendSwitch('no-pings');
 cl.appendSwitch('disable-client-side-phishing-detection');
 cl.appendSwitch('enable-smooth-scrolling');
-if (TEST_MODE) { cl.appendSwitch('no-sandbox'); cl.appendSwitch('ignore-certificate-errors'); cl.appendSwitch('no-proxy-server'); cl.appendSwitch('host-resolver-rules', 'MAP news.example.org 127.0.0.1, MAP accounts.google.com 127.0.0.1, MAP www.youtube.com 127.0.0.1, MAP geocoding-api.open-meteo.com 127.0.0.1, MAP api.open-meteo.com 127.0.0.1, MAP www.hebcal.com 127.0.0.1, MAP api.frankfurter.app 127.0.0.1, MAP api.pwnedpasswords.com 127.0.0.1'); cl.appendSwitch('autoplay-policy', 'no-user-gesture-required'); }
+if (TEST_MODE) { if (!process.env.NOAM_TEST_SANDBOX) cl.appendSwitch('no-sandbox'); cl.appendSwitch('ignore-certificate-errors'); cl.appendSwitch('no-proxy-server'); cl.appendSwitch('host-resolver-rules', 'MAP news.example.org 127.0.0.1, MAP accounts.google.com 127.0.0.1, MAP www.youtube.com 127.0.0.1, MAP chromewebstore.google.com 127.0.0.1, MAP geocoding-api.open-meteo.com 127.0.0.1, MAP api.open-meteo.com 127.0.0.1, MAP www.hebcal.com 127.0.0.1, MAP api.frankfurter.app 127.0.0.1, MAP api.pwnedpasswords.com 127.0.0.1'); cl.appendSwitch('autoplay-policy', 'no-user-gesture-required'); }
 
 protocol.registerSchemesAsPrivileged([
   { scheme: 'noam', privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: false, stream: true } },
@@ -103,6 +103,9 @@ const settings = new Store(userData, 'settings', {
   forceDarkAll: false,
   focus: {},
   perf: {},
+  extensions: { disabled: [], unpacked: [] },
+  forget: { sites: [] },
+  readIndex: { enabled: true },
   containers: [{ id: 'personal', name: 'Personal', color: '#3E8DEB', icon: '🏠' }, { id: 'work', name: 'Work', color: '#EE7A2E', icon: '💼' }, { id: 'school', name: 'School', color: '#3FAE5A', icon: '🎓' }],
   dictionary: { enabled: true, to: 'auto', speak: true },
   screenTime: { enabled: true, idleMinutes: 2, limits: {} },
@@ -505,7 +508,7 @@ app.on('web-contents-created', (_e, wc) => {
   try { wc.setWebRTCIPHandlingPolicy('disable_non_proxied_udp'); } catch {}
 
   wc.setWindowOpenHandler(({ url, disposition, features }) => {
-    if (!/^(https?|noam|about|data|blob):/.test(url) && url !== 'about:blank') {
+    if (!/^(https?|noam|about|data|blob|chrome-extension):/.test(url) && url !== 'about:blank') {
       if (/^(mailto|tel|sms|magnet|zoommtg|msteams|spotify|steam|discord):/.test(url)) {
         askPermission(wc, 'openExternal', wc.getURL(), (ok) => { if (ok) shell.openExternal(url); }, url);
       }
@@ -533,7 +536,7 @@ app.on('web-contents-created', (_e, wc) => {
     const key = input.key.toLowerCase();
     const mod = input.control || input.meta;
     const isF = /^f(5|6|9|11|12)$/.test(key) || key === 'escape' && false;
-    if ((mod && SHORTCUT_KEYS.has(key)) || (mod && input.shift && (key === 'i' || key === 'c' || key === 'p')) || isF || (input.alt && (key === 'arrowleft' || key === 'arrowright' || key === 'home'))) {
+    if ((mod && SHORTCUT_KEYS.has(key)) || (mod && input.shift && (key === 'i' || key === 'c' || key === 'p' || key === 'a')) || isF || (input.alt && (key === 'arrowleft' || key === 'arrowright' || key === 'home'))) {
       const win = hostWindowOf(wc);
       if (!win || type !== 'webview') return;
       event.preventDefault();
@@ -592,6 +595,9 @@ function saveZoom(url, lvl) {
   settings.set('zoom', z);
 }
 
+let readIndex = null;
+const forgetSites = () => (settings.get('forget') || {}).sites || [];
+const menuExtras = []; // extra right-click items from other modules (e.g. extensions)
 function buildContextMenu(wc, p) {
   const win = hostWindowOf(wc);
   const send = (ch, data) => win && win.webContents.send(ch, data);
@@ -649,6 +655,7 @@ function buildContextMenu(wc, p) {
     t.push({ label: 'View page source', click: () => send('tab:open', { url: 'view-source:' + wc.getURL(), private: isPrivate }) });
     t.push({ type: 'separator' });
   }
+  for (const f of menuExtras) { try { const x = f(wc, p); if (x && x.length) t.push(...x, { type: 'separator' }); } catch {} }
   t.push({ label: '🔍 Explore this (Dev Lab)', click: () => send('devlab:explore-at', { wcId: wc.id, x: p.x, y: p.y }) });
   t.push({ label: 'Inspect (pro tools)', click: () => { wc.inspectElement(p.x, p.y); } });
   Menu.buildFromTemplate(t).popup({ window: win || undefined });
@@ -683,7 +690,8 @@ ipcMain.on('noam:frame-config', (e, url) => {
   const media = !isUI && isWeb ? settings.get('media') : null;
   const dict = !isUI && isWeb && (settings.get('dictionary') || {}).enabled !== false;
   const prefetch = !isUI && isWeb && topFrame && (settings.get('perf') || {}).prefetch !== false;
-  e.returnValue = { fp, internal, seed, googleAuth, firefoxUA: FIREFOX_UA, youtube, dark, pw, topFrame, gestures, gestureTrail: !!settings.get('gestures').trail, media, dict, prefetch, dictSpeak: (settings.get('dictionary') || {}).speak !== false };
+  const hl = !isUI && /^https?:/.test(url) && topFrame && e.sender.session !== session.fromPartition(PRIVATE_PARTITION);
+  e.returnValue = { hl, fp, internal, seed, googleAuth, firefoxUA: FIREFOX_UA, youtube, dark, pw, topFrame, gestures, gestureTrail: !!settings.get('gestures').trail, media, dict, prefetch, dictSpeak: (settings.get('dictionary') || {}).speak !== false };
 });
 ipcMain.on('noam:yt-blocked', (e) => {
   try { if (/(^|\.)youtube\.com$/.test(hostOf(e.sender.getURL()))) shields.countBlocked(e.sender.id, 'https://www.youtube.com/(video ad)'); } catch {}
@@ -833,6 +841,9 @@ function appMenu(sender, wcId, x, y) {
     { label: 'Focus progress', click: () => send('tab:open', { url: 'noam://focus/' }) },
     { label: 'Screen time', click: () => send('tab:open', { url: 'noam://screentime/' }) },
     { label: 'Speed & memory ⚡', click: () => send('tab:open', { url: 'noam://performance/' }) },
+    { label: 'Extensions 🧩', click: () => send('tab:open', { url: 'noam://extensions/' }) },
+    { label: 'Highlights 🖍️', click: () => send('tab:open', { url: 'noam://highlights/' }) },
+    { label: 'Search tabs…', accelerator: 'CmdOrCtrl+Shift+A', click: () => send('shortcut', { key: 'tabsearch' }) },
     { label: 'Save a copy of this page 🕰️', enabled: !!wc, click: () => send('shortcut', { key: 'snapshot' }) },
     { label: 'Time machine', click: () => send('tab:open', { url: 'noam://timemachine/' }) },
     { label: 'Price tracker 🏷️', click: () => send('tab:open', { url: 'noam://prices/' }) },
@@ -1015,6 +1026,10 @@ app.whenReady().then(async () => {
   try { screenTime = require('./screentime')({ settings, userData, uiHandle, pageHandle, windows, privatePartition: PRIVATE_PARTITION }); } catch (e) { console.error('screen time', e); }
   try { timeMachine = require('./timemachine')({ userData, uiHandle, pageHandle, broadcast, broadcastPages, getSession: () => mainSession(), windows }); } catch (e) { console.error('time machine', e); }
   try { require('./prices')({ userData, uiHandle, pageHandle, broadcast, broadcastPages, getSession: () => mainSession(), windows }); } catch (e) { console.error('prices', e); }
+  try { await require('./extensions')({ settings, uiHandle, pageHandle, broadcast, broadcastPages, getSession: () => mainSession(), hostWindowOf, menuExtras }); } catch (e) { console.error('extensions', e); }
+  try { readIndex = require('./readindex')({ settings, userData, uiHandle, pageHandle, privatePartition: PRIVATE_PARTITION, session, getHistory: () => history.get('items'), isForgotten: (h) => forgetSites().some((f) => h === f || h.endsWith('.' + f)) }); } catch (e) { console.error('read index', e); }
+  try { require('./extras26')({ settings, uiHandle, pageHandle, privatePartition: PRIVATE_PARTITION, mainSession, containerSessions: () => (settings.get('containers') || []).filter((c) => /^[\w-]{1,40}$/.test(c.id)).map((c) => session.fromPartition('persist:noam-c-' + c.id)), readIndex, hostWindowOf }); } catch (e) { console.error('extras 2.6', e); }
+  try { require('./highlights')({ Store, userData, pageHandle, broadcastPages, privatePartition: PRIVATE_PARTITION, menuExtras }); } catch (e) { console.error('highlights', e); }
   try { require('./perf')({ settings, uiHandle, pageHandle, broadcast, broadcastPages }); } catch (e) { console.error('perf', e); }
   try { focusApi = require('./focus')({ settings, userData, uiHandle, pageHandle, windows, broadcast, broadcastPages, shields, screenTime, keyOf: require('./screentime').keyOf, privatePartition: PRIVATE_PARTITION }); } catch (e) { console.error('focus', e); }
   features.syncer.extra = { snapshot: features2.snapshot, merge: features2.merge };

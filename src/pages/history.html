@@ -1,12 +1,18 @@
 <!doctype html>
 <html lang="en">
-<head><meta charset="utf-8"><title>History</title><link rel="stylesheet" href="pages.css"><link rel="stylesheet" href="assets/themes.css"></head>
+<head><meta charset="utf-8"><title>History</title><link rel="stylesheet" href="pages.css"><link rel="stylesheet" href="assets/themes.css">
+<style>.ri-box{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:4px 16px;margin:0 0 16px}.ri-row{display:flex;gap:14px;align-items:center;justify-content:space-between;padding:10px 0}.ri-row+.ri-row{border-top:1px solid var(--line)}.ri-row b{display:block}.ri-row span{color:var(--muted);font-size:12.5px}.ri-acts{display:flex;gap:8px;align-items:center;flex:none}#fg-list button{border:0;background:var(--surface-2);border-radius:999px;padding:3px 10px;margin:4px 4px 0 0;font:700 12px var(--font);color:var(--text);cursor:pointer}</style></head>
 <body>
 <div class="page">
   <div class="page-head">
     <h1>History</h1>
     <label class="search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5"/></svg><input id="q" class="field" placeholder="Search history" spellcheck="false"></label>
     <button id="clear" class="btn danger">Clear all history</button>
+  </div>
+  <div class="ri-box">
+    <div class="ri-row"><div><b>🧠 Search what you’ve read</b><span id="ri-sub">Remember the words on pages you visit, so <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>A</kbd> can find a page by something it said. Stays on this computer. Never private tabs, email, banking or password pages.</span></div>
+      <span class="ri-acts"><button class="btn ghost" id="ri-clear">Forget all</button><button class="switch" role="switch" id="ri-on"></button></span></div>
+    <div class="ri-row" id="fg-row" hidden><div><b>🗑️ Sites forgotten when you close them</b><span id="fg-list"></span></div></div>
   </div>
   <div id="list"></div>
   <div id="more" hidden style="text-align:center;margin-top:16px"><button class="btn" id="morebtn">Show more</button></div>

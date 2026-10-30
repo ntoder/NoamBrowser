@@ -270,7 +270,7 @@ function activate(tab) {
 function closeTab(tab) {
   const i = state.tabs.indexOf(tab);
   if (i < 0) return;
-  if (!tab.private && tab.url) state.closed.push({ url: tab.url, index: i });
+  if (!tab.private && tab.url) state.closed.push({ url: tab.url, index: i, title: tab.title, favicon: tab.favicon });
   if (state.closed.length > 25) state.closed.shift();
   state.tabs.splice(i, 1);
   window.hooks && window.hooks.closing && window.hooks.closing(tab);

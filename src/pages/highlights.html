@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Highlights</title><link rel="stylesheet" href="pages.css"><link rel="stylesheet" href="assets/themes.css">
+<style>
+  .page { max-width: 860px; }
+  .bar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 6px 0 16px; } .bar input { flex: 1; min-width: 200px; }
+  .dots { display: flex; gap: 6px; } .dots button { width: 26px; height: 26px; border-radius: 50%; border: 2px solid transparent; cursor: pointer; } .dots button.on { border-color: var(--text); } .dots .all { width: auto; border-radius: 999px; padding: 0 10px; background: var(--surface-2); font-weight: 750; font-size: 12px; color: var(--text); }
+  .pg { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 14px 16px; margin-bottom: 14px; }
+  .pg h2 { margin: 0; font-size: 15px; display: flex; gap: 10px; align-items: baseline; } .pg h2 a { color: var(--text); text-decoration: none; } .pg h2 a:hover { color: var(--accent); } .pg h2 small { color: var(--muted); font-weight: 600; font-size: 12px; margin-left: auto; white-space: nowrap; }
+  .h { display: grid; grid-template-columns: 5px 1fr auto; gap: 12px; align-items: start; padding: 10px 0; border-bottom: 1px solid var(--line); } .h:last-child { border-bottom: 0; }
+  .h .c { align-self: stretch; border-radius: 3px; } .h q { font-size: 14px; line-height: 1.5; quotes: '“' '”'; } .h .acts { display: flex; gap: 4px; } .h .acts .btn { height: 28px; padding: 0 9px; font-size: 12px; }
+  .h small { display: block; color: var(--muted); font-size: 11.5px; margin-top: 3px; }
+  .empty { text-align: center; color: var(--muted); padding: 50px 20px; } .empty .big { font-size: 54px; }
+</style></head>
+<body>
+<div class="page">
+  <div class="page-head"><h1>🖍️ Highlights</h1><button class="btn" id="copy">📋 Copy all as notes</button></div>
+  <p style="color:var(--muted);margin:-6px 0 6px">Select text on any page, right-click and choose <b>🖍️ Highlight</b> (or press <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>H</kbd>). Your highlights come back when you visit the page again. They stay on this computer.</p>
+  <div class="bar"><input class="field" id="q" placeholder="Search your highlights"><div class="dots" id="dots"></div></div>
+  <div id="list"></div>
+</div>
+<script src="assets/apply-theme.js"></script>
+<script src="common.js"></script>
+<script src="highlights.js"></script>
+</body>
+</html>

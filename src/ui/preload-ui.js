@@ -8,11 +8,11 @@ const INVOKE = new Set([
   'ui:popup-menu', 'password:answer', 'passwords:for-tab', 'passwords:fill', 'reader:check', 'reader:open', 'translate:detect', 'translate:page',
   'translate:restore', 'translate:languages', 'update:status', 'update:install', 'dark:toggle', 'dark:get', 'history:remove-url',
   'rates:get', 'reading:list', 'reading:add', 'reading:remove', 'reading:read', 'reading:has', 'reading:toggle', 'notes:get', 'notes:set', 'notes:all',
-  'screentime:active', 'perf:metrics', 'perf:power', 'perf:history', 'perf:restore', 'perf:report', 'containers:prepare', 'containers:clear', 'tm:snap', 'tm:count', 'tm:watch', 'tm:watching', 'prices:detect', 'prices:track', 'focus:state', 'focus:start', 'focus:pause', 'focus:resume', 'focus:stop', 'focus:break', 'focus:skip-break', 'focus:add-time', 'focus:rate', 'focus:stats', 'devlab:attach', 'devlab:detach', 'devlab:cmd', 'devlab:scripts', 'devlab:cookies', 'devlab:pro', 'devlab:capture', 'sessions:save', 'sessions:list', 'sessions:get', 'sessions:delete', 'screenshot:capture',
+  'screentime:active', 'perf:metrics', 'perf:power', 'perf:history', 'perf:restore', 'perf:report', 'containers:prepare', 'containers:clear', 'tm:snap', 'tm:count', 'tm:watch', 'tm:watching', 'prices:detect', 'prices:track', 'focus:state', 'focus:start', 'focus:pause', 'focus:resume', 'focus:stop', 'focus:break', 'focus:skip-break', 'focus:add-time', 'focus:rate', 'focus:stats', 'devlab:attach', 'devlab:detach', 'devlab:cmd', 'devlab:scripts', 'devlab:cookies', 'devlab:pro', 'devlab:capture', 'sessions:save', 'sessions:list', 'sessions:get', 'sessions:delete', 'screenshot:capture', 'ext:active', 'ext:answer', 'ext:count', 'find:query', 'share:info', 'forget:get', 'forget:set', 'forget:closed', 'tm:count',
 ]);
 const EVENTS = new Set([
   'init', 'tab:open', 'shortcut', 'shields:update', 'vpn:status', 'settings:changed', 'bookmarks:changed', 'downloads:update',
-  'permission:ask', 'stats:update', 'window:state', 'zoom:changed', 'password:offer', 'translate:progress', 'update:status', 'extras:changed', 'session:open', 'screentime:limit', 'qr:state', 'perf:heavy', 'perf:power', 'perf:action', 'prices:changed', 'focus:state', 'focus:done', 'devlab:event', 'devlab:explore-at',
+  'permission:ask', 'stats:update', 'window:state', 'zoom:changed', 'password:offer', 'translate:progress', 'update:status', 'extras:changed', 'session:open', 'screentime:limit', 'qr:state', 'perf:heavy', 'perf:power', 'perf:action', 'prices:changed', 'focus:state', 'focus:done', 'devlab:event', 'devlab:explore-at', 'ext:confirm', 'ext:changed', 'dead:page',
 ]);
 
 contextBridge.exposeInMainWorld('nb', {
@@ -21,3 +21,6 @@ contextBridge.exposeInMainWorld('nb', {
   answerPermission: (id, allow, remember) => ipcRenderer.send('permission:answer', { id, allow, remember }),
   platform: process.platform,
 });
+
+// Chrome extension buttons (<browser-action-list>) in the toolbar
+try { require('electron-chrome-extensions/browser-action').injectBrowserAction(); } catch (e) { console.error('extension buttons', e); }

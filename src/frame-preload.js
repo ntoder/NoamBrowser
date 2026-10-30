@@ -460,6 +460,79 @@ if (cfg.dict) {
   addEventListener('scroll', close, true);
 }
 
+// ---------------------------------------------------------------- highlighter
+// Right-click → Highlight (or Ctrl+Shift+H). Highlights are saved on this computer and come back next visit.
+if (cfg.hl) {
+  const COL = { yellow: 'rgba(255,214,0,.45)', green: 'rgba(80,220,120,.42)', pink: 'rgba(255,110,180,.40)', blue: 'rgba(90,170,255,.42)' };
+  const textNodes = (root) => { const out = []; const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, { acceptNode: (n) => (n.parentElement && /^(SCRIPT|STYLE|NOSCRIPT|TEXTAREA)$/.test(n.parentElement.tagName) ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT) }); let n; while ((n = w.nextNode())) out.push(n); return out; };
+  function wrap(range, h) {
+    const nodes = textNodes(range.commonAncestorContainer.nodeType === 3 ? range.commonAncestorContainer.parentNode : range.commonAncestorContainer).filter((n) => range.intersectsNode(n));
+    const parts = nodes.map((n) => [n, n === range.startContainer ? range.startOffset : 0, n === range.endContainer ? range.endOffset : n.nodeValue.length]);
+    for (let [node, s, e] of parts) {
+      if (s >= e || !node.nodeValue.slice(s, e).trim()) continue;
+      if (e < node.nodeValue.length) node.splitText(e);
+      if (s > 0) node = node.splitText(s);
+      const m = document.createElement('mark'); m.className = 'noam-hl'; m.dataset.hl = h.id;
+      m.style.cssText = `background:${COL[h.color] || COL.yellow} !important;color:inherit !important;border-radius:3px;padding:0 1px;box-decoration-break:clone;-webkit-box-decoration-break:clone;cursor:pointer`;
+      node.parentNode.insertBefore(m, node); m.appendChild(node);
+    }
+  }
+  // find saved text again: whole-page text with a map back to the text nodes
+  function locate(h) {
+    if (!document.body) return null;
+    const nodes = textNodes(document.body); let all = ''; const starts = [];
+    for (const n of nodes) { starts.push(all.length); all += n.nodeValue; }
+    let at = all.indexOf((h.prefix || '') + h.quote); if (at >= 0) at += (h.prefix || '').length; else at = all.indexOf(h.quote);
+    if (at < 0) return null;
+    const pos = (i) => { let k = 0; while (k + 1 < starts.length && starts[k + 1] <= i) k++; return [nodes[k], i - starts[k]]; };
+    const r = document.createRange(); const [a, ao] = pos(at); const [b, bo] = pos(at + h.quote.length - 1);
+    r.setStart(a, ao); r.setEnd(b, bo + 1); return r;
+  }
+  const applied = new Set();
+  async function restore() {
+    let list = []; try { list = await ipcRenderer.invoke('noam:hl-get'); } catch {}
+    for (const h of list) { if (applied.has(h.id)) continue; try { const r = locate(h); if (r) { wrap(r, h); applied.add(h.id); } } catch {} }
+  }
+  addEventListener('DOMContentLoaded', () => { setTimeout(restore, 800); setTimeout(restore, 3500); });
+  async function highlight(color) {
+    const sel = getSelection(); if (!sel || sel.isCollapsed || !sel.rangeCount) return;
+    const range = sel.getRangeAt(0); const quote = sel.toString(); if (!quote.trim()) return;
+    const pre = document.createRange(); pre.setStart(document.body, 0); pre.setEnd(range.startContainer, range.startOffset);
+    const post = document.createRange(); post.setStart(range.endContainer, range.endOffset); post.setEndAfter(document.body.lastChild || document.body);
+    const h = await ipcRenderer.invoke('noam:hl-save', { quote, prefix: pre.toString().slice(-40), suffix: post.toString().slice(0, 40), color });
+    if (!h) return; wrap(range, h); applied.add(h.id); sel.removeAllRanges();
+  }
+  ipcRenderer.on('noam:hl-do', (_e, color) => highlight(color));
+  addEventListener('keydown', (e) => { if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'h') { const t = e.target; if (t && (t.isContentEditable || /^(INPUT|TEXTAREA)$/.test(t.tagName))) return; e.preventDefault(); highlight('yellow'); } }, true);
+  // click a highlight: change colour, copy a link to it, or remove it
+  let bub = null; const closeBub = () => { if (bub) { bub.remove(); bub = null; } };
+  addEventListener('click', (e) => {
+    const m = e.target && e.target.closest && e.target.closest('mark.noam-hl'); if (!m || !getSelection().isCollapsed) return;
+    e.preventDefault(); e.stopPropagation(); closeBub();
+    const id = m.dataset.hl, marks = () => document.querySelectorAll(`mark.noam-hl[data-hl="${CSS.escape(id)}"]`);
+    const r = m.getBoundingClientRect();
+    bub = document.createElement('div'); bub.style.cssText = 'all:initial;position:fixed;z-index:2147483647;left:0;top:0';
+    const root = bub.attachShadow({ mode: 'closed' }); const sheet = new CSSStyleSheet();
+    sheet.replaceSync(`.b{position:fixed;display:flex;gap:4px;align-items:center;background:#fff;border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.25),0 0 0 1px rgba(0,0,0,.06);padding:6px;font:600 13px system-ui,"Segoe UI",sans-serif;color:#1d1836}
+      button{border:0;cursor:pointer;border-radius:8px;height:28px;min-width:28px;background:none;font:inherit;color:inherit;padding:0 6px} button:hover{background:#f0eef7} .c{width:20px;height:20px;min-width:0;border-radius:50%;padding:0;box-shadow:inset 0 0 0 1px rgba(0,0,0,.15)} i{width:1px;height:20px;background:#e3e0ee;margin:0 2px}
+      @media (prefers-color-scheme:dark){.b{background:#221c3d;color:#ece8f7} button:hover{background:#2c2550} i{background:#3a3260}}`);
+    root.adoptedStyleSheets = [sheet];
+    const b = document.createElement('div'); b.className = 'b';
+    b.style.left = Math.max(8, Math.min(innerWidth - 270, r.left)) + 'px'; b.style.top = (r.top > 60 ? r.top - 44 : r.bottom + 6) + 'px';
+    b.innerHTML = Object.keys(COL).map((c) => `<button class="c" data-c="${c}" title="${c}" style="background:${COL[c]}"></button>`).join('') + '<i></i><button data-a="link" title="Copy a link that jumps to this">🔗 Link</button><button data-a="del" title="Remove highlight">🗑️</button>';
+    root.appendChild(b); document.documentElement.appendChild(bub);
+    b.onclick = async (ev) => {
+      const btn = ev.target.closest('button'); if (!btn) return;
+      if (btn.dataset.c) { await ipcRenderer.invoke('noam:hl-update', { id, color: btn.dataset.c }); marks().forEach((x) => (x.style.background = COL[btn.dataset.c])); }
+      if (btn.dataset.a === 'link') await ipcRenderer.invoke('noam:hl-link', [...marks()].map((x) => x.textContent).join(''));
+      if (btn.dataset.a === 'del') { await ipcRenderer.invoke('noam:hl-remove', id); marks().forEach((x) => x.replaceWith(...x.childNodes)); applied.delete(id); }
+      closeBub();
+    };
+  }, true);
+  addEventListener('mousedown', (e) => { if (bub && !e.composedPath().includes(bub)) closeBub(); }, true);
+  addEventListener('scroll', closeBub, true);
+}
+
 // ---------------------------------------------------------------- video speed keys
 // [ slower, ] faster, \ back to normal — on any site with a <video> (or playing audio).
 if (cfg.media && cfg.media.speedKeys) {
@@ -505,6 +578,7 @@ if (cfg.internal && location.protocol === 'noam:' && window.top === window) {
     'widgets:geocode', 'widgets:weather', 'widgets:jewish', 'todos:list', 'todos:save', 'reading:list', 'reading:remove', 'reading:read',
     'notes:all', 'sessions:list', 'sessions:delete', 'sessions:open', 'screenshot:get', 'screenshot:copy', 'screenshot:save', 'passwords:check',
     'sync:cloud-folders', 'zmanim:alerts-info', 'zmanim:alerts-test', 'perf:state', 'perf:action', 'containers:clear', 'tm:list', 'tm:text', 'tm:thumb', 'tm:delete', 'tm:watch', 'tm:check', 'prices:list', 'prices:update', 'prices:remove', 'prices:check', 'prices:every', 'focus:state', 'focus:start', 'focus:pause', 'focus:resume', 'focus:stop', 'focus:break', 'focus:skip-break', 'focus:add-time', 'focus:rate', 'focus:stats', 'focus:delete', 'focus:resisted', 'focus:let-through', 'focus:block-info', 'screentime:get', 'screentime:set-limit', 'screentime:clear', 'screentime:csv',
+    'ext:list', 'ext:toggle', 'ext:remove', 'ext:options', 'ext:folder', 'ext:reload', 'ext:install-id', 'ext:describe', 'readindex:stats', 'readindex:set', 'readindex:clear', 'forget:list', 'forget:remove', 'hl:list', 'hl:remove', 'hl:clear-page', 'hl:link',
   ]);
   const listeners = new Map();
   ipcRenderer.on('noam:page-event', (_e, name, data) => { for (const fn of listeners.get(name) || []) try { fn(data); } catch {} });

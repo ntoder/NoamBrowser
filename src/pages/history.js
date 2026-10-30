@@ -1,5 +1,10 @@
 (async () => {
   await noamReady;
+  const ri = async (r) => { r = r || (await noam.invoke('readindex:stats')); $('#ri-on').setAttribute('aria-checked', String(r.enabled)); $('#ri-clear').textContent = r.count ? `Forget ${fmtNum(r.count)} page${r.count === 1 ? '' : 's'}` : 'Nothing saved yet'; $('#ri-clear').disabled = !r.count; };
+  $('#ri-on').onclick = async () => ri(await noam.invoke('readindex:set', $('#ri-on').getAttribute('aria-checked') !== 'true'));
+  $('#ri-clear').onclick = async () => { if (confirm('Forget the words of all the pages you’ve read? (Your history stays.)')) ri(await noam.invoke('readindex:clear')); };
+  const fg = async (list) => { list = list || (await noam.invoke('forget:list')); $('#fg-row').hidden = !list.length; $('#fg-list').innerHTML = list.map((s) => `<button data-s="${esc(s)}" title="Stop forgetting this site">${esc(s)} ✕</button>`).join(''); $$('#fg-list [data-s]').forEach((b) => (b.onclick = async () => fg(await noam.invoke('forget:remove', b.dataset.s)))); };
+  ri(); fg();
   let offset = 0; let items = []; let q = '';
   async function load(reset) {
     if (reset) { offset = 0; items = []; }

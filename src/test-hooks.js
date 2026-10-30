@@ -30,6 +30,7 @@ document.getElementById('out').textContent=JSON.stringify({hc:navigator.hardware
 window.__fp={hc:navigator.hardwareConcurrency,stable:a===b,hash:a.slice(-40),toStr:HTMLCanvasElement.prototype.toDataURL.toString()};
 </script></body></html>`;
 
+const { BrowserWindow } = require('electron');
 module.exports = ({ app, windows, shields, vpn, settings, webContents, features, features2 }) => {
   fs.mkdirSync(OUT, { recursive: true });
   const log = (...a) => { const line = a.map((x) => (typeof x === 'string' ? x : JSON.stringify(x))).join(' '); console.log('[TEST]', line); fs.appendFileSync(path.join(OUT, 'log.txt'), line + '\n'); };
@@ -42,7 +43,7 @@ module.exports = ({ app, windows, shields, vpn, settings, webContents, features,
     res.writeHead(200, { 'content-type': 'text/html', 'set-cookie': 'fp=1' }); res.end(TEST_PAGE);
   });
   if (process.env.NOAM_TEST_TILES) {
-    const srv = require('https').createServer({ key: fs.readFileSync('/tmp/claude-0/k.pem'), cert: fs.readFileSync('/tmp/claude-0/c.pem') }, (req, res) => { res.writeHead(200, { 'content-type': 'text/html' }); res.end('<title>' + req.headers.host.split(':')[0] + '</title><h1>hi</h1>'); });
+    const srv = require('https').createServer({ key: fs.readFileSync((process.env.NOAM_TEST_CERTS || '/tmp/claude-0') + '/k.pem'), cert: fs.readFileSync((process.env.NOAM_TEST_CERTS || '/tmp/claude-0') + '/c.pem') }, (req, res) => { res.writeHead(200, { 'content-type': 'text/html' }); res.end('<title>' + req.headers.host.split(':')[0] + '</title><h1>hi</h1>'); });
     srv.listen(0, '127.0.0.1', async () => {
       const port = srv.address().port;
       const ui = [...windows][0].webContents; const js = (c) => ui.executeJavaScript(c);
@@ -73,7 +74,7 @@ module.exports = ({ app, windows, shields, vpn, settings, webContents, features,
     const login = `<!doctype html><title>Login</title><body style="font:16px sans-serif;padding:30px"><h1>Sign in</h1>
 <form id="f" action="/welcome" method="post"><input name="email" type="email" placeholder="Email"><br><input name="pass" type="password" placeholder="Password"><br><button type="submit">Sign in</button></form></body>`;
     const bright = `<!doctype html><title>Bright</title><body style="background:#fff;color:#111;font:20px sans-serif;padding:40px"><h1>Very bright page</h1><p>Lots of white.</p><img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='60'%3E%3Crect width='120' height='60' fill='%23e33'/%3E%3C/svg%3E"></body>`;
-    const srv = require('https').createServer({ key: fs.readFileSync('/tmp/claude-0/k.pem'), cert: fs.readFileSync('/tmp/claude-0/c.pem') }, (req, res) => {
+    const srv = require('https').createServer({ key: fs.readFileSync((process.env.NOAM_TEST_CERTS || '/tmp/claude-0') + '/k.pem'), cert: fs.readFileSync((process.env.NOAM_TEST_CERTS || '/tmp/claude-0') + '/c.pem') }, (req, res) => {
       res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
       if (req.url.startsWith('/article')) return res.end(article);
       if (req.url.startsWith('/login')) return res.end(login);
@@ -227,7 +228,7 @@ fetch('/player').then(r=>r.json()).then(j=>{window.r2=Object.keys(j)});
 fetch('/player').then(r=>r.text()).then(t=>{window.r3=Object.keys(JSON.parse(t))});
 </script>`;
     const big = JSON.stringify({ videoDetails: { title: 'x', pad: 'p'.repeat(300) }, adPlacements: [1], playerAds: [2], streamingData: { f: 1 } });
-    const srv = require('https').createServer({ key: fs.readFileSync('/tmp/claude-0/k.pem'), cert: fs.readFileSync('/tmp/claude-0/c.pem') }, (req, res) => {
+    const srv = require('https').createServer({ key: fs.readFileSync((process.env.NOAM_TEST_CERTS || '/tmp/claude-0') + '/k.pem'), cert: fs.readFileSync((process.env.NOAM_TEST_CERTS || '/tmp/claude-0') + '/c.pem') }, (req, res) => {
       if (req.url.startsWith('/player')) { res.writeHead(200, { 'content-type': 'application/json' }); res.end(big); return; }
       res.writeHead(200, { 'content-type': 'text/html' }); res.end(page);
     });
@@ -269,7 +270,7 @@ fetch('/player').then(r=>r.text()).then(t=>{window.r3=Object.keys(JSON.parse(t))
     return;
   }
   if (process.env.NOAM_TEST_GOOGLE) {
-    const srv = require('https').createServer({ key: fs.readFileSync('/tmp/claude-0/k.pem'), cert: fs.readFileSync('/tmp/claude-0/c.pem') }, (req, res) => { log('header', req.headers.host, req.url, req.headers['user-agent'], 'ch-ua', req.headers['sec-ch-ua'] || 'none'); res.writeHead(200, { 'content-type': 'text/html' }); res.end('<title>g</title><iframe src="/frame"></iframe>'); });
+    const srv = require('https').createServer({ key: fs.readFileSync((process.env.NOAM_TEST_CERTS || '/tmp/claude-0') + '/k.pem'), cert: fs.readFileSync((process.env.NOAM_TEST_CERTS || '/tmp/claude-0') + '/c.pem') }, (req, res) => { log('header', req.headers.host, req.url, req.headers['user-agent'], 'ch-ua', req.headers['sec-ch-ua'] || 'none'); res.writeHead(200, { 'content-type': 'text/html' }); res.end('<title>g</title><iframe src="/frame"></iframe>'); });
     srv.listen(0, '127.0.0.1', async () => {
       const port = srv.address().port;
       await sleep(3500);
@@ -294,7 +295,7 @@ fetch('/player').then(r=>r.text()).then(t=>{window.r3=Object.keys(JSON.parse(t))
 <div class="card"><h4>Mission log</h4><ul><li>Day 1: liftoff</li><li>Day 2: found tuna</li></ul><img src="/big.svg" width="200" height="120"></div></main>
 <script src="/app.js"></script><script>document.cookie='favouriteCat=whiskers; max-age=86400'; localStorage.setItem('highScore','4200'); sessionStorage.setItem('visits','1'); console.log('Space Cats loaded', {cats: 3, fuel: 'tuna'}); console.warn('Fuel is running low'); fetch('/missing.json').catch(()=>{}); setTimeout(() => { undefinedFunction(); }, 300);</script></body></html>`;
     const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 60"><circle cx="30" cy="30" r="28" fill="#ffb347"/><circle cx="20" cy="25" r="4"/><circle cx="40" cy="25" r="4"/></svg>';
-    const srv = require('https').createServer({ key: fs.readFileSync('/tmp/claude-0/k.pem'), cert: fs.readFileSync('/tmp/claude-0/c.pem') }, (req, res) => {
+    const srv = require('https').createServer({ key: fs.readFileSync((process.env.NOAM_TEST_CERTS || '/tmp/claude-0') + '/k.pem'), cert: fs.readFileSync((process.env.NOAM_TEST_CERTS || '/tmp/claude-0') + '/c.pem') }, (req, res) => {
       const u = req.url.split('?')[0];
       if (u === '/cat.svg' || u === '/big.svg') { res.writeHead(200, { 'content-type': 'image/svg+xml' }); return res.end(svg); }
       if (u === '/style.css') { res.writeHead(200, { 'content-type': 'text/css' }); return res.end('h2{letter-spacing:.5px}'); }
@@ -402,8 +403,136 @@ fetch('/player').then(r=>r.text()).then(t=>{window.r3=Object.keys(JSON.parse(t))
     });
     return;
   }
+  if (process.env.NOAM_TEST_V26) {
+    const srv = require('https').createServer({ key: fs.readFileSync((process.env.NOAM_TEST_CERTS || '/tmp/claude-0') + '/k.pem'), cert: fs.readFileSync((process.env.NOAM_TEST_CERTS || '/tmp/claude-0') + '/c.pem') }, (req, res) => {
+      const u = new URL(req.url, 'https://x');
+      if (u.pathname === '/gone') { res.writeHead(404, { 'content-type': 'text/html' }); return res.end('<title>Not found</title><h1>404 Not Found</h1>'); }
+      res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+      if (u.pathname === '/article') return res.end('<title>How volcanoes work</title><body style="font:18px sans-serif;padding:30px"><h1>How volcanoes work</h1><p id="p1">Magma rises through cracks in the crust and erupts as lava. The pressure of trapped gases makes some eruptions explosive.</p><p>Some volcanoes are quiet for thousands of years.</p></body>');
+      if (u.pathname === '/recipe') return res.end('<title>Best chocolate cake</title><body><h1>Chocolate cake</h1><p>Mix flour, sugar, cocoa and eggs in a big bowl. Pour into a round tin and bake for 35 minutes until a toothpick comes out clean. Let it cool before adding the frosting.</p></body>');
+      res.end(`<title>Page ${u.pathname}</title><body style="font:18px sans-serif;padding:30px"><h1>Page ${u.pathname}</h1><p>${u.search}</p><a id="l" href="/landing?utm_source=x&fbclid=abc&id=7">link</a></body>`);
+    });
+    srv.listen(443, '127.0.0.1', async () => {
+      const win = [...windows][0]; const ui = win.webContents; const js = (c) => ui.executeJavaScript(c);
+      const shot = async (n) => { await sleep(300); const img = await win.webContents.capturePage(); fs.writeFileSync(path.join(OUT, n + '.png'), img.toPNG()); };
+      const tab = async () => webContents.fromId(await js('state.active.wcId'));
+      const step = async (name, fn) => { try { await fn(); log('ok', name); } catch (e) { log('FAIL', name, e.stack || String(e)); } };
+      await sleep(3000); win.show(); win.focus();
+      await step('extensions', async () => {
+        const x = await global.noamExtensions.loadFolder(process.env.NOAM_TEST_EXTDIR || '/tmp/claude-0/testext');
+        log('loaded', x && x.name);
+        await js(`state.active.navigate('https://www.youtube.com/watch')`); await sleep(2500);
+        log('content script', await (await tab()).executeJavaScript(`document.documentElement.dataset.ext || 'none'`));
+        await sleep(1500);
+        log('action dom', await js(`(() => { const r = document.getElementById('ext-actions'); const b = r.shadowRoot.querySelector('button'); const cs = getComputedStyle(b); return [r.shadowRoot.innerHTML.slice(0, 600), cs.width, cs.height, cs.backgroundImage.slice(0, 120), r.getBoundingClientRect().width]; })()`));
+        log('toolbar actions', await js(`(() => { const r = document.getElementById('ext-actions').shadowRoot; return r ? r.querySelectorAll('button').length : -1; })()`), 'puzzle hidden', await js(`document.getElementById('ext-btn').hidden`));
+        const n0 = await js('state.tabs.length');
+        await (await tab()).executeJavaScript(`window.postMessage('ext-tabs','*')`); await sleep(1200);
+        log('chrome.tabs.query', await (await tab()).executeJavaScript(`document.documentElement.dataset.extReply || 'none'`));
+        await (await tab()).executeJavaScript(`window.postMessage('ext-open','*')`); await sleep(2500);
+        log('chrome.tabs.create', await js('state.tabs.length') - n0, await js('state.active.url'));
+        await shot('x-01-ext-toolbar');
+        await js(`activate(state.tabs[0])`); await sleep(500);
+        log('menu items', global.noamExtensions.ext.getContextMenuItems(await tab(), { x: 5, y: 5, mediaType: 'none', linkURL: '', srcURL: '', pageURL: 'https://www.youtube.com/watch', frameURL: '', selectionText: '', isEditable: false, editFlags: {} }).map((m) => m.label));
+        await js(`document.getElementById('ext-actions').shadowRoot.querySelector('button').click()`); await sleep(2500);
+        const pops = webContents.getAllWebContents().filter((w) => w.getURL().includes('popup.html'));
+        log('popup', pops.length, pops[0] && (await pops[0].executeJavaScript('document.body.innerText')));
+        await shot('x-01b-popup');
+        for (const w of BrowserWindow.getAllWindows()) if (w.webContents.getURL().includes('popup.html')) w.close();
+        await js(`newTab({url:'noam://extensions/'})`); await sleep(2000);
+        log('ext page', (await (await tab()).executeJavaScript(`document.getElementById('list').innerText`)).replace(/\s+/g, ' ').slice(0, 300));
+        await shot('x-02-ext-page');
+        await (await tab()).executeJavaScript(`document.querySelector('.ext details').open = true`); await sleep(200); await shot('x-02b-ext-page');
+        await (await tab()).executeJavaScript(`document.querySelector('.ext [data-a=toggle]').click()`); await sleep(1500);
+        log('after turn off', await (await tab()).executeJavaScript(`document.querySelector('.ext').className`));
+        await (await tab()).executeJavaScript(`document.querySelector('.ext [data-a=toggle]').click()`); await sleep(1500);
+        log('after turn on', await (await tab()).executeJavaScript(`document.querySelector('.ext').className`));
+        ui.send('ext:confirm', { reqId: 999, id: 'abc', name: 'Super Grammar Helper', version: '4.2.0', description: 'Fixes your spelling everywhere you type.', ...global.noamExtensions.describe({ permissions: ['storage', 'tabs', 'cookies', 'contextMenus'], host_permissions: ['<all_urls>'] }) });
+        await sleep(600); await shot('x-03-ext-confirm');
+        await js(`document.querySelector('.ext-ask [data-a=no]').click()`);
+        log('describe low', JSON.stringify(global.noamExtensions.describe({ permissions: ['storage', 'activeTab'] })));
+        log('describe med', JSON.stringify(global.noamExtensions.describe({ content_scripts: [{ matches: ['https://*.youtube.com/*'] }], permissions: ['storage'] })));
+      });
+      await step('web store flow', async () => {
+        await js(`newTab({url:'https://chromewebstore.google.com/detail/super-helper/abcdefghijklmnopabcdefghijklmnop'})`); await sleep(2500);
+        const wc = await tab();
+        log('webstore api', await wc.executeJavaScript(`typeof chrome !== 'undefined' && typeof chrome.webstorePrivate === 'object' ? Object.keys(chrome.webstorePrivate).slice(0, 6).join(',') : 'missing'`));
+        const icon = 'data:image/png;base64,' + fs.readFileSync((process.env.NOAM_TEST_EXTDIR || '/tmp/claude-0/testext') + '/icon.png').toString('base64');
+        const man = JSON.stringify({ manifest_version: 3, name: 'Super Helper', version: '3.1', description: 'Does helpful things on pages.', permissions: ['storage', 'history'], host_permissions: ['https://*.wikipedia.org/*'] });
+        wc.executeJavaScript(`new Promise((res) => chrome.webstorePrivate.beginInstallWithManifest3({ id: 'abcdefghijklmnopabcdefghijklmnop', manifest: ${JSON.stringify(man)}, localizedName: 'Super Helper', iconUrl: '${icon}' }, (r) => res(r || (chrome.runtime.lastError && chrome.runtime.lastError.message)))).then((r) => { document.title = 'RESULT ' + r; })`);
+        await sleep(2500);
+        log('confirm shown', await js(`!!document.querySelector('.ext-ask')`), await js(`(document.querySelector('.ext-ask .ext-box') || {}).innerText`).then((t) => String(t).replace(/\s+/g, ' ').slice(0, 260)));
+        await shot('x-03b-webstore-confirm');
+        await js(`document.querySelector('.ext-ask [data-a=no]').click()`); await sleep(1200);
+        log('store result', await wc.executeJavaScript('document.title'));
+      });
+      await step('highlights', async () => {
+        await js(`newTab({url:'https://news.example.org/article'})`); await sleep(2500);
+        const wc = await tab();
+        await wc.executeJavaScript(`(() => { const p = document.getElementById('p1').firstChild; const r = document.createRange(); r.setStart(p, 6); r.setEnd(p, 42); getSelection().removeAllRanges(); getSelection().addRange(r); return getSelection().toString(); })()`).then((t) => log('selected', t));
+        wc.send('noam:hl-do', 'green'); await sleep(800);
+        log('marks', await wc.executeJavaScript(`[...document.querySelectorAll('mark.noam-hl')].map(m => m.textContent).join('')`));
+        wc.reload(); await sleep(3000);
+        log('marks after reload', await wc.executeJavaScript(`[...document.querySelectorAll('mark.noam-hl')].map(m => m.textContent).join('')`));
+        await wc.executeJavaScript(`document.querySelector('mark.noam-hl').click()`); await sleep(400); await shot('x-04-highlight');
+        await wc.executeJavaScript(`document.dispatchEvent(new MouseEvent('mousedown', {bubbles:true}))`);
+        log('fragment link', require('./highlights').fragmentLink('https://news.example.org/article', 'rises through cracks in the crust and erupts as lava and some more words here'));
+      });
+      await step('read index + tab search', async () => {
+        await js(`newTab({url:'https://news.example.org/recipe'})`); await sleep(4200);
+        await js(`closeTab(state.active)`); await sleep(400);
+        await js(`activate(state.tabs[0])`); await sleep(300);
+        await js(`shortcut({ key: 'a', ctrl: true, shift: true })`); await sleep(500);
+        log('empty search', (await js(`document.getElementById('ts-list').innerText`)).replace(/\s+/g, ' ').slice(0, 300));
+        await js(`(() => { const q = document.getElementById('ts-q'); q.value = 'magma pressure'; q.dispatchEvent(new Event('input')); })()`); await sleep(1500);
+        log('search open-page words', (await js(`document.getElementById('ts-list').innerText`)).replace(/\s+/g, ' ').slice(0, 300));
+        await shot('x-05-tabsearch');
+        await js(`(() => { const q = document.getElementById('ts-q'); q.value = 'cocoa'; q.dispatchEvent(new Event('input')); })()`); await sleep(1500);
+        log('search closed+read', (await js(`document.getElementById('ts-list').innerText`)).replace(/\s+/g, ' ').slice(0, 300));
+        await shot('x-05b-tabsearch-read');
+        await js(`shortcut({ key: 'a', ctrl: true, shift: true })`);
+      });
+      await step('share', async () => {
+        log('share', JSON.stringify(await js(`nb.invoke('share:info', 'https://news.example.org/p?utm_source=a&fbclid=b&id=7').then(r => ({ clean: r.clean, removed: r.removed, qr: !!r.qr }))`)));
+        await js(`newTab({url:'https://news.example.org/p?id=7'})`); await sleep(2000);
+        await js(`openShare()`); await sleep(700); await shot('x-06-share');
+        await js(`document.getElementById('share-pop').hidden = true`);
+      });
+      await step('dead page', async () => {
+        await js(`state.active.navigate('https://news.example.org/gone')`); await sleep(2000);
+        log('dead bar', await js(`document.getElementById('dead-bar').hidden ? 'hidden' : document.getElementById('dead-bar').innerText.replace(/\\s+/g,' ')`));
+        await shot('x-07-dead');
+      });
+      await step('forget me', async () => {
+        await js(`state.active.navigate('https://accounts.google.com/x')`); await sleep(1500);
+        await (await tab()).executeJavaScript(`document.cookie = 'sid=123; max-age=9999; path=/'; localStorage.setItem('k','v'); document.cookie`);
+        log('forget set', JSON.stringify(await js(`nb.invoke('forget:set', { host: 'accounts.google.com', on: true })`)));
+        const ses = (await tab()).session;
+        log('cookies before', (await ses.cookies.get({ domain: 'accounts.google.com' })).length);
+        await js(`closeTab(state.active)`); await sleep(1500);
+        log('cookies after', (await ses.cookies.get({ domain: 'accounts.google.com' })).length, await js(`document.getElementById('toast').innerText`));
+      });
+      await step('organize', async () => {
+        for (const u of ['https://www.youtube.com/a', 'https://news.example.org/n1', 'https://news.example.org/n2', 'https://accounts.google.com/z']) { await js(`newTab({url:'${u}', background:true})`); await sleep(500); }
+        await sleep(2000);
+        await js(`organizeTabs()`); await sleep(800);
+        log('groups', JSON.stringify(await js(`state.groups.map(g => [g.name, state.tabs.filter(t => t.groupId === g.id).length])`)));
+        await shot('x-08-organized');
+        await js(`commands().find(c => c.id === 'unorganize').run()`).catch(async () => { await js(`(commands().find(c => /Undo organize/.test(c.label || c.title || '')) || {}).run?.()`); });
+        await sleep(500);
+        log('groups after undo', await js(`state.groups.length`));
+      });
+      await step('pages', async () => {
+        await js(`newTab({url:'noam://highlights/'})`); await sleep(1800); await shot('x-09-highlights-page');
+        await js(`state.active.navigate('noam://history/')`); await sleep(1800); await shot('x-10-history');
+        log('history box', (await (await tab()).executeJavaScript(`document.querySelector('.ri-box').innerText`)).replace(/\s+/g, ' '));
+      });
+      log('DONE'); setTimeout(() => app.quit(), 500);
+    });
+    return;
+  }
   if (process.env.NOAM_TEST_V25) {
-    const srv = require('https').createServer({ key: fs.readFileSync('/tmp/claude-0/k.pem'), cert: fs.readFileSync('/tmp/claude-0/c.pem') }, (req, res) => {
+    const srv = require('https').createServer({ key: fs.readFileSync((process.env.NOAM_TEST_CERTS || '/tmp/claude-0') + '/k.pem'), cert: fs.readFileSync((process.env.NOAM_TEST_CERTS || '/tmp/claude-0') + '/c.pem') }, (req, res) => {
       const u = new URL(req.url, 'https://x'); const cookie = (req.headers.cookie || '').match(/user=(\w+)/);
       if (u.pathname === '/login') { res.writeHead(302, { 'set-cookie': `user=${u.searchParams.get('u')}; Path=/; Max-Age=86400; Secure`, location: '/' }); return res.end(); }
       res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
@@ -499,7 +628,7 @@ fetch('/player').then(r=>r.text()).then(t=>{window.r3=Object.keys(JSON.parse(t))
     return;
   }
   if (process.env.NOAM_TEST_VIS) {
-    const srv = require('https').createServer({ key: fs.readFileSync('/tmp/claude-0/k.pem'), cert: fs.readFileSync('/tmp/claude-0/c.pem') }, (req, res) => { res.writeHead(200, { 'content-type': 'text/html' }); res.end('<title>anim</title><script>window.frames_=0;(function f(){window.frames_++;requestAnimationFrame(f)})();window.ticks_=0;setInterval(()=>window.ticks_++,10)</script><h1>hi</h1>'); });
+    const srv = require('https').createServer({ key: fs.readFileSync((process.env.NOAM_TEST_CERTS || '/tmp/claude-0') + '/k.pem'), cert: fs.readFileSync((process.env.NOAM_TEST_CERTS || '/tmp/claude-0') + '/c.pem') }, (req, res) => { res.writeHead(200, { 'content-type': 'text/html' }); res.end('<title>anim</title><script>window.frames_=0;(function f(){window.frames_++;requestAnimationFrame(f)})();window.ticks_=0;setInterval(()=>window.ticks_++,10)</script><h1>hi</h1>'); });
     srv.listen(443, '127.0.0.1', async () => {
       const win = [...windows][0]; const ui = win.webContents; const js = (c) => ui.executeJavaScript(c);
       await sleep(3000); win.show(); win.focus();
@@ -520,7 +649,7 @@ fetch('/player').then(r=>r.text()).then(t=>{window.r3=Object.keys(JSON.parse(t))
 <p>The science fair is on Thursday. Bring your apple experiments!</p><p>Lunch today: pasta and salad.</p>${version > 1 ? '<p><b>NEW:</b> The trip to the zoo moved to Monday.</p>' : '<p>The zoo trip is on Friday.</p>'}<p>Remember your library books.</p></body></html>`;
     const shop = () => `<!doctype html><html><head><meta charset="utf-8"><title>Super Sneakers – Shop</title><meta property="og:image" content="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='120'%3E%3Crect width='200' height='120' fill='%233e8deb'/%3E%3Ctext x='100' y='70' font-size='40' text-anchor='middle'%3E👟%3C/text%3E%3C/svg%3E">
 <script type="application/ld+json">${JSON.stringify({ '@context': 'https://schema.org', '@type': 'Product', name: 'Super Sneakers', offers: { '@type': 'Offer', price: String(price), priceCurrency: 'ILS' } })}</script></head><body style="font:18px sans-serif;padding:30px"><h1>Super Sneakers</h1><p class="price">₪${price}</p><button>Add to cart</button></body></html>`;
-    const srv = require('https').createServer({ key: fs.readFileSync('/tmp/claude-0/k.pem'), cert: fs.readFileSync('/tmp/claude-0/c.pem') }, (req, res) => { res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' }); res.end(req.url.startsWith('/shop') ? shop() : article()); });
+    const srv = require('https').createServer({ key: fs.readFileSync((process.env.NOAM_TEST_CERTS || '/tmp/claude-0') + '/k.pem'), cert: fs.readFileSync((process.env.NOAM_TEST_CERTS || '/tmp/claude-0') + '/c.pem') }, (req, res) => { res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' }); res.end(req.url.startsWith('/shop') ? shop() : article()); });
     srv.listen(443, '127.0.0.1', async () => {
       const win = [...windows][0]; const ui = win.webContents; const js = (c) => ui.executeJavaScript(c);
       const shot = async (n) => { await sleep(300); const img = await win.webContents.capturePage(); fs.writeFileSync(path.join(OUT, n + '.png'), img.toPNG()); };
@@ -583,7 +712,7 @@ fetch('/player').then(r=>r.text()).then(t=>{window.r3=Object.keys(JSON.parse(t))
     const page = `<!doctype html><html><head><meta charset="utf-8"><title>My Pets</title><style>body{font-family:Georgia,serif;margin:0;background:#f4f8ff}header{background:#2c6e49;color:#fff;padding:20px 30px}main{padding:20px 30px}.card{background:#fff;border-radius:10px;padding:16px;max-width:520px;box-shadow:0 3px 10px rgba(0,0,0,.08)}button{font-size:16px;padding:8px 14px}</style></head>
 <body><header><h1 id="title">My Pets 🐶</h1><nav><a href="https://www.youtube.com/">Pet videos</a> · <a href="#about">About</a></nav></header>
 <main><div class="card"><h2>Rex the dog</h2><p>Rex likes to run in the park and chase balls.</p><img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='90'%3E%3Crect width='160' height='90' fill='%23ffb347'/%3E%3C/svg%3E" width="160" height="90"><p><button>Feed Rex</button> <input placeholder="Your name"></p></div></main></body></html>`;
-    const srv = require('https').createServer({ key: fs.readFileSync('/tmp/claude-0/k.pem'), cert: fs.readFileSync('/tmp/claude-0/c.pem') }, (req, res) => { res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' }); res.end(page); });
+    const srv = require('https').createServer({ key: fs.readFileSync((process.env.NOAM_TEST_CERTS || '/tmp/claude-0') + '/k.pem'), cert: fs.readFileSync((process.env.NOAM_TEST_CERTS || '/tmp/claude-0') + '/c.pem') }, (req, res) => { res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' }); res.end(page); });
     srv.listen(443, '127.0.0.1', async () => {
       const win = [...windows][0]; const ui = win.webContents; const js = (c) => ui.executeJavaScript(c);
       const shot = async (n) => { await sleep(300); const img = await win.webContents.capturePage(); fs.writeFileSync(path.join(OUT, n + '.png'), img.toPNG()); };
@@ -660,7 +789,7 @@ fetch('/player').then(r=>r.text()).then(t=>{window.r3=Object.keys(JSON.parse(t))
     return;
   }
   if (process.env.NOAM_TEST_FOCUS) {
-    const srv = require('https').createServer({ key: fs.readFileSync('/tmp/claude-0/k.pem'), cert: fs.readFileSync('/tmp/claude-0/c.pem') }, (req, res) => {
+    const srv = require('https').createServer({ key: fs.readFileSync((process.env.NOAM_TEST_CERTS || '/tmp/claude-0') + '/k.pem'), cert: fs.readFileSync((process.env.NOAM_TEST_CERTS || '/tmp/claude-0') + '/c.pem') }, (req, res) => {
       res.writeHead(200, { 'content-type': 'text/html' });
       const h = req.headers.host.split(':')[0];
       res.end(h.includes('youtube') ? '<title>YouTube</title><body style="background:#111;color:#fff;font:30px sans-serif"><h1>▶ Cat videos</h1></body>' : '<title>Homework</title><body style="font:20px sans-serif;padding:30px"><h1>Maths homework</h1><p>Question 1: 12 × 7 = ?</p></body>');
@@ -748,7 +877,7 @@ fetch('/player').then(r=>r.text()).then(t=>{window.r3=Object.keys(JSON.parse(t))
     return;
   }
   if (process.env.NOAM_TEST_ZL) {
-    const srv = require('https').createServer({ key: fs.readFileSync('/tmp/claude-0/k.pem'), cert: fs.readFileSync('/tmp/claude-0/c.pem') }, (req, res) => {
+    const srv = require('https').createServer({ key: fs.readFileSync((process.env.NOAM_TEST_CERTS || '/tmp/claude-0') + '/k.pem'), cert: fs.readFileSync((process.env.NOAM_TEST_CERTS || '/tmp/claude-0') + '/c.pem') }, (req, res) => {
       res.writeHead(200, { 'content-type': 'application/json' });
       res.end(JSON.stringify({ results: [{ name: 'Kiryat Sefer', admin1: 'Central', country: 'Israel', latitude: 31.933, longitude: 35.041, timezone: 'Asia/Jerusalem', elevation: 320 }, { name: 'Kiryat Gat', admin1: 'Southern', country: 'Israel', latitude: 31.61, longitude: 34.76, timezone: 'Asia/Jerusalem', elevation: 140 }] }));
     });
@@ -784,7 +913,7 @@ fetch('/player').then(r=>r.text()).then(t=>{window.r3=Object.keys(JSON.parse(t))
     return;
   }
   if (process.env.NOAM_TEST_ST) {
-    const srv = require('https').createServer({ key: fs.readFileSync('/tmp/claude-0/k.pem'), cert: fs.readFileSync('/tmp/claude-0/c.pem') }, (req, res) => { res.writeHead(200, { 'content-type': 'text/html' }); res.end('<title>' + req.headers.host + '</title><h1>' + req.headers.host + '</h1>'); });
+    const srv = require('https').createServer({ key: fs.readFileSync((process.env.NOAM_TEST_CERTS || '/tmp/claude-0') + '/k.pem'), cert: fs.readFileSync((process.env.NOAM_TEST_CERTS || '/tmp/claude-0') + '/c.pem') }, (req, res) => { res.writeHead(200, { 'content-type': 'text/html' }); res.end('<title>' + req.headers.host + '</title><h1>' + req.headers.host + '</h1>'); });
     srv.listen(443, '127.0.0.1', async () => {
       const win = [...windows][0]; const ui = win.webContents; const js = (c) => ui.executeJavaScript(c);
       await sleep(3000);
@@ -843,7 +972,7 @@ fetch('/player').then(r=>r.text()).then(t=>{window.r3=Object.keys(JSON.parse(t))
     return;
   }
   if (process.env.NOAM_TEST_BL) {
-    const srv = require('https').createServer({ key: fs.readFileSync('/tmp/claude-0/k.pem'), cert: fs.readFileSync('/tmp/claude-0/c.pem') }, (req, res) => {
+    const srv = require('https').createServer({ key: fs.readFileSync((process.env.NOAM_TEST_CERTS || '/tmp/claude-0') + '/k.pem'), cert: fs.readFileSync((process.env.NOAM_TEST_CERTS || '/tmp/claude-0') + '/c.pem') }, (req, res) => {
       res.writeHead(200, { 'content-type': 'text/html' });
       res.end('<title>Colours</title><body style="margin:0;background:#fff;font:24px sans-serif"><div style="display:flex;gap:0"><div style="width:300px;height:300px;background:#fff"></div><div style="width:300px;height:300px;background:#0000ff"></div><div style="width:300px;height:300px;background:#00ff00"></div></div><h1 style="padding:20px">Night reading test</h1></body>');
     });
@@ -892,7 +1021,7 @@ fetch('/player').then(r=>r.text()).then(t=>{window.r3=Object.keys(JSON.parse(t))
     const login = `<!doctype html><title>Login</title><body><form action="/welcome" method="post"><input name="email" type="email"><input name="pass" type="password"><button>Sign in</button></form></body>`;
     const sha1 = (s) => require('crypto').createHash('sha1').update(s).digest('hex').toUpperCase();
     const leakedSha = sha1('password123');
-    const srv = require('https').createServer({ key: fs.readFileSync('/tmp/claude-0/k.pem'), cert: fs.readFileSync('/tmp/claude-0/c.pem') }, (req, res) => {
+    const srv = require('https').createServer({ key: fs.readFileSync((process.env.NOAM_TEST_CERTS || '/tmp/claude-0') + '/k.pem'), cert: fs.readFileSync((process.env.NOAM_TEST_CERTS || '/tmp/claude-0') + '/c.pem') }, (req, res) => {
       const host = (req.headers.host || '').split(':')[0]; const u = new URL(req.url, 'https://' + host);
       log('mock', host, u.pathname);
       const json = (o) => { res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify(o)); };

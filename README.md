@@ -5,6 +5,14 @@ A private, fast web browser for Windows, macOS and Linux.
 - **Shields** — blocks ads, trackers, malware sites, cookie banners and YouTube ads; upgrades to HTTPS; blocks cross-site cookies and fingerprinting; strips tracking tags from links.
 - **Built-in VPN** — free Cloudflare WARP (WireGuard) with a kill switch, or your own SOCKS5/HTTP proxy.
 - **Private by design** — no telemetry, no account, no AI services, encrypted DNS.
+- **Chrome Web Store extensions 🧩** — add extensions from the Chrome Web Store (Dark Reader, Grammarly, Bitwarden…). Before anything is added you see a plain-language safety check (“can read everything on every site you visit”) with a low/medium/high risk rating. Extensions never run in private tabs or containers. You can also load your own extension folder — with a step-by-step “make your first extension” guide.
+- **Tab search (Ctrl+Shift+A)** — finds open tabs, sleeping tabs, recently closed tabs and history, and even the words *inside* your open pages.
+- **Search what you’ve read 🧠** — find a page again by something it said, even if you forgot its title. Kept privately on your computer (never private tabs, email, banking or password pages).
+- **Highlighter 🖍️** — highlight text on any page in 4 colours (right-click → Highlight, or Ctrl+Shift+H). Highlights come back when you return, “copy link to highlight” jumps straight to the spot, and noam://highlights lists them all.
+- **Share** — a clean link with tracking tags removed, a QR code to open the page on your phone, email or WhatsApp.
+- **Forget-me sites** — sites whose cookies and data are wiped when you close their last tab (Shields panel).
+- **Dead page rescue** — when a page is gone (404), one click shows the Wayback Machine’s copy or your own Time machine copy.
+- **Organize tabs** — one click sorts your tabs into named groups by topic (videos, chat, learning, code, work, shopping, news, Torah…), on your computer, with undo.
 - **Password manager** — encrypted on your computer, autofill, CSV import/export, and leaked/reused/weak password alerts (Have I Been Pwned, k-anonymity).
 - **Reader view**, **on-device translation**, **picture-in-picture**, **per-site dark mode**.
 - **Vertical tabs**, **tab groups**, **split view**, **command palette** (Ctrl+K).
