@@ -6,7 +6,7 @@
   const DEFAULT_PANELS = [
     { id: 'notes', kind: 'notes', name: 'Notes' },
     { id: 'reading', kind: 'reading', name: 'Reading list' },
-    { id: 'ambient', kind: 'ambient', name: 'Ambient sounds' },
+    { id: 'ambient', kind: 'ambient', name: 'Music & sounds' },
     { id: 'whatsapp', kind: 'web', name: 'WhatsApp', url: 'https://web.whatsapp.com/' },
     { id: 'chatgpt', kind: 'web', name: 'ChatGPT', url: 'https://chatgpt.com/' },
     { id: 'calc', kind: 'calc', name: 'Calculator' },

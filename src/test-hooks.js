@@ -460,6 +460,15 @@ fetch('/player').then(r=>r.text()).then(t=>{window.r3=Object.keys(JSON.parse(t))
         await js(`document.querySelector('.amb [data-p="3"]').click()`); await sleep(1500);
         log('ambient', JSON.stringify(await js(`window.ambient.state()`)));
         await shot('p-05-ambient');
+        for (const id of await js(`window.ambient.music`)) {
+          await js(`document.querySelector('.amb-tile[data-id="${id}"] .amb-t').click()`); await sleep(2200);
+          const st = await js(`(() => { const s = window.ambient.state(); return { live: s.live, lvl: +window.ambient.level().toFixed(3) }; })()`);
+          log('music ' + id, JSON.stringify(st));
+        }
+        await js(`document.getElementById('amb-surprise').click()`); await sleep(1500);
+        await js(`document.getElementById('amb-new').click()`); await sleep(1500);
+        log('after surprise/new', JSON.stringify(await js(`window.ambient.state().live`)));
+        await shot('p-05b-music');
         await js(`window.ambient.pause()`);
         await js(`document.getElementById('rp-close').click()`); await sleep(300);
       });

@@ -145,7 +145,7 @@ async function panelMenu(id, e) {
   else if (a === 'rename') { const n = await askText('Panel name', p.name); if (n) nb.invoke('settings:set', { sidePanel: { panels: panels().map((x) => (x.id === id ? { ...x, name: n } : x)) } }); }
   else if (a === 'remove') { if (openPanelId === id) closeSide(); const wv = webPanels.get(id); if (wv) { wv.remove(); webPanels.delete(id); } nb.invoke('settings:set', { sidePanel: { panels: panels().filter((x) => x.id !== id) } }); }
 }
-const BUILTIN_PANELS = { notes: { id: 'notes', kind: 'notes', name: 'Notes' }, reading: { id: 'reading', kind: 'reading', name: 'Reading list' }, calc: { id: 'calc', kind: 'calc', name: 'Calculator' }, ambient: { id: 'ambient', kind: 'ambient', name: 'Ambient sounds' } };
+const BUILTIN_PANELS = { notes: { id: 'notes', kind: 'notes', name: 'Notes' }, reading: { id: 'reading', kind: 'reading', name: 'Reading list' }, calc: { id: 'calc', kind: 'calc', name: 'Calculator' }, ambient: { id: 'ambient', kind: 'ambient', name: 'Music & sounds' } };
 async function openKind(kind) {
   let p = panels().find((x) => x.kind === kind);
   if (!p) { p = BUILTIN_PANELS[kind]; const s = await nb.invoke('settings:set', { sidePanel: { panels: [...panels(), p] } }); state.settings = s; }
