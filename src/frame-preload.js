@@ -572,7 +572,7 @@ if (cfg.internal && location.protocol === 'noam:' && window.top === window) {
     'data:clear', 'filters:info', 'filters:update', 'vpn:status', 'vpn:toggle', 'vpn:new-identity', 'shields:sites', 'shields:site-set', 'app:info',
     'search:engines', 'appearance:wallpaper', 'permissions:list', 'permissions:reset', 'tab:navigate', 'default-browser:set',
     'reader:get', 'passwords:list', 'passwords:reveal', 'passwords:remove', 'passwords:update', 'passwords:export', 'passwords:import',
-    'passwords:never-remove', 'passwords:clear-clipboard-later', 'import:detect', 'import:run', 'import:passwords-help',
+    'passwords:never-remove', 'passwords:clear-clipboard-later', 'import:detect', 'import:run', 'import:file', 'import:passwords-help',
     'sync:status', 'sync:enable', 'sync:disable', 'sync:now', 'sync:choose-folder', 'update:status', 'update:check', 'update:install',
     'translate:languages', 'sitedark:list', 'sitedark:set', 'topsites:hide', 'topsites:unhide', 'topsites:reset',
     'widgets:geocode', 'widgets:weather', 'widgets:jewish', 'todos:list', 'todos:save', 'reading:list', 'reading:remove', 'reading:read',

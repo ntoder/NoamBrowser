@@ -417,7 +417,11 @@ function wallpaperFile() {
 }
 function iconPath() {
   const p = path.join(ASSETS_DIR, process.platform === 'win32' ? 'icon.ico' : 'icon.png');
-  return fs.existsSync(p) ? p : undefined;
+  if (!fs.existsSync(p)) return undefined;
+  // Linux: Electron silently drops window icons bigger than 192px (the taskbar then shows a blank icon),
+  // so hand it a 128px copy of our 256px icon.
+  if (process.platform === 'linux') { try { const img = nativeImage.createFromPath(p); if (!img.isEmpty()) return img.resize({ width: 128, height: 128, quality: 'best' }); } catch {} }
+  return p;
 }
 function createWindow({ urls = [], privateTab = false, restore = false } = {}) {
   const ws = settings.get('window');

@@ -525,6 +525,10 @@ fetch('/player').then(r=>r.text()).then(t=>{window.r3=Object.keys(JSON.parse(t))
       await step('pages', async () => {
         await js(`newTab({url:'noam://highlights/'})`); await sleep(1800); await shot('x-09-highlights-page');
         await js(`state.active.navigate('noam://history/')`); await sleep(1800); await shot('x-10-history');
+        await js(`state.active.navigate('noam://settings/')`); await sleep(2000);
+        log('import card', (await (await tab()).executeJavaScript(`(document.getElementById('imp-card') || {}).innerText || 'missing'`)).replace(/\s+/g, ' ').slice(0, 300));
+        await (await tab()).executeJavaScript(`document.getElementById('imp-card').scrollIntoView()`); await shot('x-11-import');
+        await js(`state.active.navigate('noam://history/')`); await sleep(1500);
         log('history box', (await (await tab()).executeJavaScript(`document.querySelector('.ri-box').innerText`)).replace(/\s+/g, ' '));
       });
       log('DONE'); setTimeout(() => app.quit(), 500);

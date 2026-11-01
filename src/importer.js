@@ -41,20 +41,32 @@ function roots() {
     ['opera', 'Opera', path.join(c, 'opera')],
     ['chromium', 'Chromium', path.join(c, 'chromium')],
     ['chrome-snap', 'Chromium (Snap)', path.join(home, 'snap', 'chromium', 'common', 'chromium')],
+    ['chrome-beta', 'Google Chrome Beta', path.join(c, 'google-chrome-beta')],
+    // Flatpak installs keep their data under ~/.var/app
+    ['chrome-flatpak', 'Google Chrome (Flatpak)', path.join(home, '.var', 'app', 'com.google.Chrome', 'config', 'google-chrome')],
+    ['brave-flatpak', 'Brave (Flatpak)', path.join(home, '.var', 'app', 'com.brave.Browser', 'config', 'BraveSoftware', 'Brave-Browser')],
+    ['chromium-flatpak', 'Chromium (Flatpak)', path.join(home, '.var', 'app', 'org.chromium.Chromium', 'config', 'chromium')],
+    ['edge-flatpak', 'Microsoft Edge (Flatpak)', path.join(home, '.var', 'app', 'com.microsoft.Edge', 'config', 'microsoft-edge')],
+    ['vivaldi-flatpak', 'Vivaldi (Flatpak)', path.join(home, '.var', 'app', 'com.vivaldi.Vivaldi', 'config', 'vivaldi')],
   ];
 }
+
+// Newer Chrome keeps the bookmarks you sync with your Google account in a separate "AccountBookmarks" file.
+const BOOKMARK_FILES = ['Bookmarks', 'AccountBookmarks'];
+const hasBookmarks = (dir) => BOOKMARK_FILES.some((f) => fs.existsSync(path.join(dir, f)));
+const hasData = (dir) => hasBookmarks(dir) || fs.existsSync(path.join(dir, 'History'));
 
 function profilesIn(root) {
   if (!fs.existsSync(root)) return [];
   // Opera keeps the profile files in the root itself.
-  if (fs.existsSync(path.join(root, 'Bookmarks')) || fs.existsSync(path.join(root, 'History'))) return [{ dir: root, name: 'Default' }];
+  if (hasData(root)) return [{ dir: root, name: 'Default' }];
   let names = {};
   try { names = JSON.parse(fs.readFileSync(path.join(root, 'Local State'), 'utf8')).profile?.info_cache || {}; } catch {}
   const out = [];
   for (const d of fs.readdirSync(root)) {
     if (!(d === 'Default' || /^Profile \d+$/.test(d))) continue;
     const dir = path.join(root, d);
-    if (fs.existsSync(path.join(dir, 'Bookmarks')) || fs.existsSync(path.join(dir, 'History'))) out.push({ dir, name: names[d]?.name || d });
+    if (hasData(dir)) out.push({ dir, name: names[d]?.name || d });
   }
   return out;
 }
@@ -65,7 +77,7 @@ function detect() {
     for (const p of profilesIn(root)) {
       found.push({
         key: id + '|' + p.dir, browser: label, profile: p.name,
-        bookmarks: fs.existsSync(path.join(p.dir, 'Bookmarks')),
+        bookmarks: hasBookmarks(p.dir),
         history: fs.existsSync(path.join(p.dir, 'History')),
       });
     }
@@ -74,15 +86,37 @@ function detect() {
 }
 
 function readBookmarks(dir) {
-  const out = [];
-  let data;
-  try { data = JSON.parse(fs.readFileSync(path.join(dir, 'Bookmarks'), 'utf8')); } catch { return out; }
+  const out = []; const seen = new Set();
   const walk = (node, folder) => {
     if (!node) return;
-    if (node.type === 'url' && /^https?:/i.test(node.url || '')) out.push({ url: node.url, title: node.name || node.url, folder });
-    for (const ch of node.children || []) walk(ch, node.type === 'folder' && node.name && !['Bookmarks bar', 'Bookmarks Bar', 'Other bookmarks', 'Mobile bookmarks'].includes(node.name) ? node.name : folder);
+    if (node.type === 'url' && /^https?:/i.test(node.url || '') && !seen.has(node.url)) { seen.add(node.url); out.push({ url: node.url, title: node.name || node.url, folder }); }
+    for (const ch of node.children || []) walk(ch, node.type === 'folder' && node.name && !ROOT_NAMES.has(node.name) ? node.name : folder);
   };
-  for (const k of ['bookmark_bar', 'other', 'synced']) walk(data.roots?.[k], '');
+  let read = 0;
+  for (const f of BOOKMARK_FILES) {
+    let data; try { data = JSON.parse(fs.readFileSync(path.join(dir, f), 'utf8')); read++; } catch { continue; }
+    for (const k of Object.keys(data.roots || {})) if (data.roots[k] && typeof data.roots[k] === 'object') walk(data.roots[k], '');
+  }
+  if (!read && hasBookmarks(dir)) throw new Error('Couldn’t read that browser’s bookmarks file.');
+  return out;
+}
+const ROOT_NAMES = new Set(['Bookmarks bar', 'Bookmarks Bar', 'Other bookmarks', 'Other Bookmarks', 'Mobile bookmarks', 'Favorites bar', 'Other favorites', 'Speed Dials', 'Trash']);
+
+// A bookmarks file exported from any browser ("Netscape bookmark file" HTML)
+function parseBookmarksHtml(html) {
+  const out = []; const seen = new Set(); const stack = []; let pending = null;
+  const dec = (t) => String(t || '').replace(/<[^>]+>/g, '').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;|&#x27;/g, "'").replace(/&#(\d+);/g, (_, n) => String.fromCodePoint(+n)).trim();
+  const re = /<(\/?)(dl|h3|a)\b([^>]*)>([\s\S]*?)(?=<)/gi; let m;
+  while ((m = re.exec(html))) {
+    const [, close, tag, attrs, text] = m; const t = tag.toLowerCase();
+    if (t === 'h3' && !close) pending = dec(text);
+    else if (t === 'dl') { if (close) stack.pop(); else { stack.push(pending && !ROOT_NAMES.has(pending) ? pending : stack[stack.length - 1] || ''); pending = null; } }
+    else if (t === 'a' && !close) {
+      const href = (attrs.match(/href\s*=\s*"([^"]*)"/i) || attrs.match(/href\s*=\s*'([^']*)'/i) || [])[1];
+      const url = dec(href);
+      if (/^https?:/i.test(url) && !seen.has(url)) { seen.add(url); out.push({ url, title: dec(text) || url, folder: stack[stack.length - 1] || '' }); }
+    }
+  }
   return out;
 }
 
@@ -91,7 +125,9 @@ function readHistory(dir, limit = 20000) {
   if (!fs.existsSync(src)) return [];
   const tmp = path.join(os.tmpdir(), `noam-import-${process.pid}-${Date.now()}.sqlite`);
   try {
-    fs.copyFileSync(src, tmp); // the other browser may hold a lock; read our own copy
+    try { fs.copyFileSync(src, tmp); } catch (e) { // the other browser may hold a lock; read our own copy
+      throw new Error(/EBUSY|EPERM|EACCES|locked/i.test(String(e && (e.code || e.message))) ? 'History couldn’t be read while that browser is open. Close it and press Import again to bring your history too.' : 'Couldn’t read that browser’s history.');
+    }
     for (const ext of ['-wal', '-journal']) { try { fs.copyFileSync(src + ext, tmp + ext); } catch {} }
     const { DatabaseSync } = require('node:sqlite');
     const db = new DatabaseSync(tmp, { readOnly: true });
@@ -109,10 +145,14 @@ function readHistory(dir, limit = 20000) {
   }
 }
 
+// Each part is read separately, so if one fails (say history is locked) the other still comes in.
 function run(key, { bookmarks: doB = true, history: doH = true } = {}) {
   const dir = key.split('|').slice(1).join('|');
   if (!detect().some((d) => d.key === key)) throw new Error('That browser profile is no longer available.');
-  return { bookmarks: doB ? readBookmarks(dir) : [], history: doH ? readHistory(dir) : [] };
+  const out = { bookmarks: [], history: [], errors: [] };
+  if (doB) { try { out.bookmarks = readBookmarks(dir); } catch (e) { out.errors.push(e.message); } }
+  if (doH) { try { out.history = readHistory(dir); } catch (e) { out.errors.push(e.message); } }
+  return out;
 }
 
-module.exports = { detect, run };
+module.exports = { detect, run, parseBookmarksHtml };

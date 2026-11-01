@@ -43,14 +43,18 @@
   async function renderImport() {
     const found = await noam.invoke('import:detect').catch(() => []);
     const card = $('#imp-card');
-    if (!found.length) { card.innerHTML = '<div class="item"><div class="txt"><b>No other browsers found</b><span>NoamBrowser looks for Chrome, Edge, Brave, Vivaldi, Opera and Chromium on this computer.</span></div></div>'; return; }
-    card.innerHTML = found.map((f, i) => `<div class="item"><div class="txt"><b>${esc(f.browser)}${f.profile && f.profile !== 'Default' ? ' — ' + esc(f.profile) : ''}</b><span id="imp-s-${i}">${[f.bookmarks && 'Bookmarks', f.history && 'History'].filter(Boolean).join(' and ')}</span></div><button class="btn" data-imp="${i}">Import</button></div>`).join('');
+    const fileRow = `<div class="item"><div class="txt"><b>📄 Bookmarks file</b><span id="imp-file-s">Exported from any browser. In Chrome: ⋮ → Bookmarks and lists → Bookmark manager → ⋮ → Export bookmarks.</span></div><button class="btn" id="imp-file">Choose file…</button></div>`;
+    const wireFile = () => { $('#imp-file').onclick = async () => { const st = $('#imp-file-s'); try { const r = await noam.invoke('import:file'); if (!r) return; st.textContent = r.bookmarks ? `Imported ${r.bookmarks} bookmark${r.bookmarks === 1 ? '' : 's'}.` : `All ${r.found} bookmarks in that file were already in NoamBrowser.`; } catch (e) { st.textContent = clean(e); } }; };
+    if (!found.length) { card.innerHTML = '<div class="item"><div class="txt"><b>No other browsers found</b><span>NoamBrowser looks for Chrome, Edge, Brave, Vivaldi, Opera and Chromium on this computer. You can still import a bookmarks file below.</span></div></div>' + fileRow; wireFile(); return; }
+    card.innerHTML = found.map((f, i) => `<div class="item"><div class="txt"><b>${esc(f.browser)}${f.profile && f.profile !== 'Default' ? ' — ' + esc(f.profile) : ''}</b><span id="imp-s-${i}">${[f.bookmarks && 'Bookmarks', f.history && 'History'].filter(Boolean).join(' and ')}</span></div><button class="btn" data-imp="${i}">Import</button></div>`).join('') + fileRow;
+    wireFile();
     $$('[data-imp]').forEach((b) => (b.onclick = async () => {
       const f = found[+b.dataset.imp]; const st = $('#imp-s-' + b.dataset.imp);
       b.disabled = true; b.textContent = 'Importing…';
       try {
         const r = await noam.invoke('import:run', { key: f.key, bookmarks: true, history: true });
-        st.textContent = `Imported ${r.bookmarks} bookmark${r.bookmarks === 1 ? '' : 's'} and ${r.history} history entr${r.history === 1 ? 'y' : 'ies'}.`;
+        const bm = r.bookmarks ? `${r.bookmarks} bookmark${r.bookmarks === 1 ? '' : 's'}` : r.found ? `no new bookmarks (all ${r.found} were already here)` : 'no bookmarks (none found in this profile)';
+        st.textContent = `Imported ${bm} and ${r.history} history entr${r.history === 1 ? 'y' : 'ies'}.` + (r.errors && r.errors.length ? ' ⚠️ ' + r.errors.join(' ') : '');
         b.textContent = 'Imported';
       } catch (e) { st.textContent = clean(e); b.disabled = false; b.textContent = 'Try again'; }
     }));

@@ -151,14 +151,26 @@ module.exports = function setupFeatures(ctx) {
 
   // ------------------------------------------------------------ import
   pageHandle('import:detect', () => importer.detect());
+  const addBookmarks = (list) => {
+    let n = 0; if (!list.length) return 0;
+    const items = bookmarks.get('items'); const have = new Set(items.map((b) => b.url));
+    for (const b of list) if (!have.has(b.url)) { items.push({ id: crypto.randomUUID(), url: b.url, title: b.title, favicon: '', added: Date.now(), folder: b.folder || '' }); have.add(b.url); n++; }
+    bookmarks.set('items', items); broadcast('bookmarks:changed', items); broadcastPages('bookmarks', items);
+    return n;
+  };
+  pageHandle('import:file', async (e) => {
+    const win = BrowserWindow.fromWebContents(e.sender.hostWebContents || e.sender) || undefined;
+    const r = await dialog.showOpenDialog(win, { title: 'Pick the bookmarks file you exported', properties: ['openFile'], filters: [{ name: 'Bookmarks file', extensions: ['html', 'htm'] }] });
+    if (r.canceled || !r.filePaths[0]) return null;
+    let html = ''; try { html = fs.readFileSync(r.filePaths[0], 'utf8'); } catch { throw new Error('Couldn’t open that file.'); }
+    const list = importer.parseBookmarksHtml(html);
+    if (!list.length) throw new Error('No bookmarks found in that file. Is it a bookmarks file exported from a browser?');
+    const n = addBookmarks(list); sync.touch();
+    return { found: list.length, bookmarks: n };
+  });
   pageHandle('import:run', (_e, { key, bookmarks: doB, history: doH }) => {
     const data = importer.run(key, { bookmarks: doB, history: doH });
-    let nb = 0, nh = 0;
-    if (data.bookmarks.length) {
-      const items = bookmarks.get('items'); const have = new Set(items.map((b) => b.url));
-      for (const b of data.bookmarks) if (!have.has(b.url)) { items.push({ id: crypto.randomUUID(), url: b.url, title: b.title, favicon: '', added: Date.now(), folder: b.folder || '' }); have.add(b.url); nb++; }
-      bookmarks.set('items', items); broadcast('bookmarks:changed', items);
-    }
+    let nb = addBookmarks(data.bookmarks), nh = 0;
     if (data.history.length) {
       const items = history.get('items'); const byUrl = new Map(items.map((h) => [h.url, h]));
       for (const h of data.history) {
@@ -170,7 +182,7 @@ module.exports = function setupFeatures(ctx) {
       history.set('items', items);
     }
     sync.touch();
-    return { bookmarks: nb, history: nh };
+    return { bookmarks: nb, history: nh, found: data.bookmarks.length, errors: data.errors };
   });
   pageHandle('import:passwords-help', () => ({
     steps: 'In Chrome, Edge or Brave: open Settings → Passwords (Password Manager) → Settings → Export passwords. Save the CSV, then use “Import from CSV” on NoamBrowser’s Passwords page. Delete the CSV afterwards.',
