@@ -362,6 +362,13 @@ function addHistory({ url, title }) {
 function updateHistoryMeta({ url, title, favicon }) {
   const h = history.get('items').find((x) => x.url === url);
   if (h) { if (title) h.title = title; if (favicon) h.favicon = favicon; history.save(); }
+  // keep bookmark icons fresh: a bookmarked page (or another page of that site) got its icon
+  if (favicon && /^https?:/.test(favicon)) {
+    let host = ''; try { host = new URL(url).hostname; } catch {}
+    const items = bookmarks.get('items'); let n = 0;
+    for (const b of items) { let bh = ''; try { bh = new URL(b.url).hostname; } catch {} if (b.url === url ? b.favicon !== favicon : !b.favicon && bh === host) { b.favicon = favicon; n++; } }
+    if (n) { bookmarks.set('items', items); broadcast('bookmarks:changed', items); }
+  }
 }
 function topSites(n = 8) {
   const bySite = new Map();
@@ -540,7 +547,7 @@ app.on('web-contents-created', (_e, wc) => {
     const key = input.key.toLowerCase();
     const mod = input.control || input.meta;
     const isF = /^f(5|6|9|11|12)$/.test(key) || key === 'escape' && false;
-    if ((mod && SHORTCUT_KEYS.has(key)) || (mod && input.shift && (key === 'i' || key === 'c' || key === 'p' || key === 'a')) || isF || (input.alt && (key === 'arrowleft' || key === 'arrowright' || key === 'home'))) {
+    if ((mod && SHORTCUT_KEYS.has(key)) || (mod && input.shift && (key === 'i' || key === 'c' || key === 'p' || key === 'a' || key === 'b')) || isF || (input.alt && (key === 'arrowleft' || key === 'arrowright' || key === 'home'))) {
       const win = hostWindowOf(wc);
       if (!win || type !== 'webview') return;
       event.preventDefault();
@@ -912,9 +919,40 @@ pageHandle('history:delete', (_e, urls) => { const set = new Set(urls); history.
 pageHandle('history:clear', () => { history.set('items', []); return true; });
 pageHandle('bookmarks:list', () => bookmarks.get('items'));
 function tombstone(url) { const t = bookmarks.get('tombstones') || []; t.push({ url, t: Date.now() }); bookmarks.set('tombstones', t.slice(-2000)); }
+// ---------- bookmarks bar: edit, folders, order, icons ----------
+const bmFolders = () => bookmarks.get('folders') || [];
+const bmChanged = (items) => { bookmarks.set('items', items); features && features.syncTouch(); broadcast('bookmarks:changed', items); broadcastPages('bookmarks', items); broadcast('bookmarks:folders', bmFolders()); return items; };
+const bmFolderList = () => { const set = [...bmFolders()]; for (const b of bookmarks.get('items')) if (b.folder && !set.includes(b.folder)) set.push(b.folder); return set; };
+uiHandle('bm:folders', () => bmFolderList());
+pageHandle('bookmarks:folders', () => bmFolderList());
+pageHandle('bookmarks:folder-new', (_e, name) => { name = String(name || '').trim().slice(0, 60); if (name && !bmFolderList().includes(name)) bookmarks.set('folders', [...bmFolders(), name]); broadcast('bookmarks:folders', bmFolderList()); return bmFolderList(); });
+uiHandle('bm:add', (_e, b) => { if (!/^(https?|noam):/.test(b.url || '')) return null; const items = bookmarks.get('items'); if (items.some((x) => x.url === b.url && (x.folder || '') === (b.folder || ''))) return items; items.push({ id: crypto.randomUUID(), url: b.url, title: (b.title || b.url).slice(0, 300), favicon: b.favicon || favFor(b.url), added: Date.now(), folder: b.folder || '' }); return bmChanged(items); });
+uiHandle('bm:update', (_e, b) => { const items = bookmarks.get('items'); const x = items.find((i) => i.id === b.id); if (x) { if (b.title != null) x.title = String(b.title).slice(0, 300); if (b.url && /^(https?|noam):/.test(b.url)) x.url = b.url; if (b.folder != null) x.folder = b.folder; x.updated = Date.now(); } return bmChanged(items); });
+uiHandle('bm:remove', (_e, ids) => { const set = new Set([].concat(ids)); const items = bookmarks.get('items'); for (const b of items) if (set.has(b.id)) tombstone(b.url); return bmChanged(items.filter((b) => !set.has(b.id))); });
+uiHandle('bm:move', (_e, { id, beforeId, folder }) => {
+  const items = bookmarks.get('items'); const i = items.findIndex((b) => b.id === id); if (i < 0) return items;
+  const [b] = items.splice(i, 1); if (folder != null) b.folder = folder; b.updated = Date.now();
+  const j = beforeId ? items.findIndex((x) => x.id === beforeId) : -1; if (j >= 0) items.splice(j, 0, b); else items.push(b);
+  return bmChanged(items);
+});
+uiHandle('bm:folder-new', (_e, name) => { name = String(name || '').trim().slice(0, 60); if (!name) return bmFolderList(); const f = bmFolders(); if (!bmFolderList().includes(name)) bookmarks.set('folders', [...f, name]); broadcast('bookmarks:folders', bmFolderList()); return bmFolderList(); });
+uiHandle('bm:folder-rename', (_e, { from, to }) => { to = String(to || '').trim().slice(0, 60); if (!to || to === from) return bmFolderList(); bookmarks.set('folders', bmFolderList().map((f) => (f === from ? to : f)).filter((f, i, a) => a.indexOf(f) === i)); const items = bookmarks.get('items'); for (const b of items) if (b.folder === from) { b.folder = to; b.updated = Date.now(); } bmChanged(items); return bmFolderList(); });
+uiHandle('bm:folder-delete', (_e, { name, keep }) => { const items = bookmarks.get('items'); let out = items; if (keep) { for (const b of items) if (b.folder === name) { b.folder = ''; b.updated = Date.now(); } } else { for (const b of items) if (b.folder === name) tombstone(b.url); out = items.filter((b) => b.folder !== name); } bookmarks.set('folders', bmFolderList().filter((f) => f !== name)); bmChanged(out); return bmFolderList(); });
+uiHandle('bm:folder-move', (_e, { name, before }) => { const l = bmFolderList().filter((f) => f !== name); const j = before ? l.indexOf(before) : -1; if (j >= 0) l.splice(j, 0, name); else l.push(name); bookmarks.set('folders', l); broadcast('bookmarks:folders', l); return l; });
+// icons: imported bookmarks have none, so borrow the site's icon from your history
+function favFor(url) {
+  let host = ''; try { host = new URL(url).hostname; } catch { return ''; }
+  const h = history.get('items').find((x) => x.favicon && x.url === url) || history.get('items').find((x) => { if (!x.favicon) return false; try { return new URL(x.url).hostname === host; } catch { return false; } });
+  return h ? h.favicon : '';
+}
+function fillBookmarkIcons() {
+  const items = bookmarks.get('items'); let n = 0;
+  for (const b of items) if (!b.favicon) { const f = favFor(b.url); if (f) { b.favicon = f; n++; } }
+  if (n) { bookmarks.set('items', items); broadcast('bookmarks:changed', items); }
+}
 pageHandle('bookmarks:remove', (_e, id) => { const gone = bookmarks.get('items').find((b) => b.id === id); if (gone) tombstone(gone.url); const items = bookmarks.get('items').filter((b) => b.id !== id); bookmarks.set('items', items); features && features.syncTouch(); broadcast('bookmarks:changed', items); return items; });
-pageHandle('bookmarks:add', (_e, b) => { const items = bookmarks.get('items'); if (!/^(https?|noam):/.test(b.url)) throw new Error('Only web addresses can be bookmarked'); items.push({ id: crypto.randomUUID(), url: b.url, title: b.title || b.url, favicon: '', added: Date.now() }); bookmarks.set('items', items); broadcast('bookmarks:changed', items); features && features.syncTouch(); return items; });
-pageHandle('bookmarks:update', (_e, b) => { const items = bookmarks.get('items'); const x = items.find((i) => i.id === b.id); if (x) { if (b.title != null) x.title = b.title; if (b.url) x.url = b.url; x.updated = Date.now(); } bookmarks.set('items', items); features && features.syncTouch(); broadcast('bookmarks:changed', items); return items; });
+pageHandle('bookmarks:add', (_e, b) => { const items = bookmarks.get('items'); if (!/^(https?|noam):/.test(b.url)) throw new Error('Only web addresses can be bookmarked'); items.push({ id: crypto.randomUUID(), url: b.url, title: b.title || b.url, favicon: favFor(b.url), added: Date.now(), folder: b.folder || '' }); bookmarks.set('items', items); broadcast('bookmarks:changed', items); features && features.syncTouch(); return items; });
+pageHandle('bookmarks:update', (_e, b) => { const items = bookmarks.get('items'); const x = items.find((i) => i.id === b.id); if (x) { if (b.title != null) x.title = b.title; if (b.url) x.url = b.url; if (b.folder != null) x.folder = String(b.folder).slice(0, 60); x.updated = Date.now(); } bookmarks.set('items', items); features && features.syncTouch(); broadcast('bookmarks:changed', items); return items; });
 pageHandle('downloads:list', () => allDownloads());
 pageHandle('downloads:open', (_e, id) => downloadAction(id, 'open'));
 pageHandle('downloads:show', (_e, id) => downloadAction(id, 'show'));
@@ -1046,6 +1084,7 @@ app.whenReady().then(async () => {
 
   if (settings.get('vpn').autoConnect) vpn.connect();
   createWindow({ urls: urlsFromArgv(process.argv), restore: true });
+  setTimeout(() => { try { fillBookmarkIcons(); } catch {} }, 4000);
 
   setInterval(() => broadcast('stats:update', statsSummary()), 5000);
   nativeTheme.on('updated', applyThemeToWindows);

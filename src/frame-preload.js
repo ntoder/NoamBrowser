@@ -568,7 +568,7 @@ if (cfg.media && cfg.media.speedKeys) {
 if (cfg.internal && location.protocol === 'noam:' && window.top === window) {
   const allowed = new Set([
     'settings:get', 'settings:set', 'stats:get', 'history:list', 'history:delete', 'history:clear', 'bookmarks:list', 'bookmarks:remove',
-    'bookmarks:add', 'bookmarks:update', 'downloads:list', 'downloads:open', 'downloads:show', 'downloads:cancel', 'downloads:pause', 'downloads:resume', 'downloads:clear', 'topsites:get',
+    'bookmarks:add', 'bookmarks:update', 'bookmarks:folders', 'bookmarks:folder-new', 'downloads:list', 'downloads:open', 'downloads:show', 'downloads:cancel', 'downloads:pause', 'downloads:resume', 'downloads:clear', 'topsites:get',
     'data:clear', 'filters:info', 'filters:update', 'vpn:status', 'vpn:toggle', 'vpn:new-identity', 'shields:sites', 'shields:site-set', 'app:info',
     'search:engines', 'appearance:wallpaper', 'permissions:list', 'permissions:reset', 'tab:navigate', 'default-browser:set',
     'reader:get', 'passwords:list', 'passwords:reveal', 'passwords:remove', 'passwords:update', 'passwords:export', 'passwords:import',
