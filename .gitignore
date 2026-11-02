@@ -3,3 +3,4 @@ dist/
 vendor/wireproxy-dl/
 vendor/lists/*.txt
 _*.js
+src/ui/vendor/

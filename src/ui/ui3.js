@@ -104,7 +104,7 @@ $('#ws-btn').onclick = () => { const r = $('#ws-btn').getBoundingClientRect(); w
 
 // ====================================================================== right side panel
 const panels = () => ((state.settings.sidePanel || {}).panels || []);
-const PANEL_ICON = { notes: 'note', reading: 'reading', calc: 'calc', web: 'globe', ambient: 'music' };
+const PANEL_ICON = { notes: 'note', reading: 'reading', calc: 'calc', web: 'globe', ambient: 'music', chat: 'chat' };
 const webPanels = new Map(); // id -> webview (kept alive so chats stay signed in and loaded)
 let openPanelId = null;
 function renderRail() {
@@ -145,7 +145,7 @@ async function panelMenu(id, e) {
   else if (a === 'rename') { const n = await askText('Panel name', p.name); if (n) nb.invoke('settings:set', { sidePanel: { panels: panels().map((x) => (x.id === id ? { ...x, name: n } : x)) } }); }
   else if (a === 'remove') { if (openPanelId === id) closeSide(); const wv = webPanels.get(id); if (wv) { wv.remove(); webPanels.delete(id); } nb.invoke('settings:set', { sidePanel: { panels: panels().filter((x) => x.id !== id) } }); }
 }
-const BUILTIN_PANELS = { notes: { id: 'notes', kind: 'notes', name: 'Notes' }, reading: { id: 'reading', kind: 'reading', name: 'Reading list' }, calc: { id: 'calc', kind: 'calc', name: 'Calculator' }, ambient: { id: 'ambient', kind: 'ambient', name: 'Music & sounds' } };
+const BUILTIN_PANELS = { notes: { id: 'notes', kind: 'notes', name: 'Notes' }, reading: { id: 'reading', kind: 'reading', name: 'Reading list' }, calc: { id: 'calc', kind: 'calc', name: 'Calculator' }, ambient: { id: 'ambient', kind: 'ambient', name: 'Music & sounds' }, chat: { id: 'noamchat', kind: 'chat', name: 'NoamChat' } };
 async function openKind(kind) {
   let p = panels().find((x) => x.kind === kind);
   if (!p) { p = BUILTIN_PANELS[kind]; const s = await nb.invoke('settings:set', { sidePanel: { panels: [...panels(), p] } }); state.settings = s; }
@@ -183,6 +183,7 @@ function openSide(id) {
   else if (p.kind === 'reading') renderReadingPanel(body);
   else if (p.kind === 'calc') renderCalcPanel(body);
   else if (p.kind === 'ambient' && window.renderAmbientPanel) window.renderAmbientPanel(body);
+  else if (p.kind === 'chat' && window.renderChatPanel) window.renderChatPanel(body);
   renderRail();
 }
 $('#rp-close').onclick = closeSide;

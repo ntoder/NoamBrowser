@@ -1,6 +1,6 @@
 {
   "name": "noambrowser",
-  "version": "2.6.2",
+  "version": "2.7.0",
   "description": "NoamBrowser — a private web browser with built-in ad blocking and VPN",
   "main": "src/main.js",
   "scripts": {
@@ -8,7 +8,9 @@
     "engine": "node scripts/build-engine.js",
     "icons": "node scripts/make-icon.js",
     "dist": "electron-builder --win --x64",
-    "dist:mac": "electron-builder --mac && bash scripts/mac-finish.sh"
+    "dist:mac": "electron-builder --mac && bash scripts/mac-finish.sh",
+    "vendor": "node scripts/build-vendor.js",
+    "postinstall": "node scripts/build-vendor.js"
   },
   "keywords": [],
   "author": "Noam",
@@ -16,9 +18,11 @@
   "devDependencies": {
     "@browsermt/bergamot-translator": "^0.4.9",
     "@fontsource-variable/manrope": "^5.3.0",
+    "@huggingface/transformers": "^4.3.2",
     "@resvg/resvg-js": "^2.6.2",
     "electron": "^44.9.3",
     "electron-builder": "^26.15.3",
+    "esbuild": "^0.28.2",
     "png-to-ico": "^3.0.2",
     "resedit": "^3.1.0"
   },
@@ -30,7 +34,8 @@
     "electron-chrome-web-store": "^0.13.0",
     "electron-updater": "^6.8.11",
     "qrcode-generator": "^2.0.4",
-    "tldts-experimental": "^7.4.19"
+    "tldts-experimental": "^7.4.19",
+    "trystero": "^0.26.0"
   },
   "productName": "NoamBrowser",
   "build": {

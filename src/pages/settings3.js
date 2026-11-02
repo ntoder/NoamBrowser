@@ -4,6 +4,7 @@
   const setSw = (el, on) => el.setAttribute('aria-checked', String(!!on));
   const save = async (patch) => { s = await noam.invoke('settings:set', patch); render(); };
   const DEFAULT_PANELS = [
+    { id: 'noamchat', kind: 'chat', name: 'NoamChat' },
     { id: 'notes', kind: 'notes', name: 'Notes' },
     { id: 'reading', kind: 'reading', name: 'Reading list' },
     { id: 'ambient', kind: 'ambient', name: 'Music & sounds' },

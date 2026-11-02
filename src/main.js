@@ -29,12 +29,14 @@ if (process.platform === 'win32') app.setAppUserModelId('com.noam.browser');
 
 // ---------- Chromium hardening (before ready) ----------
 const cl = app.commandLine;
-cl.appendSwitch('force-webrtc-ip-handling-policy', 'disable_non_proxied_udp');
+// Web pages get the strict WebRTC policy per page (see web-contents-created); not forced globally, so
+// NoamChat in the browser window itself can make direct peer-to-peer connections.
 cl.appendSwitch('webrtc-ip-handling-policy', 'disable_non_proxied_udp');
 cl.appendSwitch('disable-features', [
   'InterestFeedContentSuggestions', 'MediaRouter', 'DialMediaRouteProvider', 'AutofillServerCommunication', 'OptimizationHints',
   'Translate', 'NetworkTimeServiceQuerying', 'UseEcoQoSForBackgroundProcess', 'FedCm', 'PrivacySandboxSettings4', 'BrowsingTopics',
   'InterestGroupStorage', 'AdInterestGroupAPI', 'Fledge', 'AttributionReportingCrossAppWeb', 'PrivateAggregationApi', 'SharedStorageAPI',
+  ...(TEST_MODE ? ['WebRtcHideLocalIpsWithMdns'] : []), // test machines can't resolve .local names
 ].join(','));
 cl.appendSwitch('enable-features', 'ThirdPartyStoragePartitioning,PartitionedCookies,ReducedSystemInfo,ReduceUserAgentMinorVersion');
 cl.appendSwitch('disable-background-networking');
@@ -46,7 +48,7 @@ cl.appendSwitch('enable-smooth-scrolling');
 if (TEST_MODE) { if (!process.env.NOAM_TEST_SANDBOX) cl.appendSwitch('no-sandbox'); cl.appendSwitch('ignore-certificate-errors'); cl.appendSwitch('no-proxy-server'); cl.appendSwitch('host-resolver-rules', 'MAP news.example.org 127.0.0.1, MAP accounts.google.com 127.0.0.1, MAP www.youtube.com 127.0.0.1, MAP chromewebstore.google.com 127.0.0.1, MAP geocoding-api.open-meteo.com 127.0.0.1, MAP api.open-meteo.com 127.0.0.1, MAP www.hebcal.com 127.0.0.1, MAP api.frankfurter.app 127.0.0.1, MAP api.pwnedpasswords.com 127.0.0.1'); cl.appendSwitch('autoplay-policy', 'no-user-gesture-required'); }
 
 protocol.registerSchemesAsPrivileged([
-  { scheme: 'noam', privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: false, stream: true } },
+  { scheme: 'noam', privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: true, stream: true } },
 ]);
 
 // ---------- single instance ----------
@@ -92,6 +94,7 @@ const settings = new Store(userData, 'settings', {
   media: { speedKeys: true, speedOverlay: true },
   widgets: { clock: true, weather: true, zmanim: true, todo: true, units: 'c', candle: 40, city: { name: 'Jerusalem', admin: 'Jerusalem', country: 'Israel', lat: 31.769, lon: 35.2163, tz: 'Asia/Jerusalem', elevation: 754 }, elevation: false },
   sidePanel: { show: true, width: 380, panels: [
+    { id: 'noamchat', kind: 'chat', name: 'NoamChat' },
     { id: 'notes', kind: 'notes', name: 'Notes' },
     { id: 'reading', kind: 'reading', name: 'Reading list' },
     { id: 'ambient', kind: 'ambient', name: 'Music & sounds' },
@@ -103,6 +106,8 @@ const settings = new Store(userData, 'settings', {
   forceDarkAll: false,
   focus: {},
   perf: {},
+  chat: { relays: null },
+  ai: {},
   extensions: { disabled: [], unpacked: [] },
   forget: { sites: [] },
   readIndex: { enabled: true },
@@ -168,6 +173,7 @@ function setupNoamProtocol(ses) {
   ses.protocol.handle('noam', async (req) => {
     const u = new URL(req.url);
     const page = u.hostname || 'newtab';
+    if (page === 'aimodels') return aiApi ? aiApi.serve(req) : new Response('starting', { status: 503 });
     let rel = decodeURIComponent(u.pathname.replace(/^\/+/, ''));
     let file;
     if (page === 'timemachine' && rel === 'view') {
@@ -517,6 +523,9 @@ app.on('web-contents-created', (_e, wc) => {
   if (type !== 'webview' && type !== 'window') return;
   if (type === 'window' && wc.session === session.defaultSession) return;
   try { wc.setWebRTCIPHandlingPolicy('disable_non_proxied_udp'); } catch {}
+  // NoamChat runs in the browser window and needs direct (peer-to-peer) connections. Chromium's normal policy: local
+  // addresses are hidden behind random .local names; web pages keep the strict policy above.
+  if (type === 'window') wc.on('did-finish-load', () => { try { if (wc.getURL().startsWith('file:') && wc.getURL().includes('/ui/index.html')) wc.setWebRTCIPHandlingPolicy('default'); } catch {} });
 
   wc.setWindowOpenHandler(({ url, disposition, features }) => {
     if (!/^(https?|noam|about|data|blob|chrome-extension):/.test(url) && url !== 'about:blank') {
@@ -606,7 +615,7 @@ function saveZoom(url, lvl) {
   settings.set('zoom', z);
 }
 
-let readIndex = null;
+let readIndex = null, aiApi = null;
 const forgetSites = () => (settings.get('forget') || {}).sites || [];
 const menuExtras = []; // extra right-click items from other modules (e.g. extensions)
 function buildContextMenu(wc, p) {
@@ -803,10 +812,10 @@ function downloadAction(id, action) {
 }
 
 function setSettings(patch) {
-  const allowed = ['searchEngine', 'homepage', 'theme', 'accent', 'showBookmarksBar', 'restoreTabs', 'clearOnExit', 'askDownloadLocation', 'downloadDir', 'newTabShowStats', 'newTabShowTopSites', 'dns', 'shields', 'vpn', 'appearance', 'passwords', 'translate', 'updates', 'tabs', 'forceDarkAll', 'gestures', 'media', 'widgets', 'sidePanel', 'downloads', 'blueLight', 'zmanimAlerts', 'screenTime', 'focus', 'dictionary', 'perf', 'containers'];
+  const allowed = ['searchEngine', 'homepage', 'theme', 'accent', 'showBookmarksBar', 'restoreTabs', 'clearOnExit', 'askDownloadLocation', 'downloadDir', 'newTabShowStats', 'newTabShowTopSites', 'dns', 'shields', 'vpn', 'appearance', 'passwords', 'translate', 'updates', 'tabs', 'forceDarkAll', 'gestures', 'media', 'widgets', 'sidePanel', 'downloads', 'blueLight', 'zmanimAlerts', 'screenTime', 'focus', 'dictionary', 'perf', 'containers', 'chat', 'ai'];
   for (const [k, v] of Object.entries(patch || {})) {
     if (!allowed.includes(k)) continue;
-    if (['shields', 'vpn', 'appearance', 'passwords', 'translate', 'updates', 'tabs', 'gestures', 'media', 'widgets', 'sidePanel', 'downloads', 'blueLight', 'zmanimAlerts', 'screenTime', 'focus', 'dictionary', 'perf'].includes(k) && v && typeof v === 'object' && !Array.isArray(v)) settings.set(k, { ...settings.get(k), ...v });
+    if (['shields', 'vpn', 'appearance', 'passwords', 'translate', 'updates', 'tabs', 'gestures', 'media', 'widgets', 'sidePanel', 'downloads', 'blueLight', 'zmanimAlerts', 'screenTime', 'focus', 'dictionary', 'perf', 'chat', 'ai'].includes(k) && v && typeof v === 'object' && !Array.isArray(v)) settings.set(k, { ...(settings.get(k) || {}), ...v });
     else if (['gestures', 'media', 'widgets', 'sidePanel', 'downloads', 'blueLight', 'zmanimAlerts', 'screenTime', 'focus', 'dictionary', 'perf'].includes(k)) continue;
     else settings.set(k, v);
   }
@@ -1072,6 +1081,8 @@ app.whenReady().then(async () => {
   try { readIndex = require('./readindex')({ settings, userData, uiHandle, pageHandle, privatePartition: PRIVATE_PARTITION, session, getHistory: () => history.get('items'), isForgotten: (h) => forgetSites().some((f) => h === f || h.endsWith('.' + f)) }); } catch (e) { console.error('read index', e); }
   try { require('./extras26')({ settings, uiHandle, pageHandle, privatePartition: PRIVATE_PARTITION, mainSession, containerSessions: () => (settings.get('containers') || []).filter((c) => /^[\w-]{1,40}$/.test(c.id)).map((c) => session.fromPartition('persist:noam-c-' + c.id)), readIndex, hostWindowOf }); } catch (e) { console.error('extras 2.6', e); }
   try { require('./highlights')({ Store, userData, pageHandle, broadcastPages, privatePartition: PRIVATE_PARTITION, menuExtras }); } catch (e) { console.error('highlights', e); }
+  try { require('./chat')({ userData, uiHandle, iconPath }); } catch (e) { console.error('chat', e); }
+  try { aiApi = require('./ai')({ userData, uiHandle, getSession: () => mainSession(), appDir: __dirname, hfBase: TEST_MODE ? process.env.NOAM_TEST_HF : null }); } catch (e) { console.error('ai', e); }
   try { require('./perf')({ settings, uiHandle, pageHandle, broadcast, broadcastPages }); } catch (e) { console.error('perf', e); }
   try { focusApi = require('./focus')({ settings, userData, uiHandle, pageHandle, windows, broadcast, broadcastPages, shields, screenTime, keyOf: require('./screentime').keyOf, privatePartition: PRIVATE_PARTITION }); } catch (e) { console.error('focus', e); }
   features.syncer.extra = { snapshot: features2.snapshot, merge: features2.merge };

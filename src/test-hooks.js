@@ -403,6 +403,165 @@ fetch('/player').then(r=>r.text()).then(t=>{window.r3=Object.keys(JSON.parse(t))
     });
     return;
   }
+  if (process.env.NOAM_TEST_AI) {
+    const win = [...windows][0]; const ui = win.webContents; const js = (c) => ui.executeJavaScript(c);
+    const shot = async (n) => { await sleep(300); const img = await win.webContents.capturePage(); fs.writeFileSync(path.join(OUT, n + '.png'), img.toPNG()); };
+    const step = async (name, fn) => { try { await fn(); log('ok', name); } catch (e) { log('FAIL', name, e.stack || String(e)); } };
+    const waitFor = async (what, fn, ms = 60000) => { const t0 = Date.now(); for (;;) { const v = await fn(); if (v) return v; if (Date.now() - t0 > ms) throw new Error('timed out waiting for ' + what); await sleep(400); } };
+    // a pretend Ollama
+    const ol = http.createServer((req, res) => {
+      if (req.url === '/api/tags') { res.writeHead(200, { 'content-type': 'application/json' }); return res.end(JSON.stringify({ models: [{ name: 'mock-llama:3b', size: 2e9 }] })); }
+      if (req.url === '/api/chat') { let b = ''; req.on('data', (c) => (b += c)); req.on('end', async () => { const q = JSON.parse(b); res.writeHead(200, { 'content-type': 'application/x-ndjson' }); for (const w of ['Ollama ', 'says ', 'hi ', `(model ${q.model}, ${q.messages.length} messages)`]) { res.write(JSON.stringify({ message: { content: w } }) + '\n'); await sleep(150); } res.end(JSON.stringify({ done: true }) + '\n'); }); return; }
+      res.writeHead(404); res.end();
+    });
+    ol.listen(11434, '127.0.0.1');
+    const page = http.createServer((req, res) => { res.writeHead(200, { 'content-type': 'text/html' }); res.end('<title>Volcanoes</title><article><h1>How volcanoes work</h1><p>Magma rises through cracks and erupts as lava. hi</p></article>'); });
+    page.listen(0, '127.0.0.1', async () => {
+      await sleep(3500); win.show();
+      settings.set('ai', { engine: 'builtin', model: 'test-org/tiny-chat' });
+      await js(`nb.invoke('settings:get').then((s) => { state.settings = s; })`);
+      await step('built-in AI', async () => {
+        await js(`openKind('chat')`); await sleep(400);
+        await js(`NoamChatUI.view.tab = 'ai'; NoamChatUI.render()`); await sleep(800);
+        await shot('ai-01-intro');
+        await js(`document.getElementById('ai-load').click()`);
+        await waitFor('model ready', () => js('NoamAI.state.ready || !!NoamAI.state.err'), 90000);
+        log('ready', await js('JSON.stringify({ ready: NoamAI.state.ready, device: NoamAI.state.device, err: NoamAI.state.err })'));
+        await js(`NoamAI.ask('hi')`);
+        await waitFor('answer', () => js('!NoamAI.state.busy'), 60000);
+        log('answer', await js('JSON.stringify(NoamAI.state.msgs.slice(-1)[0])'));
+        log('downloaded', JSON.stringify(await js(`nb.invoke('ai:model-info')`)));
+      });
+      await step('ask about page', async () => {
+        await js(`state.active.navigate('http://127.0.0.1:${page.address().port}/')`); await sleep(1500);
+        await js(`NoamAI.ask('Summarize this page in 5 short bullet points.', { page: true, long: true })`);
+        await waitFor('answer', () => js('!NoamAI.state.busy'), 60000);
+        log('page q', await js(`JSON.stringify(NoamAI.state.msgs.slice(-2).map((m) => [m.role, (m.show || m.content).slice(0, 90)]))`));
+        await shot('ai-02-chat');
+      });
+      await step('ollama', async () => {
+        await js(`renderAIPanel(document.querySelector('.nc-main'))`); await sleep(1500);
+        log('engines', await js(`[...document.querySelectorAll('#ai-engine option')].map((o) => o.textContent).join(' | ')`));
+        await js(`nb.invoke('settings:set', { ai: { engine: 'ollama:mock-llama:3b' } }).then((s) => { state.settings = s; })`);
+        await js(`NoamAI.ask('hello ollama')`);
+        await waitFor('ollama answer', () => js('!NoamAI.state.busy'), 30000);
+        log('ollama answer', await js('NoamAI.state.msgs.slice(-1)[0].content'));
+        await js(`renderAIPanel(document.querySelector('.nc-main'))`); await sleep(300);
+        await shot('ai-03-ollama');
+      });
+      await step('webrtc leak check', async () => {
+        const wc = webContents.fromId(await js('state.active.wcId'));
+        const cands = await wc.executeJavaScript(`new Promise((res) => { const out = []; const pc = new RTCPeerConnection({ iceServers: [] }); pc.createDataChannel('x'); pc.onicecandidate = (e) => { if (e.candidate) out.push(e.candidate.candidate); }; pc.createOffer().then((o) => pc.setLocalDescription(o)); setTimeout(() => res(out), 2500); })`);
+        log('web page ICE candidates', cands.length, JSON.stringify(cands).slice(0, 200));
+        const uiC = await js(`new Promise((res) => { const out = []; const pc = new RTCPeerConnection({ iceServers: [] }); pc.createDataChannel('x'); pc.onicecandidate = (e) => { if (e.candidate) out.push(e.candidate.candidate.split(' ')[4]); }; pc.createOffer().then((o) => pc.setLocalDescription(o)); setTimeout(() => res(out), 2500); })`);
+        log('browser window (NoamChat) candidates', uiC.length);
+      });
+      log('DONE'); setTimeout(() => app.quit(), 800);
+    });
+    return;
+  }
+  if (process.env.NOAM_TEST_CHAT) {
+    const ROLE = process.env.NOAM_TEST_CHAT, SH = process.env.NOAM_TEST_SHARE || '/tmp/noam-chat-share';
+    fs.mkdirSync(SH, { recursive: true });
+    const win = [...windows][0]; const ui = win.webContents; const js = (c) => ui.executeJavaScript(c);
+    const shot = async (n) => { await sleep(300); const img = await win.webContents.capturePage(); fs.writeFileSync(path.join(OUT, n + '.png'), img.toPNG()); };
+    const step = async (name, fn) => { try { await fn(); log('ok', name); } catch (e) { log('FAIL', name, e.stack || String(e)); } };
+    const waitFor = async (what, fn, ms = 60000) => { const t0 = Date.now(); for (;;) { const v = await fn(); if (v) return v; if (Date.now() - t0 > ms) throw new Error('timed out waiting for ' + what); await sleep(500); } };
+    const waitFile = (f, ms) => waitFor(f, () => fs.existsSync(path.join(SH, f)) && fs.readFileSync(path.join(SH, f), 'utf8'), ms);
+    const put = (f, v) => fs.writeFileSync(path.join(SH, f), String(v));
+    (async () => {
+      await sleep(3500); win.show();
+      settings.set('chat', { relays: ['ws://127.0.0.1:7777'] });
+      await js(`nb.invoke('settings:get').then((s) => { state.settings = s; })`);
+      await step('identity', async () => {
+        await js(`NoamChat.createIdentity(${JSON.stringify(ROLE === 'A' ? 'Alice' : 'Bob')}, ${JSON.stringify(ROLE === 'A' ? '🦊' : '🐼')})`);
+        await sleep(1500);
+        put(ROLE + '.code', await js('NoamChat.inviteCode()'));
+        await js(`openKind('chat')`); await sleep(500); await shot('c-01-' + ROLE);
+      });
+      await step('befriend', async () => {
+        if (ROLE === 'B') {
+          const code = await waitFile('A.code', 30000);
+          await js(`NoamChat.addFriend(${JSON.stringify(code)}, 'Hi, it is Bob from class')`);
+          await js(`NoamChatUI.go('list')`); await sleep(300); await shot('c-02-B-pending');
+          await waitFor('Alice to accept', () => js(`Object.values(NoamChat.data.friends).some((f) => f.status === 'friend' && f.online)`), 90000);
+          log('B sees', await js(`JSON.stringify(Object.values(NoamChat.data.friends).map((f) => [f.name, f.emoji, f.status, f.online]))`));
+        } else {
+          await waitFor('a friend request', () => js(`NoamChat.data.requests.length > 0`), 90000);
+          await js(`NoamChatUI.go('list')`); await sleep(300); await shot('c-02-A-request');
+          log('A request', await js(`JSON.stringify(NoamChat.data.requests.map((q) => [q.inv.n, q.inv.e, q.note]))`));
+          await js(`NoamChat.acceptRequest(NoamChat.data.requests[0].id)`);
+          await waitFor('Bob online', () => js(`Object.values(NoamChat.data.friends).some((f) => f.online)`), 60000);
+          log('A sees', await js(`JSON.stringify(Object.values(NoamChat.data.friends).map((f) => [f.name, f.status, f.online]))`));
+        }
+      });
+      const fkey = () => js(`'f:' + Object.keys(NoamChat.data.friends)[0]`);
+      await step('messages', async () => {
+        const key = await fkey();
+        if (ROLE === 'B') {
+          await js(`NoamChat.sendTo(${JSON.stringify(key)}, { text: 'Hello Alice 👋 look: https://example.org' })`);
+          await waitFor('reply', () => js(`NoamChat.data.chats[${JSON.stringify(key)}].msgs.some((m) => m.from !== NoamChat.myId)`), 30000);
+          await sleep(1500);
+          log('B chat', await js(`JSON.stringify(NoamChat.data.chats[${JSON.stringify(key)}].msgs.map((m) => [m.from === NoamChat.myId ? 'me' : 'them', m.text || (m.share && m.share.url), m.status || '']))`));
+        } else {
+          await js(`NoamChatUI.go('conv', ${JSON.stringify(key)})`);
+          await waitFor('message', () => js(`(NoamChat.data.chats[${JSON.stringify(key)}] || { msgs: [] }).msgs.length > 0`), 30000);
+          await sleep(500);
+          await js(`NoamChat.sendTo(${JSON.stringify(key)}, { text: 'Hi Bob! 😀' })`);
+          await js(`NoamChat.sendTo(${JSON.stringify(key)}, { share: { url: 'https://news.example.org/article', title: 'How volcanoes work' } })`);
+          await sleep(2500);
+          log('A chat', await js(`JSON.stringify(NoamChat.data.chats[${JSON.stringify(key)}].msgs.map((m) => [m.from === NoamChat.myId ? 'me' : 'them', m.text || (m.share && m.share.url), m.status || '']))`));
+          await shot('c-03-A-conv');
+        }
+      });
+      await step('group', async () => {
+        const key = await fkey();
+        if (ROLE === 'A') {
+          await js(`(async () => { const g = await NoamChat.createGroup('Science project', '🧪'); await NoamChat.sendTo(${JSON.stringify(key)}, { text: 'Join my group “Science project”', ginv: { g: g.gid, n: g.name, e: g.emoji, k: g.secret } }); })()`);
+          await waitFor('Bob in group', () => js(`(() => { const g = Object.values(NoamChat.data.groups)[0]; return NoamChat.online('g:' + g.gid) > 0; })()`), 60000);
+          await js(`NoamChat.sendTo('g:' + Object.keys(NoamChat.data.groups)[0], { text: 'Welcome to the group!' })`);
+          await waitFor('group reply', () => js(`NoamChat.data.chats['g:' + Object.keys(NoamChat.data.groups)[0]].msgs.some((m) => m.from !== NoamChat.myId)`), 30000);
+          await js(`NoamChatUI.go('conv', 'g:' + Object.keys(NoamChat.data.groups)[0])`); await sleep(500); await shot('c-04-A-group');
+        } else {
+          const inv = await waitFor('group invite', () => js(`(() => { const m = (NoamChat.data.chats[${JSON.stringify(key)}] || { msgs: [] }).msgs.find((x) => x.ginv); return m && JSON.stringify(m.ginv); })()`), 30000);
+          await js(`NoamChat.joinGroup(${inv})`);
+          await waitFor('group message', () => js(`(() => { const g = Object.values(NoamChat.data.groups)[0]; const c = g && NoamChat.data.chats['g:' + g.gid]; return c && c.msgs.some((m) => m.text === 'Welcome to the group!'); })()`), 60000);
+          await js(`NoamChat.sendTo('g:' + Object.keys(NoamChat.data.groups)[0], { text: 'Thanks! 🎉' })`);
+          await sleep(1000);
+          log('B group', await js(`JSON.stringify(NoamChat.data.chats['g:' + Object.keys(NoamChat.data.groups)[0]].msgs.map((m) => [m.fromName || 'me', m.text]))`));
+        }
+      });
+      await step('offline queue', async () => {
+        const key = await fkey();
+        if (ROLE === 'B') {
+          await js('NoamChat.goOffline()'); put('B.offline', 1);
+          await waitFile('A.sent', 30000); await sleep(1000);
+          await js('NoamChat.restart()');
+          await waitFor('queued message', () => js(`NoamChat.data.chats[${JSON.stringify(key)}].msgs.some((m) => m.text === 'Are you there?')`), 60000);
+          log('B got queued message');
+          await js(`NoamChatUI.go('conv', ${JSON.stringify(key)})`); await sleep(1500);
+        } else {
+          await waitFile('B.offline', 30000); await sleep(4000);
+          const m = await js(`NoamChat.sendTo(${JSON.stringify(key)}, { text: 'Are you there?' }).then((m) => m.status)`);
+          log('A status while Bob offline', m); put('A.sent', 1);
+          await waitFor('delivered', () => js(`NoamChat.data.chats[${JSON.stringify(key)}].msgs.find((m) => m.text === 'Are you there?').status`).then((st) => st === 'delivered' || st === 'read'), 60000);
+          await sleep(2500);
+          log('A status after Bob came back', await js(`NoamChat.data.chats[${JSON.stringify(key)}].msgs.find((m) => m.text === 'Are you there?').status`));
+          await js(`NoamChatUI.go('conv', ${JSON.stringify(key)})`); await sleep(500); await shot('c-05-A-ticks');
+        }
+      });
+      await step('ai tab', async () => {
+        if (ROLE !== 'A') return;
+        await js(`NoamChatUI.view.tab = 'ai'; NoamChatUI.render()`); await sleep(800); await shot('c-06-A-ai');
+        log('ai panel', (await js(`document.querySelector('.ai').innerText`)).replace(/\s+/g, ' ').slice(0, 200));
+      });
+      put(ROLE + '.done', 1);
+      await waitFile((ROLE === 'A' ? 'B' : 'A') + '.done', 60000).catch(() => {});
+      log('status', JSON.stringify(await js('NoamChat.status()')));
+      log('DONE'); setTimeout(() => app.quit(), 1500);
+    })();
+    return;
+  }
   if (process.env.NOAM_TEST_V26) {
     const srv = require('https').createServer({ key: fs.readFileSync((process.env.NOAM_TEST_CERTS || '/tmp/claude-0') + '/k.pem'), cert: fs.readFileSync((process.env.NOAM_TEST_CERTS || '/tmp/claude-0') + '/c.pem') }, (req, res) => {
       const u = new URL(req.url, 'https://x');
