@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Account</title><link rel="stylesheet" href="pages.css"><link rel="stylesheet" href="assets/themes.css">
+<style>
+  .page { max-width: 720px; }
+  .box { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 18px 20px; margin-bottom: 16px; }
+  .box h2 { margin: 0 0 6px; font-size: 16px; } .sub { color: var(--muted); font-size: 13px; margin: 0 0 12px; line-height: 1.5; }
+  .hero { display: flex; gap: 16px; align-items: center; }
+  .av { width: 64px; height: 64px; border-radius: 50%; display: grid; place-items: center; font-size: 28px; font-weight: 850; color: #fff; background: linear-gradient(135deg, var(--accent), #e055a3); flex: none; }
+  .hero h1 { margin: 0; font-size: 22px; } .hero p { margin: 2px 0 0; color: var(--muted); font-size: 13px; }
+  .tabs { display: flex; gap: 6px; margin-bottom: 14px; } .tabs button { flex: 1; height: 38px; border-radius: 11px; font-weight: 800; background: var(--surface-2); border: 0; color: var(--muted); cursor: pointer; font-size: 14px; } .tabs button.on { background: var(--accent-soft); color: var(--accent); }
+  label.l { display: block; font-size: 12.5px; font-weight: 800; color: var(--muted); margin: 10px 0 5px; }
+  .field { width: 100%; box-sizing: border-box; }
+  .wide { width: 100%; justify-content: center; height: 42px; margin-top: 16px; font-size: 14.5px; }
+  .msg { font-size: 13px; font-weight: 700; margin-top: 10px; } .msg.err { color: var(--danger); } .msg.ok { color: var(--safe); }
+  .meter { height: 6px; border-radius: 3px; background: var(--surface-2); margin-top: 6px; overflow: hidden; } .meter i { display: block; height: 100%; width: 0; border-radius: 3px; transition: width .2s, background .2s; }
+  .points { display: grid; gap: 8px; margin: 4px 0 0; padding: 0; list-style: none; font-size: 13.5px; } .points li { display: flex; gap: 10px; } .points b { font-size: 18px; }
+  .warn { background: color-mix(in srgb, #d9a21b 15%, transparent); border-radius: 12px; padding: 10px 14px; font-size: 13px; margin-top: 12px; line-height: 1.45; }
+  .row { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 10px 0; border-bottom: 1px solid var(--line); } .row:last-child { border-bottom: 0; }
+  .row .t b { display: block; font-size: 14px; } .row .t span { color: var(--muted); font-size: 12.5px; }
+  .dev { display: flex; align-items: center; gap: 12px; padding: 9px 0; border-bottom: 1px solid var(--line); font-size: 13.5px; } .dev:last-child { border-bottom: 0; } .dev .ic { font-size: 22px; } .dev .n { flex: 1; } .dev small { display: block; color: var(--muted); font-size: 12px; }
+  .tag { font-size: 11px; font-weight: 800; padding: 2px 8px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); margin-left: 6px; }
+  .acts { display: flex; gap: 8px; flex-wrap: wrap; }
+  details summary { cursor: pointer; font-weight: 750; color: var(--muted); font-size: 13px; }
+  .state { display: inline-flex; align-items: center; gap: 6px; font-weight: 750; font-size: 13px; } .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--safe); } .dot.busy { background: var(--accent); animation: p 1s infinite; } .dot.bad { background: var(--danger); } @keyframes p { 50% { opacity: .3; } }
+  .modal { position: fixed; inset: 0; background: rgba(10,8,25,.4); display: grid; place-items: center; z-index: 10; } .modal .box { width: min(420px, calc(100vw - 32px)); margin: 0; }
+</style></head>
+<body>
+<div class="page" id="root"></div>
+<script src="assets/apply-theme.js"></script>
+<script src="common.js"></script>
+<script src="account.js"></script>
+</body>
+</html>

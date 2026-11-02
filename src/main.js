@@ -106,6 +106,7 @@ const settings = new Store(userData, 'settings', {
   forceDarkAll: false,
   focus: {},
   perf: {},
+  account: {},
   chat: { relays: null },
   ai: {},
   extensions: { disabled: [], unpacked: [] },
@@ -861,6 +862,7 @@ function appMenu(sender, wcId, x, y) {
     { label: 'Focus progress', click: () => send('tab:open', { url: 'noam://focus/' }) },
     { label: 'Screen time', click: () => send('tab:open', { url: 'noam://screentime/' }) },
     { label: 'Speed & memory ⚡', click: () => send('tab:open', { url: 'noam://performance/' }) },
+    { label: 'Account 👤', click: () => send('tab:open', { url: 'noam://account/' }) },
     { label: 'Extensions 🧩', click: () => send('tab:open', { url: 'noam://extensions/' }) },
     { label: 'Highlights 🖍️', click: () => send('tab:open', { url: 'noam://highlights/' }) },
     { label: 'Search tabs…', accelerator: 'CmdOrCtrl+Shift+A', click: () => send('shortcut', { key: 'tabsearch' }) },
@@ -1081,7 +1083,13 @@ app.whenReady().then(async () => {
   try { readIndex = require('./readindex')({ settings, userData, uiHandle, pageHandle, privatePartition: PRIVATE_PARTITION, session, getHistory: () => history.get('items'), isForgotten: (h) => forgetSites().some((f) => h === f || h.endsWith('.' + f)) }); } catch (e) { console.error('read index', e); }
   try { require('./extras26')({ settings, uiHandle, pageHandle, privatePartition: PRIVATE_PARTITION, mainSession, containerSessions: () => (settings.get('containers') || []).filter((c) => /^[\w-]{1,40}$/.test(c.id)).map((c) => session.fromPartition('persist:noam-c-' + c.id)), readIndex, hostWindowOf }); } catch (e) { console.error('extras 2.6', e); }
   try { require('./highlights')({ Store, userData, pageHandle, broadcastPages, privatePartition: PRIVATE_PARTITION, menuExtras }); } catch (e) { console.error('highlights', e); }
-  try { require('./chat')({ userData, uiHandle, iconPath }); } catch (e) { console.error('chat', e); }
+  let chatApi = null;
+  try { chatApi = require('./chat')({ userData, uiHandle, iconPath, broadcast }); } catch (e) { console.error('chat', e); }
+  try {
+    const account = require('./account')({ settings, history, userData, uiHandle, pageHandle, broadcast, broadcastPages, features, chatApi, getSession: () => mainSession() });
+    const touch0 = features.syncTouch; features.syncTouch = () => { try { touch0(); } catch {} account.touch(); };
+    if (chatApi) chatApi.onSave = () => account.touch(); // new chat messages reach your other computers
+  } catch (e) { console.error('account', e); }
   try { aiApi = require('./ai')({ userData, uiHandle, getSession: () => mainSession(), appDir: __dirname, hfBase: TEST_MODE ? process.env.NOAM_TEST_HF : null }); } catch (e) { console.error('ai', e); }
   try { require('./perf')({ settings, uiHandle, pageHandle, broadcast, broadcastPages }); } catch (e) { console.error('perf', e); }
   try { focusApi = require('./focus')({ settings, userData, uiHandle, pageHandle, windows, broadcast, broadcastPages, shields, screenTime, keyOf: require('./screentime').keyOf, privatePartition: PRIVATE_PARTITION }); } catch (e) { console.error('focus', e); }

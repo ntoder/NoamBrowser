@@ -1,0 +1,8 @@
+name = "noambrowser-accounts"
+main = "account-worker.js"
+compatibility_date = "2026-06-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "noambrowser-accounts"
+database_id = "PUT-YOUR-DATABASE-ID-HERE"

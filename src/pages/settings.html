@@ -331,7 +331,8 @@
 
     <section id="sync">
       <h2>Sync</h2>
-      <p class="lede">Keep bookmarks, settings, your reading list, site notes, to-dos, saved sessions and (optionally) passwords the same on all your computers — Windows, Mac and Linux. No account and no NoamBrowser server: it syncs through a folder your cloud drive already syncs (OneDrive, Google Drive, Dropbox, iCloud Drive) and everything is encrypted with your passphrase first.</p>
+      <div class="card"><div class="item"><div class="txt"><b>👤 NoamBrowser Account (easiest)</b><span>Sign in on any computer to get your bookmarks, passwords, settings, history and NoamChat. Everything is locked with your password before it leaves your computer.</span></div><a class="btn primary" href="noam://account/" target="_blank">Open Account</a></div></div>
+      <p class="lede"><b>Or, without an account:</b> keep bookmarks, settings, your reading list, site notes, to-dos, saved sessions and (optionally) passwords the same on all your computers — Windows, Mac and Linux. No account and no NoamBrowser server: it syncs through a folder your cloud drive already syncs (OneDrive, Google Drive, Dropbox, iCloud Drive) and everything is encrypted with your passphrase first.</p>
       <div class="card" id="sync-off">
         <div class="item"><div class="txt"><b>Sync folder</b><span id="sync-folder-label">Pick a folder inside OneDrive, Google Drive, Dropbox or iCloud Drive.</span><span class="clouds" id="sync-clouds"></span></div><button class="btn" id="sync-pick">Choose folder</button></div>
         <div class="item"><div class="txt"><b>Sync passphrase</b><span>Use the same passphrase on every computer. Write it down — it can’t be recovered.</span></div><input class="field" id="sync-pass" type="password" placeholder="At least 8 characters" autocomplete="new-password"></div>

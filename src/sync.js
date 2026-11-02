@@ -172,7 +172,7 @@ class Sync extends EventEmitter {
     return this.status;
   }
 
-  touchSettings() { if (this.cfg().enabled) this.settings.set('sync', { ...this.cfg(), settingsUpdated: Date.now() }); }
+  touchSettings() { this.settings.set('sync', { ...this.cfg(), settingsUpdated: Date.now() }); } // also used by the NoamBrowser account
 }
 
 module.exports = { Sync, seal, open };

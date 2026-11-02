@@ -39,7 +39,7 @@
       signPub: b64u(await crypto.subtle.exportKey('raw', sk.publicKey)), dhPub: b64u(await crypto.subtle.exportKey('raw', dk.publicKey)), invite: rnd(16),
       priv: { sign: await crypto.subtle.exportKey('jwk', sk.privateKey), dh: await crypto.subtle.exportKey('jwk', dk.privateKey) },
     };
-    await unlock(); save(); startRooms(); emit('change');
+    await unlock(); save(); startRooms(); linkAccount(); emit('change');
   }
   async function unlock() {
     signKey = await crypto.subtle.importKey('jwk', D.identity.priv.sign, ECDSA, false, ['sign']);
@@ -85,7 +85,7 @@
     if (rooms.has(roomId)) return rooms.get(roomId);
     const r = { kind, key, peers: new Map(), pending: new Map(), roomId };
     try {
-      r.room = T().joinRoom(cfg(password), roomId, { onPeerHandshake: handshake(roomId, expect), handshakeTimeoutMs: 15000, onJoinError: (d) => console.warn('noamchat join', kind, d && d.error) });
+      r.room = T().joinRoom(cfg(password), roomId, { onPeerHandshake: handshake(roomId, expect), handshakeTimeoutMs: 15000, onJoinError: (d) => { const m = String((d && d.error) || ''); if (!/myself|overlapping room|not allowed/.test(m)) console.warn('noamchat join', kind, m); } });
     } catch (e) { console.error('noamchat join failed', e); return null; }
     r.a = {};
     for (const n of ['msg', 'ack', 'typing', 'req', 'reqok', 'have', 'give', 'prof']) {
@@ -219,6 +219,7 @@
       addMsg(key, m);
       const r = rooms.get(f.room);
       if (r && r.peers.size) { r.a.msg.send([strip(m)]); m.status = 'sent'; }
+      else if (f.status === 'friend') mailTo(f, { msgs: [strip(m)] }).then((ok) => { if (ok && m.status === 'pending') { m.status = 'sent'; m.via = 'mail'; save(); emit('change'); } });
     } else {
       const g = D.groups[key.slice(2)]; if (!g) return;
       m.sig = await sign(sigText(m)); m.pub = D.identity.signPub; m.fromName = D.identity.name; m.fromEmoji = D.identity.emoji; m.status = 'sent';
@@ -256,7 +257,7 @@
     save(); await openFriend(f); emit('change'); return f;
   }
   function declineRequest(id, block) { const q = D.requests.find((x) => x.id === id); D.requests = D.requests.filter((x) => x.id !== id); if (block && q) D.friends[id] = { id, name: q.inv.n, emoji: q.inv.e, signPub: q.inv.s, dhPub: q.inv.d, invite: q.inv.i, status: 'blocked' }; save(); emit('change'); }
-  async function removeFriend(id, block) { const f = D.friends[id]; if (!f) return; if (f.room) close(f.room); if (block) f.status = 'blocked'; else { delete D.friends[id]; delete D.chats['f:' + id]; } save(); emit('change'); }
+  async function removeFriend(id, block) { const f = D.friends[id]; if (!f) return; if (f.room) close(f.room); if (block) { f.status = 'blocked'; f.blockedAt = Date.now(); } else { delete D.friends[id]; delete D.chats['f:' + id]; } save(); emit('change'); }
   async function createGroup(name, emoji) {
     const g = { gid: rnd(12), secret: rnd(24), name: String(name || 'Group').slice(0, 60), emoji: emoji || '👥', created: Date.now(), members: {} };
     g.members[myId] = { n: D.identity.name, e: D.identity.emoji, pub: D.identity.signPub };
@@ -270,7 +271,7 @@
   }
   function leaveGroup(gid) { close('gr-' + gid); delete D.groups[gid]; delete D.chats['g:' + gid]; save(); emit('change'); }
   function setProfile(name, emoji) {
-    if (name) D.identity.name = String(name).slice(0, 40); if (emoji) D.identity.emoji = emoji; save();
+    if (name) D.identity.name = String(name).slice(0, 40); if (emoji) D.identity.emoji = emoji; D.identity.profileAt = Date.now(); save();
     for (const r of rooms.values()) if (r.peers.size) r.a.prof.send(prof());
     emit('change');
   }
@@ -285,12 +286,51 @@
   function deleteMsg(key, id) { const c = chat(key); c.msgs = c.msgs.filter((m) => m.id !== id); save(); emit('change'); }
   function clearChat(key) { chat(key).msgs = []; chat(key).unread = 0; save(); emit('change'); }
 
+  // ---------------------------------------------------------------- mailbox (through your NoamBrowser account)
+  // When a friend is offline, messages are left on the account server, locked with a key only the two of
+  // you share (from ECDH), and collected when they next open NoamBrowser.
+  const mailKeys = new Map();
+  async function mailKey(f) {
+    if (!mailKeys.has(f.id)) mailKeys.set(f.id, (async () => crypto.subtle.importKey('raw', await crypto.subtle.digest('SHA-256', unb64u(await shared(f.dhPub))), 'AES-GCM', false, ['encrypt', 'decrypt']))());
+    return mailKeys.get(f.id);
+  }
+  let accountOn = false;
+  async function mailTo(f, payload) {
+    if (!accountOn) return false;
+    try {
+      const iv = crypto.getRandomValues(new Uint8Array(12));
+      const c = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, await mailKey(f), te.encode(JSON.stringify(payload)));
+      const r = await nb.invoke('account:mail-send', { to: f.id, box: JSON.stringify({ v: 1, f: myId, iv: b64u(iv), c: b64u(c) }) });
+      return !!(r && r.ok);
+    } catch { return false; }
+  }
+  async function checkMail() {
+    if (!accountOn || !D || !D.identity) return;
+    let list = []; try { list = await nb.invoke('account:mail-fetch'); } catch { return; }
+    for (const item of list || []) {
+      try {
+        const o = JSON.parse(item.box); const f = D.friends[o.f]; if (!f || f.status === 'blocked') continue;
+        const p = JSON.parse(new TextDecoder().decode(await crypto.subtle.decrypt({ name: 'AES-GCM', iv: unb64u(o.iv) }, await mailKey(f), unb64u(o.c))));
+        if (Array.isArray(p.msgs)) {
+          const got = [];
+          for (const raw of p.msgs.slice(0, 200)) { const m = { ...clean(raw), from: f.id }; if (!m.id) continue; got.push(m.id); if (addMsg('f:' + f.id, m)) incoming('f:' + f.id, m, f.name, f.emoji); }
+          if (got.length) { const r = rooms.get(f.room); if (r && r.peers.size) r.a.ack.send({ ids: got, st: 'delivered' }); else mailTo(f, { ack: { ids: got, st: 'delivered' } }); }
+        }
+        if (p.ack && Array.isArray(p.ack.ids)) { const rank = { pending: 0, sent: 1, delivered: 2, read: 3 }; for (const m of chat('f:' + f.id).msgs) if (m.from === myId && p.ack.ids.includes(m.id) && rank[p.ack.st] > (rank[m.status] || 0)) m.status = p.ack.st; save(); emit('change'); }
+      } catch (e) { console.warn('noamchat mail', e && e.message); }
+    }
+  }
+  async function linkAccount() { try { accountOn = !!(await nb.invoke('account:chat-id', myId)); } catch { accountOn = false; } if (accountOn) checkMail(); }
+  setInterval(() => { if (accountOn) checkMail(); }, 30000);
+  nb.on('account:status', (st) => { const was = accountOn; accountOn = !!(st && st.user); if (accountOn && !was && myId) linkAccount(); });
+  nb.on('chat:reload', () => init());
+
   async function init() {
     stopRooms(); myId = ''; signKey = dhKey = null;
     try { D = await nb.invoke('chat:load'); } catch { D = {}; }
     D = { friends: {}, groups: {}, chats: {}, requests: [], ...D };
     if (D.identity && D.identity.priv) { try { await unlock(); } catch (e) { console.error('noamchat keys', e); D.identity = null; } }
-    if (D.identity) startRooms();
+    if (D.identity) { startRooms(); linkAccount(); }
     emit('change');
   }
   window.NoamChat = {

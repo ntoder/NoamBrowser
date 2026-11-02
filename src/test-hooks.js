@@ -403,6 +403,93 @@ fetch('/player').then(r=>r.text()).then(t=>{window.r3=Object.keys(JSON.parse(t))
     });
     return;
   }
+  if (process.env.NOAM_TEST_ACCOUNT) {
+    const ROLE = process.env.NOAM_TEST_ACCOUNT, SH = process.env.NOAM_TEST_SHARE || '/tmp/noam-acct-share';
+    fs.mkdirSync(SH, { recursive: true });
+    const win = [...windows][0]; const ui = win.webContents; const js = (c) => ui.executeJavaScript(c);
+    const shot = async (n) => { await sleep(300); const img = await win.webContents.capturePage(); fs.writeFileSync(path.join(OUT, n + '.png'), img.toPNG()); };
+    const step = async (name, fn) => { try { await fn(); log('ok', name); } catch (e) { log('FAIL', name, e.stack || String(e)); } };
+    const waitFor = async (what, fn, ms = 60000) => { const t0 = Date.now(); for (;;) { const v = await fn(); if (v) return v; if (Date.now() - t0 > ms) throw new Error('timed out waiting for ' + what); await sleep(700); } };
+    const waitFile = (f, ms) => waitFor(f, () => fs.existsSync(path.join(SH, f)) && fs.readFileSync(path.join(SH, f), 'utf8'), ms);
+    const put = (f, v) => fs.writeFileSync(path.join(SH, f), String(v));
+    let page = null; const acct = async (code) => { if (!page || page.isDestroyed()) { await js(`newTab({ url: 'noam://account/' })`); await sleep(1500); page = webContents.fromId(await js('state.active.wcId')); } return page.executeJavaScript(code); };
+    const sync = () => acct(`noam.invoke('account:sync').then((s) => s.state + ' ' + (s.error || ''))`);
+    (async () => {
+      await sleep(3500); win.show();
+      settings.set('chat', { relays: ['ws://127.0.0.1:7777'] });
+      settings.set('account', { ...(settings.get('account') || {}), server: 'http://127.0.0.1:8787' });
+      await js(`nb.invoke('settings:get').then((s) => { state.settings = s; })`);
+      if (ROLE === 'A1') {
+        await step('sign up + data', async () => {
+          await js(`NoamChat.createIdentity('Alice', '🦊')`); await sleep(500);
+          await js(`nb.invoke('bm:add', { url: 'https://alice.example/site', title: 'Alice site', folder: 'School' })`);
+          await js(`nb.invoke('settings:set', { theme: 'dark', searchEngine: 'brave' }).then((s) => { state.settings = s; })`);
+          const r = await acct(`noam.invoke('account:signup', { user: 'alice', password: 'correct horse 42' }).then((s) => JSON.stringify({ user: s.user, state: s.state, devices: s.devices.length, err: s.error }))`);
+          log('signup', r); await sleep(500); await page.executeJavaScript('location.reload()'); await sleep(1200); await shot('a-01-account');
+          put('A1.ready', await js('NoamChat.inviteCode()'));
+        });
+        await step('befriend Bob', async () => {
+          await waitFor('Bob request', () => js('NoamChat.data.requests.length > 0'), 90000);
+          await js('NoamChat.acceptRequest(NoamChat.data.requests[0].id)');
+          await waitFor('Bob online', () => js('Object.values(NoamChat.data.friends).some((f) => f.online)'), 60000);
+          await sleep(1000); log('A1 sync after friend', await sync()); put('A1.friend', 1);
+        });
+        await step('gets A2 change', async () => {
+          await waitFile('A2.added', 120000);
+          log('A1 sync', await sync());
+          log('A1 bookmarks', await js(`JSON.stringify(state.bookmarks.map((b) => b.title))`));
+        });
+        await step('go offline', async () => { await js('NoamChat.goOffline()'); put('A1.offline', 1); await waitFile('A2.done', 180000); log('A1 has the mail too', await js(`Object.values(NoamChat.data.chats).some((c) => c.msgs.some((m) => m.text === 'Mail for Alice 📬'))`)); });
+      }
+      if (ROLE === 'A2') {
+        await step('sign in elsewhere', async () => {
+          await waitFile('A1.ready', 90000);
+          const r = await acct(`noam.invoke('account:signin', { user: 'alice', password: 'correct horse 42' }).then((s) => JSON.stringify({ user: s.user, state: s.state, devices: s.devices.map((d) => d.name), err: s.error }))`);
+          log('signin', r); await sleep(3000);
+          log('A2 bookmarks', await js(`JSON.stringify(state.bookmarks.map((b) => [b.title, b.folder]))`));
+          log('A2 settings', await js(`JSON.stringify([state.settings.theme, state.settings.searchEngine])`));
+          await waitFor('chat identity', () => js('NoamChat.ready()'), 20000);
+          log('A2 chat identity', await js('NoamChat.data.identity.name + " " + NoamChat.myId'));
+          await page.executeJavaScript('location.reload()'); await sleep(1200); await shot('a-02-account-A2');
+        });
+        await step('A2 change', async () => {
+          await js(`nb.invoke('bm:add', { url: 'https://a2.example/', title: 'Added on A2', folder: '' })`);
+          log('A2 sync', await sync()); put('A2.added', 1);
+        });
+        await step('mailbox', async () => {
+          await waitFile('A1.friend', 120000);
+          log('A2 sync for friend', await sync());
+          await waitFor('friend Bob synced', () => js(`Object.values(NoamChat.data.friends).some((f) => f.name === 'Bob')`), 30000);
+          await js('NoamChat.goOffline()'); // only the mailbox can reach us now
+          await waitFile('B.mailed', 120000);
+          // whichever of Alice's computers is online collects the mail first; the other gets it through account sync
+          await waitFor('mail delivered', async () => { const got = await js(`Object.values(NoamChat.data.chats).some((c) => c.msgs.some((m) => m.text === 'Mail for Alice 📬'))`); if (!got) await sync(); return got; }, 120000);
+          log('A2 got mail', await js(`JSON.stringify(Object.values(NoamChat.data.chats).flatMap((c) => c.msgs.map((m) => m.text)))`));
+          await js(`openKind('chat')`); await sleep(400); await js(`NoamChatUI.go('conv', Object.keys(NoamChat.data.chats)[0])`); await sleep(600); await shot('a-03-A2-mail');
+          put('A2.done', 1);
+        });
+      }
+      if (ROLE === 'B') {
+        await step('bob', async () => {
+          await js(`NoamChat.createIdentity('Bob', '🐼')`);
+          await acct(`noam.invoke('account:signup', { user: 'bob', password: 'bobs password 1' }).then((s) => s.user)`);
+          const code = await waitFile('A1.ready', 90000);
+          await js(`NoamChat.addFriend(${JSON.stringify(code)}, 'hi')`);
+          await waitFor('friend', () => js(`Object.values(NoamChat.data.friends).some((f) => f.status === 'friend' && f.online)`), 90000);
+          await waitFile('A1.offline', 150000); await sleep(4000);
+          const st = await js(`NoamChat.sendTo('f:' + Object.keys(NoamChat.data.friends)[0], { text: 'Mail for Alice 📬' }).then(() => new Promise((r) => setTimeout(() => r(NoamChat.data.chats['f:' + Object.keys(NoamChat.data.friends)[0]].msgs.slice(-1)[0]), 2500)))`);
+          log('B sent', JSON.stringify([st.status, st.via]));
+          put('B.mailed', 1);
+          await waitFor('delivered ack', () => js(`NoamChat.data.chats['f:' + Object.keys(NoamChat.data.friends)[0]].msgs.slice(-1)[0].status === 'delivered'`), 90000).catch((e) => log('note', e.message));
+          await js(`nb.invoke('account:mail-fetch')`); await sleep(500);
+          log('B final status', await js(`NoamChat.data.chats['f:' + Object.keys(NoamChat.data.friends)[0]].msgs.slice(-1)[0].status`));
+          await waitFile('A2.done', 120000).catch(() => {});
+        });
+      }
+      log('DONE'); setTimeout(() => app.quit(), 1500);
+    })();
+    return;
+  }
   if (process.env.NOAM_TEST_AI) {
     const win = [...windows][0]; const ui = win.webContents; const js = (c) => ui.executeJavaScript(c);
     const shot = async (n) => { await sleep(300); const img = await win.webContents.capturePage(); fs.writeFileSync(path.join(OUT, n + '.png'), img.toPNG()); };
