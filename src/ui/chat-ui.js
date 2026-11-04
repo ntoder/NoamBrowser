@@ -52,11 +52,11 @@
       ...Object.values(D.groups).map((g) => ({ key: 'g:' + g.gid, name: g.name, emoji: g.emoji, id: g.gid, group: true, online: C.online('g:' + g.gid) })),
     ].map((x) => { const c = D.chats[x.key] || { msgs: [] }; const last = c.msgs[c.msgs.length - 1]; return { ...x, last, unread: c.unread || 0, t: (last && last.t) || 0 }; }).sort((a, b) => b.t - a.t);
     const preview = (x) => { const m = x.last; if (x.pending && !m) return '⏳ Waiting for them to accept'; if (!m) return x.group ? 'Say hi to the group 👋' : 'Say hi 👋'; const who = m.from === C.myId ? 'You: ' : x.group && m.fromName ? m.fromName + ': ' : ''; return who + (m.img ? '📷 Photo' : m.share ? '🔗 ' + (m.share.title || m.share.url) : m.ginv ? '👥 Group invite' : m.text); };
-    main.innerHTML = `<div class="nc-bar"><button class="nc-me" id="nc-me" title="Your profile and invite code">${av(me.emoji, C.myId)}<b>${esc(me.name)}</b></button><span class="grow"></span><button class="nc-ib" id="nc-add" title="Add a friend">➕ Friend</button><button class="nc-ib" id="nc-grp" title="New group">👥 Group</button></div>
+    main.innerHTML = `<div class="nc-bar"><button class="nc-me" id="nc-me" title="Your profile and username">${av(me.emoji, C.myId)}<b>${esc(me.name)}</b></button><span class="grow"></span><button class="nc-ib" id="nc-add" title="Add a friend">➕ Friend</button><button class="nc-ib" id="nc-grp" title="New group">👥 Group</button></div>
       ${flash ? `<div class="nc-flash">${flash}</div>` : ''}
       ${D.requests.map((q) => `<div class="nc-req">${av(q.inv.e, q.id)}<div><b>${esc(q.inv.n)}</b> wants to chat with you${q.note ? `<small>“${esc(q.note)}”</small>` : ''}<span class="nc-req-a"><button class="btn primary" data-acc="${q.id}">Accept</button><button class="btn ghost" data-dec="${q.id}">Not now</button><button class="btn ghost" data-blk="${q.id}" title="Block">🚫</button></span></div></div>`).join('')}
       <div class="nc-list">${items.length ? items.map((x) => `<button class="nc-item" data-key="${x.key}"><span class="nc-avw">${av(x.emoji, x.id)}${x.online ? '<i class="nc-on"></i>' : ''}</span><span class="nc-mid"><b>${esc(x.name)}</b><span>${esc(preview(x))}</span></span><span class="nc-meta">${x.t ? `<small>${time(x.t)}</small>` : ''}${x.unread ? `<em>${x.unread}</em>` : ''}</span></button>`).join('')
-      : `<div class="nc-empty"><div>👋</div><b>No chats yet</b><p>Send your invite code to a friend who uses NoamBrowser, or paste theirs.</p><button class="btn primary" id="nc-add2">Add a friend</button></div>`}</div>
+      : `<div class="nc-empty"><div>👋</div><b>No chats yet</b><p>Add a friend who uses NoamBrowser by their username.</p><button class="btn primary" id="nc-add2">Add a friend</button></div>`}</div>
       <p class="nc-foot">🔒 End-to-end encrypted, peer-to-peer. Messages wait on your computer until your friend is online.</p>`;
     flash = '';
     main.querySelector('#nc-me').onclick = () => go('me');
@@ -71,38 +71,57 @@
 
   // ---------------------------------------------------------------- add a friend / join a group
   async function addScreen(main) {
-    const code = C.inviteCode();
+    const code = C.inviteCode(); const acc = C.account();
+    const userCard = acc.signedIn && acc.user
+      ? `<div class="nc-card"><b>Your friend’s username</b><p>The username they use for their NoamBrowser account.</p>
+          <div class="nc-at"><span>@</span><input class="nc-in" id="nc-user" maxlength="40" autocomplete="off" spellcheck="false" placeholder="username"></div>
+          <input class="nc-in" id="nc-note" maxlength="200" placeholder="Add a short note (optional), e.g. “It’s Sara from class”">
+          <button class="btn primary nc-wide" id="nc-addu">Add friend</button><div class="nc-err" id="nc-err"></div></div>
+        <div class="nc-card nc-mine">Friends add you with <b>@${esc(acc.user)}</b> <button class="btn ghost" id="nc-copyu">📋 Copy</button>${acc.findable ? '' : '<p class="nc-warn">You’ve turned off “Let friends find me”, so nobody can add you by username right now. Turn it on in your profile.</p>'}</div>`
+      : `<div class="nc-card nc-center"><div class="nc-big">👤</div><b>Add friends by username</b><p>Sign in to your free NoamBrowser account (no email needed). Then just type a friend’s username to add them, and they can add you by yours.</p><button class="btn primary nc-wide" id="nc-signin">Sign in or create an account</button></div>`;
     main.innerHTML = `<div class="nc-bar"><button class="nc-ib" id="nc-back">‹ Back</button><b class="grow">Add a friend</b></div>
-      <div class="nc-card"><b>1. Send your invite code to a friend</b><p>Share it any way you like (WhatsApp, email…). Anyone with this code can send you a friend request.</p>
-        <div class="nc-code"><code>${esc(code)}</code></div><div class="nc-row"><button class="btn primary" id="nc-copy">📋 Copy my code</button><button class="btn ghost" id="nc-qrb">📱 Show QR</button></div><div id="nc-qr"></div></div>
-      <div class="nc-card"><b>2. …or paste your friend’s code</b><textarea class="nc-in" id="nc-paste" rows="3" placeholder="NC1.…"></textarea>
-        <input class="nc-in" id="nc-note" maxlength="200" placeholder="Add a short note (optional), e.g. “It’s Sara from class”">
-        <button class="btn primary nc-wide" id="nc-addf">Send friend request</button><div class="nc-err" id="nc-err"></div></div>
-      <div class="nc-card"><b>Got a group code?</b><div class="nc-row"><input class="nc-in" id="nc-gcode" placeholder="NCG1.…"><button class="btn" id="nc-gjoin">Join</button></div><div class="nc-err" id="nc-gerr"></div></div>`;
-    main.querySelector('#nc-back').onclick = () => go('list');
-    main.querySelector('#nc-copy').onclick = () => navigator.clipboard.writeText(code).then(() => toast('📋 Invite code copied. Paste it to your friend'));
-    main.querySelector('#nc-qrb').onclick = async () => { const q = await nb.invoke('chat:qr', code); main.querySelector('#nc-qr').innerHTML = q ? `<img class="nc-qrimg" src="${q}" alt="QR code"><small>Scan with a phone to copy the code, then send it to yourself or a friend.</small>` : ''; };
-    const paste = main.querySelector('#nc-paste'); paste.onkeydown = (e) => e.stopPropagation();
-    main.querySelector('#nc-note').onkeydown = (e) => e.stopPropagation();
-    main.querySelector('#nc-addf').onclick = async () => {
-      const err = main.querySelector('#nc-err'); err.textContent = '';
-      try { const f = await C.addFriend(paste.value, main.querySelector('#nc-note').value.trim()); flash = f.status === 'friend' ? `✅ You and ${esc(f.name)} are now friends` : `📨 Request sent to ${esc(f.name)}. They’ll see it next time they open NoamBrowser.`; go('list'); }
-      catch (e) { err.textContent = e.message; }
-    };
-    main.querySelector('#nc-gcode').onkeydown = (e) => e.stopPropagation();
-    main.querySelector('#nc-gjoin').onclick = async () => { try { const g = await C.joinGroup(main.querySelector('#nc-gcode').value); go('conv', 'g:' + g.gid); } catch (e) { main.querySelector('#nc-gerr').textContent = e.message; } };
+      ${userCard}
+      <details class="nc-more"${acc.signedIn ? '' : ' open'}><summary>Other ways: invite code or QR</summary>
+        <div class="nc-card"><b>Send your invite code</b><p>For friends without an account. Share it any way you like (WhatsApp, email…).</p>
+          <div class="nc-code"><code>${esc(code)}</code></div><div class="nc-row"><button class="btn" id="nc-copy">📋 Copy my code</button><button class="btn ghost" id="nc-qrb">📱 Show QR</button></div><div id="nc-qr"></div></div>
+        <div class="nc-card"><b>Paste a friend’s code</b><textarea class="nc-in" id="nc-paste" rows="2" placeholder="NC1.…"></textarea>
+          <button class="btn nc-wide" id="nc-addf">Send friend request</button><div class="nc-err" id="nc-cerr"></div></div>
+        <div class="nc-card"><b>Got a group code?</b><div class="nc-row"><input class="nc-in" id="nc-gcode" placeholder="NCG1.…"><button class="btn" id="nc-gjoin">Join</button></div><div class="nc-err" id="nc-gerr"></div></div>
+      </details>`;
+    const $ = (q) => main.querySelector(q);
+    main.querySelectorAll('input, textarea').forEach((el) => (el.onkeydown = (e) => { e.stopPropagation(); if (e.key === 'Enter' && el.id === 'nc-user') $('#nc-addu').click(); }));
+    $('#nc-back').onclick = () => go('list');
+    const done = (f) => { flash = f.status === 'friend' ? `✅ You and ${esc(f.name)} are now friends` : `📨 Friend request sent to ${esc(f.name)}. They’ll see it next time they open NoamBrowser.`; go('list'); };
+    if ($('#nc-signin')) $('#nc-signin').onclick = () => newTab({ url: 'noam://account/' });
+    if ($('#nc-addu')) {
+      setTimeout(() => $('#nc-user') && $('#nc-user').focus(), 50);
+      $('#nc-user').oninput = (e) => { const v = e.target.value.replace(/^\s*@+/, ''); if (v !== e.target.value) e.target.value = v; };
+      $('#nc-addu').onclick = async () => {
+        const btn = $('#nc-addu'), err = $('#nc-err'); err.textContent = ''; btn.disabled = true; btn.textContent = 'Looking…';
+        try { done(await C.addByUsername($('#nc-user').value, $('#nc-note').value.trim())); }
+        catch (e) { err.textContent = e.message; btn.disabled = false; btn.textContent = 'Add friend'; }
+      };
+      $('#nc-copyu').onclick = () => navigator.clipboard.writeText('@' + acc.user).then(() => toast('📋 Username copied'));
+    }
+    $('#nc-copy').onclick = () => navigator.clipboard.writeText(code).then(() => toast('📋 Invite code copied. Paste it to your friend'));
+    $('#nc-qrb').onclick = async () => { const q = await nb.invoke('chat:qr', code); $('#nc-qr').innerHTML = q ? `<img class="nc-qrimg" src="${q}" alt="QR code"><small>Scan with a phone to copy the code, then send it to yourself or a friend.</small>` : ''; };
+    $('#nc-addf').onclick = async () => { $('#nc-cerr').textContent = ''; try { done(await C.addFriend($('#nc-paste').value, '')); } catch (e) { $('#nc-cerr').textContent = e.message; } };
+    $('#nc-gjoin').onclick = async () => { try { const g = await C.joinGroup($('#nc-gcode').value); go('conv', 'g:' + g.gid); } catch (e) { $('#nc-gerr').textContent = e.message; } };
   }
   function meScreen(main) {
     const me = C.data.identity;
     main.innerHTML = `<div class="nc-bar"><button class="nc-ib" id="nc-back">‹ Back</button><b class="grow">You</b></div>
       <div class="nc-card nc-center">${av(me.emoji, C.myId, true)}<input class="nc-in nc-namein" id="nc-name" maxlength="40" value="${esc(me.name)}"><div class="nc-avs">${AVATARS.map((a) => `<button data-a="${a}" class="${a === me.emoji ? 'on' : ''}">${a}</button>`).join('')}</div><small class="nc-muted">Your NoamChat ID: ${C.myId.slice(0, 4).toUpperCase()}-${C.myId.slice(4, 8).toUpperCase()}</small></div>
-      <div class="nc-card"><b>Your invite code</b><div class="nc-code"><code>${esc(C.inviteCode())}</code></div><button class="btn" id="nc-copy">📋 Copy</button></div>
+      ${(() => { const acc = C.account(); return acc.signedIn && acc.user ? `<div class="nc-card"><b>Your username: @${esc(acc.user)}</b><p>Friends can add you by typing it in NoamChat.</p><label class="nc-check"><input type="checkbox" id="nc-find" ${acc.findable ? 'checked' : ''}> Let friends find me by my username</label></div>` : `<div class="nc-card"><b>Get a username</b><p>Sign in to a NoamBrowser account and friends can add you by your username instead of a code.</p><button class="btn" id="nc-signin">Sign in or create an account</button></div>`; })()}
+      <details class="nc-more"><summary>Your invite code</summary><div class="nc-card"><div class="nc-code"><code>${esc(C.inviteCode())}</code></div><button class="btn" id="nc-copy">📋 Copy</button></div></details>
       <div class="nc-card"><label class="nc-check"><input type="checkbox" id="nc-notif" ${C.data.settings && C.data.settings.mute ? '' : 'checked'}> Show notifications for new messages</label><small class="nc-muted">During a Focus session they wait until your break.</small></div>
       <div class="nc-card"><b>How it works</b><p class="nc-muted">Your friends’ computers connect straight to yours, so they can see your internet address (like on a video call). Public “Nostr” servers only help computers find each other; they can’t read anything. Your chats are saved only on this computer.</p><button class="btn ghost danger" id="nc-reset">Delete NoamChat from this computer…</button></div>`;
     main.querySelector('#nc-back').onclick = () => go('list');
     const name = main.querySelector('#nc-name'); name.onkeydown = (e) => e.stopPropagation(); name.onchange = () => C.setProfile(name.value.trim());
     main.querySelectorAll('[data-a]').forEach((b) => (b.onclick = () => C.setProfile(null, b.dataset.a)));
     main.querySelector('#nc-copy').onclick = () => navigator.clipboard.writeText(C.inviteCode()).then(() => toast('📋 Invite code copied'));
+    const fnd = main.querySelector('#nc-find'); if (fnd) fnd.onchange = () => C.setFindable(fnd.checked);
+    const si = main.querySelector('#nc-signin'); if (si) si.onclick = () => newTab({ url: 'noam://account/' });
     main.querySelector('#nc-notif').onchange = (e) => { C.data.settings = { ...(C.data.settings || {}), mute: !e.target.checked }; nb.invoke('chat:save', C.data); };
     main.querySelector('#nc-reset').onclick = async () => { if (!confirm('Delete your NoamChat identity, friends and all chats from this computer? This can’t be undone.')) return; await nb.invoke('chat:wipe'); await C.init(); view.screen = 'list'; render(); };
   }

@@ -29,3 +29,9 @@ npm install -g wrangler
 wrangler d1 create noambrowser-accounts      # copy the database_id it prints into wrangler.toml
 wrangler deploy
 ```
+
+## Updating the server
+
+When a new NoamBrowser version needs a newer server (3.1 added "add friends by username" and blocked usernames
+like admin), open your Worker → **Edit code**, replace everything with the new `account-worker.js`, and click
+**Deploy**. Your accounts and data stay as they are; new tables are made automatically.

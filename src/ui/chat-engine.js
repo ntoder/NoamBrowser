@@ -250,11 +250,25 @@
     const q = D.requests.findIndex((x) => x.id === id); if (q >= 0) { D.requests.splice(q, 1); f.status = 'friend'; f.reqDelivered = true; }
     save(); await openFriend(f); emit('change'); return f;
   }
+  // add a friend by their NoamBrowser account username (both of you need to be signed in)
+  async function addByUsername(name, note) {
+    const who = String(name || '').trim().replace(/^@/, '').toLowerCase();
+    if (!who) throw new Error('Type your friend’s username.');
+    const r = await nb.invoke('account:find', who);
+    if (!r || r.error || !r.invite) throw new Error((r && r.error) || 'Couldn’t look up that username. Check your internet connection.');
+    const f = await addFriend(r.invite, note);
+    f.username = r.user; save();
+    if (f.status === 'pending') { const ok = await mailRequest(f, note); if (ok) { f.reqMailed = true; save(); } }
+    emit('change'); return f;
+  }
+  let acct = { user: null, findable: true };
+  async function publish() { if (!D || !D.identity || !myId) return; try { acct = (await nb.invoke('account:chat-profile', inviteCode())) || acct; } catch {} emit('change'); }
+  async function setFindable(on) { try { const st = await nb.invoke('account:findable', !!on); acct = { user: st.user, findable: st.findable }; } catch {} emit('change'); }
   async function acceptRequest(id) {
     const q = D.requests.find((x) => x.id === id); if (!q) return;
     D.requests = D.requests.filter((x) => x.id !== id);
     const f = D.friends[id] = { id, name: String(q.inv.n || 'Friend').slice(0, 40), emoji: String(q.inv.e || '🙂').slice(0, 8), signPub: q.inv.s, dhPub: q.inv.d, invite: q.inv.i, status: 'friend', reqDelivered: true, added: Date.now() };
-    save(); await openFriend(f); emit('change'); return f;
+    save(); await openFriend(f); mailTo(f, { ok: 1 }); emit('change'); return f;
   }
   function declineRequest(id, block) { const q = D.requests.find((x) => x.id === id); D.requests = D.requests.filter((x) => x.id !== id); if (block && q) D.friends[id] = { id, name: q.inv.n, emoji: q.inv.e, signPub: q.inv.s, dhPub: q.inv.d, invite: q.inv.i, status: 'blocked' }; save(); emit('change'); }
   async function removeFriend(id, block) { const f = D.friends[id]; if (!f) return; if (f.room) close(f.room); if (block) { f.status = 'blocked'; f.blockedAt = Date.now(); } else { delete D.friends[id]; delete D.chats['f:' + id]; } save(); emit('change'); }
@@ -273,7 +287,7 @@
   function setProfile(name, emoji) {
     if (name) D.identity.name = String(name).slice(0, 40); if (emoji) D.identity.emoji = emoji; D.identity.profileAt = Date.now(); save();
     for (const r of rooms.values()) if (r.peers.size) r.a.prof.send(prof());
-    emit('change');
+    publish(); emit('change');
   }
   function sendTyping(key) {
     const r = key.startsWith('f:') ? rooms.get((D.friends[key.slice(2)] || {}).room) : rooms.get('gr-' + key.slice(2));
@@ -295,22 +309,39 @@
     return mailKeys.get(f.id);
   }
   let accountOn = false;
-  async function mailTo(f, payload) {
+  async function mailTo(f, payload, extra) {
     if (!accountOn) return false;
     try {
       const iv = crypto.getRandomValues(new Uint8Array(12));
       const c = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, await mailKey(f), te.encode(JSON.stringify(payload)));
-      const r = await nb.invoke('account:mail-send', { to: f.id, box: JSON.stringify({ v: 1, f: myId, iv: b64u(iv), c: b64u(c) }) });
+      const r = await nb.invoke('account:mail-send', { to: f.id, box: JSON.stringify({ v: 1, f: myId, iv: b64u(iv), c: b64u(c), ...(extra || {}) }) });
       return !!(r && r.ok);
     } catch { return false; }
   }
+  // a friend request left in someone's mailbox: carries our public keys, signed, so they can check it's really us
+  const reqText = (to, dhPub) => 'noamchat-req:' + to + ':' + dhPub;
+  async function mailRequest(f, note) { return mailTo(f, { req: 1, note: note || '' }, { r: inviteCode(), sg: await sign(reqText(f.id, D.identity.dhPub)) }); }
   async function checkMail() {
     if (!accountOn || !D || !D.identity) return;
     let list = []; try { list = await nb.invoke('account:mail-fetch'); } catch { return; }
     for (const item of list || []) {
       try {
-        const o = JSON.parse(item.box); const f = D.friends[o.f]; if (!f || f.status === 'blocked') continue;
+        const o = JSON.parse(item.box); let f = D.friends[o.f], inv = null;
+        if (f && f.status === 'blocked') continue;
+        if (!f) {
+          // someone new: only a signed friend request is accepted
+          inv = parseInvite(o.r);
+          if (!inv || (await idOf(inv.s)) !== o.f || !(await verify(inv.s, o.sg, reqText(myId, inv.d)))) continue;
+          f = { id: o.f, dhPub: inv.d };
+        }
         const p = JSON.parse(new TextDecoder().decode(await crypto.subtle.decrypt({ name: 'AES-GCM', iv: unb64u(o.iv) }, await mailKey(f), unb64u(o.c))));
+        if (inv) {
+          if (p.req && !D.requests.some((q) => q.id === o.f)) { D.requests.push({ id: o.f, inv, note: String(p.note || '').slice(0, 200), t: Date.now() }); save(); emit('change'); emit('request', { name: inv.n, emoji: inv.e }); }
+          continue;
+        }
+        // they wrote back, so they accepted our request
+        if (f.status === 'pending') { f.status = 'friend'; f.reqDelivered = true; save(); emit('change'); }
+        if (p.req) mailTo(f, { ok: 1 }); // we'd both added each other
         if (Array.isArray(p.msgs)) {
           const got = [];
           for (const raw of p.msgs.slice(0, 200)) { const m = { ...clean(raw), from: f.id }; if (!m.id) continue; got.push(m.id); if (addMsg('f:' + f.id, m)) incoming('f:' + f.id, m, f.name, f.emoji); }
@@ -320,9 +351,9 @@
       } catch (e) { console.warn('noamchat mail', e && e.message); }
     }
   }
-  async function linkAccount() { try { accountOn = !!(await nb.invoke('account:chat-id', myId)); } catch { accountOn = false; } if (accountOn) checkMail(); }
+  async function linkAccount() { try { accountOn = !!(await nb.invoke('account:chat-id', myId)); } catch { accountOn = false; } publish(); if (accountOn) checkMail(); }
   setInterval(() => { if (accountOn) checkMail(); }, 30000);
-  nb.on('account:status', (st) => { const was = accountOn; accountOn = !!(st && st.user); if (accountOn && !was && myId) linkAccount(); });
+  nb.on('account:status', (st) => { const was = accountOn; accountOn = !!(st && st.user); const changed = !!st && (acct.user !== st.user || acct.findable !== st.findable); if (st) acct = { user: st.user, findable: st.findable !== false }; if (accountOn && !was && myId) linkAccount(); else if (changed) emit('change'); });
   nb.on('chat:reload', () => init());
 
   async function init() {
@@ -336,7 +367,7 @@
   window.NoamChat = {
     init, on: (ev, f) => (listeners[ev] = listeners[ev] || []).push(f),
     get data() { return D; }, get myId() { return myId; }, ready: () => !!(D && D.identity),
-    createIdentity, setProfile, inviteCode, parseInvite, addFriend, acceptRequest, declineRequest, removeFriend,
+    createIdentity, setProfile, inviteCode, parseInvite, addFriend, addByUsername, setFindable, account: () => ({ ...acct, signedIn: accountOn }), acceptRequest, declineRequest, removeFriend,
     createGroup, joinGroup, leaveGroup, groupCode, parseGroup, sendTo, markRead, sendTyping, online, deleteMsg, clearChat,
     typing: (key) => { const x = typing.get(key); return x && x.until > Date.now() ? x.name : null; },
     viewing: (key, on) => { if (on) openChats.add(key); else openChats.delete(key); },

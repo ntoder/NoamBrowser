@@ -15,10 +15,18 @@
 //   PUT    /v1/chatids         { ids: [...] }                 which NoamChat ids this account receives mail for
 //   POST   /v1/mail/:to        { box }                        leave an encrypted chat message for someone offline
 //   GET    /v1/mail                                           fetch (and remove) your waiting chat messages
+//   PUT    /v1/profile         { invite }                     let friends add you by username (NoamChat)
+//   DELETE /v1/profile                                        stop being findable by username
+//   GET    /v1/find/:user                                     look up someone's NoamChat invite by username
 // Every request except register/login uses:  Authorization: Basic base64(user:auth)
 
 const MAX_BLOB = 1_800_000, MAX_MAIL = 64_000, MAX_BOX = 500, MAX_DEVICES = 20;
 const USER_RE = /^[a-z0-9][a-z0-9_.-]{2,31}$/;
+// usernames nobody can take, so no one can pretend to be NoamBrowser staff. Dots, dashes and underscores are
+// ignored when checking, so "a.d.m.i.n" and "noam_browser" are blocked too.
+const RESERVED_HAS = ['admin', 'noambrowser', 'moderator', 'official', 'support', 'helpdesk', 'security', 'staff', 'webmaster', 'postmaster', 'hostmaster', 'customerservice', 'verified', 'anthropic', 'claude'];
+const RESERVED_IS = ['root', 'system', 'sysop', 'mod', 'mods', 'help', 'info', 'team', 'owner', 'server', 'service', 'bot', 'api', 'www', 'mail', 'email', 'noamchat', 'account', 'accounts', 'null', 'undefined', 'nobody', 'everyone', 'anonymous', 'guest', 'test', 'user', 'username', 'me', 'you', 'microsoft', 'google', 'apple', 'chrome', 'brave', 'firefox', 'cloudflare', 'github'];
+const reserved = (u) => { const k = String(u).toLowerCase().replace(/[._-]/g, '').replace(/0/g, 'o').replace(/1/g, 'i'); return RESERVED_IS.includes(k) || RESERVED_HAS.some((w) => k.includes(w)); };
 const json = (d, status = 200) => new Response(JSON.stringify(d), { status, headers: { 'content-type': 'application/json', 'access-control-allow-origin': '*', 'access-control-allow-headers': 'authorization, content-type', 'access-control-allow-methods': 'GET, POST, PUT, DELETE, OPTIONS', 'cache-control': 'no-store' } });
 const err = (msg, status = 400) => json({ error: msg }, status);
 const b64 = (u8) => btoa(String.fromCharCode(...u8));
@@ -34,6 +42,7 @@ async function schema(db) {
     db.prepare('CREATE TABLE IF NOT EXISTS chatids (id TEXT PRIMARY KEY, user TEXT NOT NULL)'),
     db.prepare('CREATE TABLE IF NOT EXISTS mail (n INTEGER PRIMARY KEY AUTOINCREMENT, to_id TEXT NOT NULL, from_user TEXT NOT NULL, box TEXT NOT NULL, created INTEGER NOT NULL)'),
     db.prepare('CREATE INDEX IF NOT EXISTS mail_to ON mail (to_id)'),
+    db.prepare('CREATE TABLE IF NOT EXISTS directory (user TEXT PRIMARY KEY, invite TEXT NOT NULL, updated INTEGER NOT NULL)'),
   ]);
 }
 let ready = null;
@@ -68,6 +77,7 @@ export default {
     if (p === '/v1/register' && req.method === 'POST') {
       const user = String(body.user || '').toLowerCase();
       if (!USER_RE.test(user)) return err('Usernames are 3–32 letters, numbers, dots, dashes or underscores, starting with a letter or number.');
+      if (reserved(user)) return err('That username is reserved. Try another one.', 409);
       if (!validAuth(body.auth)) return err('Bad request.');
       if (await db.prepare('SELECT 1 FROM users WHERE user = ?').bind(user).first()) return err('That username is taken. Try another one.', 409);
       const salt = b64(crypto.getRandomValues(new Uint8Array(16)));
@@ -104,7 +114,7 @@ export default {
     }
     if (p === '/v1/account' && req.method === 'DELETE') {
       const ids = (await db.prepare('SELECT id FROM chatids WHERE user = ?').bind(user).all()).results.map((r) => r.id);
-      await db.batch([db.prepare('DELETE FROM vaults WHERE user = ?').bind(user), db.prepare('DELETE FROM chatids WHERE user = ?').bind(user), db.prepare('DELETE FROM users WHERE user = ?').bind(user), ...ids.map((id) => db.prepare('DELETE FROM mail WHERE to_id = ?').bind(id))]);
+      await db.batch([db.prepare('DELETE FROM vaults WHERE user = ?').bind(user), db.prepare('DELETE FROM chatids WHERE user = ?').bind(user), db.prepare('DELETE FROM directory WHERE user = ?').bind(user), db.prepare('DELETE FROM users WHERE user = ?').bind(user), ...ids.map((id) => db.prepare('DELETE FROM mail WHERE to_id = ?').bind(id))]);
       return json({ ok: true });
     }
     if (p === '/v1/chatids' && req.method === 'PUT') {
@@ -134,6 +144,19 @@ export default {
       // old undelivered mail is cleaned up after 30 days
       await db.prepare('DELETE FROM mail WHERE created < ?').bind(Date.now() - 30 * 86400_000).run();
       return json({ mail: rows.map((r) => ({ to: r.to_id, box: r.box, t: r.created })) });
+    }
+    if (p === '/v1/profile' && req.method === 'PUT') {
+      if (typeof body.invite !== 'string' || !/^NC1\.[A-Za-z0-9_-]{40,1500}$/.test(body.invite)) return err('Bad request.');
+      await db.prepare('INSERT INTO directory (user, invite, updated) VALUES (?, ?, ?) ON CONFLICT (user) DO UPDATE SET invite = excluded.invite, updated = excluded.updated').bind(user, body.invite, Date.now()).run();
+      return json({ ok: true });
+    }
+    if (p === '/v1/profile' && req.method === 'DELETE') { await db.prepare('DELETE FROM directory WHERE user = ?').bind(user).run(); return json({ ok: true }); }
+    m = p.match(/^\/v1\/find\/([^/]{1,64})$/);
+    if (m && req.method === 'GET') {
+      const who = decodeURIComponent(m[1]).toLowerCase().replace(/^@/, '');
+      const row = USER_RE.test(who) ? await db.prepare('SELECT invite FROM directory WHERE user = ?').bind(who).first() : null;
+      if (!row) return err('No one on NoamChat has that username. Check the spelling, or ask them to open NoamChat once while signed in.', 404);
+      return json({ user: who, invite: row.invite });
     }
     return err('Not found.', 404);
   },

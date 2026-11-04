@@ -37,7 +37,7 @@ module.exports = function setupAccount({ settings, history, userData, uiHandle, 
   try { const b = fs.readFileSync(SECRET); secret = JSON.parse(b.subarray(0, 4).toString() === 'NBA1' && safeStorage.isEncryptionAvailable() ? safeStorage.decryptString(b.subarray(4)) : b.subarray(4).toString('utf8')); } catch {}
   const storeSecret = (s) => { secret = s; if (!s) { try { fs.unlinkSync(SECRET); } catch {} return; } const enc = safeStorage.isEncryptionAvailable(); fs.writeFileSync(SECRET, Buffer.concat([Buffer.from(enc ? 'NBA1' : 'NBA0'), enc ? safeStorage.encryptString(JSON.stringify(s)) : Buffer.from(JSON.stringify(s))]), { mode: 0o600 }); };
   const status = { state: secret ? 'idle' : 'signedout', last: cfg().last || 0, devices: cfg().devices || [], error: '' };
-  const pub = () => ({ ...status, user: secret ? secret.user : null, server: server(), serverIsDefault: !cfg().server, hasDefaultServer: !!CONFIG.server, deviceId: cfg().deviceId, deviceName: deviceName(), passwords: cfg().passwords, history: cfg().history, chat: cfg().chat });
+  const pub = () => ({ ...status, user: secret ? secret.user : null, server: server(), serverIsDefault: !cfg().server, hasDefaultServer: !!CONFIG.server, deviceId: cfg().deviceId, deviceName: deviceName(), passwords: cfg().passwords, history: cfg().history, chat: cfg().chat, findable: cfg().findable !== false });
   const announce = () => { broadcastPages('account', pub()); broadcast('account:status', pub()); };
   const set = (p) => { Object.assign(status, p); announce(); };
   const deviceName = () => `${os.hostname().replace(/\.local$/, '').slice(0, 30) || 'Computer'} (${{ win32: 'Windows', darwin: 'Mac', linux: 'Linux' }[process.platform] || process.platform})`;
@@ -107,9 +107,14 @@ module.exports = function setupAccount({ settings, history, userData, uiHandle, 
 
   // ---------------------------------------------------------------- signing in and out
   const userOk = (u) => /^[a-z0-9][a-z0-9_.-]{2,31}$/.test(u);
+  // same list as the server (server/account-worker.js): names nobody can take
+  const RESERVED_HAS = ['admin', 'noambrowser', 'moderator', 'official', 'support', 'helpdesk', 'security', 'staff', 'webmaster', 'postmaster', 'hostmaster', 'customerservice', 'verified', 'anthropic', 'claude'];
+  const RESERVED_IS = ['root', 'system', 'sysop', 'mod', 'mods', 'help', 'info', 'team', 'owner', 'server', 'service', 'bot', 'api', 'www', 'mail', 'email', 'noamchat', 'account', 'accounts', 'null', 'undefined', 'nobody', 'everyone', 'anonymous', 'guest', 'test', 'user', 'username', 'me', 'you', 'microsoft', 'google', 'apple', 'chrome', 'brave', 'firefox', 'cloudflare', 'github'];
+  const reserved = (u) => { const k = String(u).toLowerCase().replace(/[._-]/g, '').replace(/0/g, 'o').replace(/1/g, 'i'); return RESERVED_IS.includes(k) || RESERVED_HAS.some((w) => k.includes(w)); };
   async function signUp({ user, password }) {
     user = String(user || '').trim().toLowerCase();
     if (!userOk(user)) throw new Error('Usernames are 3–32 letters, numbers, dots, dashes or underscores.');
+    if (reserved(user)) throw new Error('That username is reserved. Try another one.');
     if (String(password || '').length < 8) throw new Error('Use a password of at least 8 characters.');
     const k = await derive(user, password);
     await api('POST', '/v1/register', { user, auth: k.auth }, false);
@@ -143,9 +148,26 @@ module.exports = function setupAccount({ settings, history, userData, uiHandle, 
   }
 
   // ---------------------------------------------------------------- NoamChat mailbox (messages for friends who are offline)
-  let chatIds = [];
-  async function registerChat() { if (!secret || !chatIds.length) return; try { await api('PUT', '/v1/chatids', { ids: chatIds }); } catch (e) { console.error('chat ids', e.message); } }
+  let chatIds = [], chatInvite = '', published = '';
+  const findable = () => cfg().findable !== false;
+  async function publishProfile() {
+    if (!secret || !chatInvite) return;
+    const want = findable() ? secret.user + '|' + chatInvite : secret.user + '|hidden';
+    if (want === published) return;
+    try { if (findable()) await api('PUT', '/v1/profile', { invite: chatInvite }); else await api('DELETE', '/v1/profile'); published = want; } catch (e) { console.error('chat profile', e.message); }
+  }
+  async function registerChat() { if (!secret) return; published = ''; if (chatIds.length) { try { await api('PUT', '/v1/chatids', { ids: chatIds }); } catch (e) { console.error('chat ids', e.message); } } publishProfile(); }
   uiHandle('account:chat-id', (_e, id) => { if (/^[a-f0-9]{12}$/.test(id || '') && !chatIds.includes(id)) { chatIds = [id]; registerChat(); } return !!secret; });
+  // friends can add you by your account username: your NoamChat invite (public keys only) is listed under it
+  uiHandle('account:chat-profile', (_e, invite) => { if (typeof invite === 'string' && /^NC1\.[A-Za-z0-9_-]{40,1500}$/.test(invite)) { chatInvite = invite; publishProfile(); } return { user: secret ? secret.user : null, findable: findable() }; });
+  uiHandle('account:findable', (_e, on) => { setCfg({ findable: !!on }); publishProfile(); announce(); return pub(); });
+  uiHandle('account:find', async (_e, who) => {
+    if (!secret) return { error: 'Sign in to your NoamBrowser account first (⋮ → Account).' };
+    who = String(who || '').trim().replace(/^@/, '').toLowerCase();
+    if (!userOk(who)) return { error: 'That doesn’t look like a username. Usernames are 3–32 letters, numbers, dots, dashes or underscores.' };
+    if (who === secret.user) return { error: 'That’s your own username! Ask your friend for theirs.' };
+    try { return await api('GET', '/v1/find/' + encodeURIComponent(who)); } catch (e) { return { error: e.message }; }
+  });
   uiHandle('account:mail-send', async (_e, { to, box }) => { if (!secret) return { ok: false }; try { return await api('POST', '/v1/mail/' + to, { box }); } catch (e) { return { ok: false, error: e.message }; } });
   uiHandle('account:mail-fetch', async () => { if (!secret || !chatIds.length) return []; try { return (await api('GET', '/v1/mail')).mail; } catch { return []; } });
   uiHandle('account:status', () => pub());
@@ -156,7 +178,7 @@ module.exports = function setupAccount({ settings, history, userData, uiHandle, 
   pageHandle('account:signin', (_e, d) => signIn(d));
   pageHandle('account:signout', (_e, d) => signOut(d || {}));
   pageHandle('account:sync', () => run());
-  pageHandle('account:set', (_e, p) => { const ok = {}; for (const k of ['passwords', 'history', 'chat']) if (k in (p || {})) ok[k] = !!p[k]; setCfg(ok); touch(); return pub(); });
+  pageHandle('account:set', (_e, p) => { const ok = {}; for (const k of ['passwords', 'history', 'chat', 'findable']) if (k in (p || {})) ok[k] = !!p[k]; setCfg(ok); if ('findable' in ok) publishProfile(); touch(); return pub(); });
   pageHandle('account:server', async (_e, url) => {
     url = String(url || '').trim().replace(/\/+$/, '');
     if (url && !/^https:\/\/[^\s/]+(\/[^\s]*)?$/.test(url) && !/^http:\/\/(127\.0\.0\.1|localhost)(:\d+)?$/.test(url)) throw new Error('That doesn’t look like a server address (it should start with https://).');

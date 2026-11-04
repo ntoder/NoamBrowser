@@ -403,6 +403,71 @@ fetch('/player').then(r=>r.text()).then(t=>{window.r3=Object.keys(JSON.parse(t))
     });
     return;
   }
+  if (process.env.NOAM_TEST_UNAME) {
+    const ROLE = process.env.NOAM_TEST_UNAME, SH = process.env.NOAM_TEST_SHARE || '/tmp/noam-uname-share';
+    fs.mkdirSync(SH, { recursive: true });
+    const win = [...windows][0]; const ui = win.webContents; const js = (c) => ui.executeJavaScript(c);
+    const shot = async (n) => { await sleep(400); const img = await win.webContents.capturePage(); fs.writeFileSync(path.join(OUT, n + '.png'), img.toPNG()); };
+    const step = async (name, fn) => { try { await fn(); log('ok', name); } catch (e) { log('FAIL', name, e.stack || String(e)); } };
+    const waitFor = async (what, fn, ms = 60000) => { const t0 = Date.now(); for (;;) { const v = await fn(); if (v) return v; if (Date.now() - t0 > ms) throw new Error('timed out waiting for ' + what); await sleep(700); } };
+    const waitFile = (f, ms) => waitFor(f, () => fs.existsSync(path.join(SH, f)) && fs.readFileSync(path.join(SH, f), 'utf8'), ms);
+    const put = (f, v) => fs.writeFileSync(path.join(SH, f), String(v));
+    let page = null; const acct = async (code) => { if (!page || page.isDestroyed()) { await js(`newTab({ url: 'noam://account/' })`); await sleep(1500); page = webContents.fromId(await js('state.active.wcId')); } return page.executeJavaScript(code); };
+    const ui2 = async (screen) => { await js(`openKind('chat')`); await sleep(400); await js(`NoamChatUI.view.tab = 'chats'; NoamChatUI.go(${JSON.stringify(screen)})`); await sleep(700); };
+    (async () => {
+      await sleep(3500); win.show();
+      settings.set('chat', { relays: ['ws://127.0.0.1:7777'] });
+      settings.set('account', { ...(settings.get('account') || {}), server: 'http://127.0.0.1:8787' });
+      await js(`nb.invoke('settings:get').then((s) => { state.settings = s; })`);
+      await waitFor('chat loaded', () => js('!!NoamChat.data'), 60000);
+      if (ROLE === 'S') {
+        await step('sara signs up', async () => {
+          await js(`NoamChat.createIdentity('Sara', '🦄')`); await sleep(400);
+          log('reserved', await acct(`noam.invoke('account:signup', { user: 'Admin', password: 'whatever123' }).then(() => 'ALLOWED?!', (e) => e.message)`));
+          log('signup', await acct(`noam.invoke('account:signup', { user: 'sara', password: 'saras pass 99' }).then((s) => s.user)`));
+          await waitFor('username shown', () => js('NoamChat.account().user === "sara"'), 20000);
+          await ui2('me'); await shot('u-01-sara-me');
+          await js('NoamChat.goOffline()'); put('S.ready', 1);
+        });
+        await step('request arrives by mailbox', async () => {
+          await waitFile('T.added', 120000);
+          await waitFor('request', () => js('NoamChat.data.requests.length > 0'), 90000);
+          log('request', await js('JSON.stringify(NoamChat.data.requests.map((q) => [q.inv.n, q.note]))'));
+          await ui2('list'); await shot('u-04-sara-request');
+          await js('NoamChat.acceptRequest(NoamChat.data.requests[0].id)'); put('S.accepted', 1);
+          await waitFile('T.done', 120000);
+        });
+      }
+      if (ROLE === 'T') {
+        await step('tom adds sara by username', async () => {
+          await js(`NoamChat.createIdentity('Tom', '🐯')`); await sleep(400);
+          await ui2('add'); await shot('u-02-tom-signedout');
+          log('signedout error', await js(`NoamChat.addByUsername('sara').then(() => 'no error?!', (e) => e.message)`));
+          await acct(`noam.invoke('account:signup', { user: 'tom', password: 'toms pass 77' }).then((s) => s.user)`);
+          await waitFor('signed in', () => js('NoamChat.account().user === "tom"'), 20000);
+          await waitFile('S.ready', 120000);
+          await ui2('add'); await js(`document.getElementById('nc-user').value = 'nosuchperson'; document.getElementById('nc-addu').click()`); await sleep(1500);
+          log('unknown', await js(`document.getElementById('nc-err').textContent`));
+          log('self', await js(`NoamChat.addByUsername('@tom').then(() => 'no error?!', (e) => e.message)`));
+          await js(`document.getElementById('nc-user').value = '@Sara'; document.getElementById('nc-note').value = 'Hi, it’s Tom from class'`); await shot('u-03-tom-add');
+          await js(`document.getElementById('nc-addu').click()`);
+          await waitFor('friend added', () => js(`Object.values(NoamChat.data.friends).some((f) => f.username === 'sara')`), 20000);
+          await sleep(1500);
+          log('tom friend', await js(`JSON.stringify(Object.values(NoamChat.data.friends).map((f) => [f.name, f.status, f.username, !!f.reqMailed]))`));
+          put('T.added', 1);
+        });
+        await step('accepted', async () => {
+          await waitFile('S.accepted', 150000);
+          await waitFor('friend', () => js(`Object.values(NoamChat.data.friends).some((f) => f.status === 'friend')`), 90000);
+          log('tom sees', await js(`JSON.stringify(Object.values(NoamChat.data.friends).map((f) => [f.name, f.status]))`));
+          await ui2('list'); await shot('u-05-tom-list');
+          put('T.done', 1);
+        });
+      }
+      log('DONE'); setTimeout(() => app.quit(), 1500);
+    })();
+    return;
+  }
   if (process.env.NOAM_TEST_ACCOUNT) {
     const ROLE = process.env.NOAM_TEST_ACCOUNT, SH = process.env.NOAM_TEST_SHARE || '/tmp/noam-acct-share';
     fs.mkdirSync(SH, { recursive: true });
