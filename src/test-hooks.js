@@ -403,6 +403,55 @@ fetch('/player').then(r=>r.text()).then(t=>{window.r3=Object.keys(JSON.parse(t))
     });
     return;
   }
+  if (process.env.NOAM_TEST_WEB) {
+    const ROLE = process.env.NOAM_TEST_WEB, SH = '/tmp/noam-web-share';
+    fs.mkdirSync(SH, { recursive: true });
+    const win = [...windows][0]; const ui = win.webContents; const js = (c) => ui.executeJavaScript(c);
+    const step = async (name, fn) => { try { await fn(); log('ok', name); } catch (e) { log('FAIL', name, e.stack || String(e)); } };
+    const waitFor = async (what, fn, ms = 60000) => { const t0 = Date.now(); for (;;) { const v = await fn(); if (v) return v; if (Date.now() - t0 > ms) throw new Error('timed out waiting for ' + what); await sleep(700); } };
+    const waitFile = (f, ms) => waitFor(f, () => fs.existsSync(path.join(SH, f)) && fs.readFileSync(path.join(SH, f), 'utf8'), ms);
+    const put = (f, v) => fs.writeFileSync(path.join(SH, f), String(v));
+    let page = null; const acct = async (code) => { if (!page || page.isDestroyed()) { await js(`newTab({ url: 'noam://account/' })`); await sleep(1500); page = webContents.fromId(await js('state.active.wcId')); } return page.executeJavaScript(code); };
+    (async () => {
+      await sleep(3500); win.show();
+      settings.set('chat', { relays: ['ws://127.0.0.1:7777'] });
+      settings.set('account', { ...(settings.get('account') || {}), server: 'http://127.0.0.1:8787' });
+      await js(`nb.invoke('settings:get').then((s) => { state.settings = s; })`);
+      await waitFor('chat loaded', () => js('!!NoamChat.data'), 60000);
+      if (ROLE === 'D') {
+        await step('dana on her computer', async () => {
+          await js(`NoamChat.createIdentity('Dana', '🦊')`); await sleep(400);
+          await js(`nb.invoke('bm:add', { url: 'https://dana.example/recipes', title: 'Dana recipes', folder: 'Food' })`);
+          await acct(`noam.invoke('account:signup', { user: 'dana', password: 'danas pass 11' }).then((s) => s.user)`);
+          log('D sync', await acct(`noam.invoke('account:sync').then((s) => s.state)`));
+          log('D id', await js('NoamChat.myId'));
+          put('D.ready', await js('NoamChat.myId'));
+          await waitFile('W.done', 300000);
+          log('D sync after web', await acct(`noam.invoke('account:sync').then((s) => s.state)`)); await sleep(1500);
+          log('D bookmarks', await js(`JSON.stringify(state.bookmarks.map((b) => b.title))`));
+          log('D chats', await js(`JSON.stringify(Object.values(NoamChat.data.chats).flatMap((c) => c.msgs.map((m) => m.text)))`));
+        });
+      }
+      if (ROLE === 'E') {
+        await step('eli adds dana by username', async () => {
+          await js(`NoamChat.createIdentity('Eli', '🐯')`); await sleep(400);
+          await acct(`noam.invoke('account:signup', { user: 'eli', password: 'elis pass 22' }).then((s) => s.user)`);
+          await waitFor('signed in', () => js('NoamChat.account().user === "eli"'), 20000);
+          await waitFile('W.ready', 200000);
+          await js(`NoamChat.addByUsername('dana', 'Hi Dana, it’s Eli')`);
+          await waitFor('friend', () => js(`Object.values(NoamChat.data.friends).some((f) => f.status === 'friend')`), 120000);
+          await waitFor('web message', () => js(`Object.values(NoamChat.data.chats).some((c) => c.msgs.some((m) => m.text === 'Hello from the website 🌐'))`), 120000);
+          const fid = await js(`Object.keys(NoamChat.data.friends)[0]`);
+          await js(`NoamChat.sendTo('f:${fid}', { text: 'Hi back from the app 💻' })`);
+          await sleep(4000);
+          log('E chat', await js(`JSON.stringify(NoamChat.data.chats['f:${fid}'].msgs.map((m) => [m.text, m.status]))`));
+          await waitFile('W.done', 200000);
+        });
+      }
+      log('DONE'); setTimeout(() => app.quit(), 1500);
+    })();
+    return;
+  }
   if (process.env.NOAM_TEST_UNAME) {
     const ROLE = process.env.NOAM_TEST_UNAME, SH = process.env.NOAM_TEST_SHARE || '/tmp/noam-uname-share';
     fs.mkdirSync(SH, { recursive: true });

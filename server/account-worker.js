@@ -24,8 +24,8 @@ const MAX_BLOB = 1_800_000, MAX_MAIL = 64_000, MAX_BOX = 500, MAX_DEVICES = 20;
 const USER_RE = /^[a-z0-9][a-z0-9_.-]{2,31}$/;
 // usernames nobody can take, so no one can pretend to be NoamBrowser staff. Dots, dashes and underscores are
 // ignored when checking, so "a.d.m.i.n" and "noam_browser" are blocked too.
-const RESERVED_HAS = ['admin', 'noambrowser', 'moderator', 'official', 'support', 'helpdesk', 'security', 'staff', 'webmaster', 'postmaster', 'hostmaster', 'customerservice', 'verified', 'anthropic', 'claude'];
-const RESERVED_IS = ['root', 'system', 'sysop', 'mod', 'mods', 'help', 'info', 'team', 'owner', 'server', 'service', 'bot', 'api', 'www', 'mail', 'email', 'noamchat', 'account', 'accounts', 'null', 'undefined', 'nobody', 'everyone', 'anonymous', 'guest', 'test', 'user', 'username', 'me', 'you', 'microsoft', 'google', 'apple', 'chrome', 'brave', 'firefox', 'cloudflare', 'github'];
+const RESERVED_HAS = ['admin', 'noambrowser', 'noamtoder', 'moderator', 'official', 'support', 'helpdesk', 'security', 'staff', 'webmaster', 'postmaster', 'hostmaster', 'customerservice', 'verified', 'anthropic', 'claude', 'fuck', 'shit', 'bitch', 'porn', 'nazi', 'hitler', 'cunt', 'whore', 'slut', 'nigg', 'faggot', 'retard'];
+const RESERVED_IS = ['noam', 'root', 'system', 'sysop', 'mod', 'mods', 'help', 'info', 'team', 'owner', 'ceo', 'founder', 'creator', 'developer', 'dev', 'devs', 'server', 'service', 'bot', 'api', 'www', 'mail', 'email', 'noamchat', 'account', 'accounts', 'null', 'undefined', 'nobody', 'everyone', 'anonymous', 'guest', 'test', 'user', 'username', 'me', 'you', 'police', 'gov', 'government', 'bank', 'paypal', 'visa', 'mastercard', 'microsoft', 'google', 'apple', 'amazon', 'meta', 'facebook', 'instagram', 'whatsapp', 'tiktok', 'youtube', 'discord', 'snapchat', 'twitter', 'telegram', 'openai', 'chatgpt', 'gemini', 'chrome', 'brave', 'firefox', 'cloudflare', 'github', 'sex', 'rape', 'kill', 'dick', 'penis', 'boobs', 'ass', 'asshole', 'bastard', 'damn', 'hell', 'piss', 'crap', 'zona', 'kus', 'sharmuta', 'manyak', 'koos', 'zayin'];
 const reserved = (u) => { const k = String(u).toLowerCase().replace(/[._-]/g, '').replace(/0/g, 'o').replace(/1/g, 'i'); return RESERVED_IS.includes(k) || RESERVED_HAS.some((w) => k.includes(w)); };
 const json = (d, status = 200) => new Response(JSON.stringify(d), { status, headers: { 'content-type': 'application/json', 'access-control-allow-origin': '*', 'access-control-allow-headers': 'authorization, content-type', 'access-control-allow-methods': 'GET, POST, PUT, DELETE, OPTIONS', 'cache-control': 'no-store' } });
 const err = (msg, status = 400) => json({ error: msg }, status);
@@ -77,7 +77,8 @@ export default {
     if (p === '/v1/register' && req.method === 'POST') {
       const user = String(body.user || '').toLowerCase();
       if (!USER_RE.test(user)) return err('Usernames are 3–32 letters, numbers, dots, dashes or underscores, starting with a letter or number.');
-      if (reserved(user)) return err('That username is reserved. Try another one.', 409);
+      // the site owner can still take a reserved name with the secret OWNER_KEY (Worker → Settings → Variables)
+      if (reserved(user) && !(env.OWNER_KEY && typeof body.ownerKey === 'string' && eq(body.ownerKey, env.OWNER_KEY))) return err('That username is reserved. Try another one.', 409);
       if (!validAuth(body.auth)) return err('Bad request.');
       if (await db.prepare('SELECT 1 FROM users WHERE user = ?').bind(user).first()) return err('That username is taken. Try another one.', 409);
       const salt = b64(crypto.getRandomValues(new Uint8Array(16)));
