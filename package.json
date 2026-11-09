@@ -1,6 +1,6 @@
 {
   "name": "noambrowser",
-  "version": "3.1.0",
+  "version": "3.1.1",
   "description": "NoamBrowser — a private web browser with built-in ad blocking and VPN",
   "main": "src/main.js",
   "scripts": {
@@ -68,10 +68,37 @@
       {
         "ext": [
           "htm",
-          "html"
+          "html",
+          "shtml"
         ],
         "name": "HTML document",
-        "role": "Viewer"
+        "role": "Viewer",
+        "mimeType": "text/html"
+      },
+      {
+        "ext": [
+          "xhtml",
+          "xht"
+        ],
+        "name": "XHTML document",
+        "role": "Viewer",
+        "mimeType": "application/xhtml+xml"
+      },
+      {
+        "ext": [
+          "svg"
+        ],
+        "name": "SVG image",
+        "role": "Viewer",
+        "mimeType": "image/svg+xml"
+      },
+      {
+        "ext": [
+          "pdf"
+        ],
+        "name": "PDF document",
+        "role": "Viewer",
+        "mimeType": "application/pdf"
       }
     ],
     "win": {
@@ -171,7 +198,6 @@
       "maintainer": "Noam <noam@noambrowser.local>",
       "synopsis": "Private browser with built-in ad blocker and VPN",
       "mimeTypes": [
-        "text/html",
         "x-scheme-handler/http",
         "x-scheme-handler/https"
       ],

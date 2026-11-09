@@ -49,7 +49,7 @@ class Tab {
     this.private = !!priv;
     this.container = !priv && container && window.containerById && window.containerById(container) ? container : null;
     this.url = url;
-    this.title = isInternal(url) ? 'New tab' : hostOf(url) || 'New tab';
+    this.title = isInternal(url) ? 'New tab' : /^file:/i.test(url) ? (() => { try { return decodeURIComponent(url.split(/[?#]/)[0].split('/').filter(Boolean).pop()); } catch { return 'File'; } })() : hostOf(url) || 'New tab';
     this.favicon = '';
     this.loading = false;
     this.progress = 0;
@@ -117,6 +117,8 @@ class Tab {
     wv.addEventListener('did-stop-loading', () => {
       this.loading = false; this.progress = 1;
       try { const u = wv.getURL(); if (u && !this.error) this.url = u; } catch {}
+      // a file without a title of its own (a text file, an SVG…) is named after the file, like in Chrome
+      if (/^file:/i.test(this.url)) wv.executeJavaScript('document.title').then((t) => { if (!t) { try { this.title = decodeURIComponent(this.url.split(/[?#]/)[0].split('/').filter(Boolean).pop() || this.url); } catch {} this.render(); } }).catch(() => {});
       this.render();
       window.hooks && window.hooks.loaded && window.hooks.loaded(this);
     });
@@ -360,6 +362,9 @@ function renderToolbar() {
 }
 function displayUrl(u) {
   if (!u || u.startsWith(NEWTAB)) return '';
+  // files and folders on this computer show as a normal path: /home/noam/page.html or C:\Users\Noam\page.html
+  try { if (u.startsWith('noam://folder/')) u = new URL(u).searchParams.get('u') || u; } catch {}
+  if (/^file:\/\//i.test(u)) { try { const p = decodeURIComponent(u.slice(7).split(/[?#]/)[0]); return /^\/[a-z]:\//i.test(p) ? p.slice(1).replace(/\//g, '\\') : p.startsWith('//') ? p.replace(/\//g, '\\') : p; } catch {} }
   try { return decodeURI(u); } catch { return u; }
 }
 function renderProgress() {
@@ -701,6 +706,7 @@ async function shortcut({ key, ctrl, shift, alt }) {
   if (ctrl) {
     if (key === 't' && shift) { const c = state.closed.pop(); if (c) newTab({ url: c.url, index: Math.min(c.index, state.tabs.length) }); return true; }
     if (key === 't') { newTab({ url: NEWTAB }); return true; }
+    if (key === 'o') { nb.invoke('file:open-dialog', { folder: shift }).then((urls) => (urls || []).forEach((url) => newTab({ url, private: t?.private }))); return true; }
     if (key === 'n' && shift) { newTab({ url: NEWTAB, private: true }); return true; }
     if (key === 'n') { nb.invoke('window:new'); return true; }
     if (key === 'w' || key === 'f4') { if (t) closeTab(t); return true; }

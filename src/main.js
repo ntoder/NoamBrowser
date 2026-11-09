@@ -4,6 +4,8 @@ const {
 } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const os = require('os');
+const { pathToFileURL } = require('url');
 const crypto = require('crypto');
 const { Store } = require('./store');
 const { Shields, siteOf, hostOf, isGoogleAuthHost, FIREFOX_UA } = require('./privacy');
@@ -517,7 +519,7 @@ function hostWindowOf(wc) {
   const host = wc.hostWebContents;
   return host ? BrowserWindow.fromWebContents(host) : BrowserWindow.fromWebContents(wc);
 }
-const SHORTCUT_KEYS = new Set(['t', 'w', 'n', 'l', 'r', 'f', 'd', 'h', 'j', 'p', 's', 'tab', '=', '+', '-', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'pageup', 'pagedown', 'k', 'e', 'g', 'u', 'x']);
+const SHORTCUT_KEYS = new Set(['o', 't', 'w', 'n', 'l', 'r', 'f', 'd', 'h', 'j', 'p', 's', 'tab', '=', '+', '-', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'pageup', 'pagedown', 'k', 'e', 'g', 'u', 'x']);
 
 app.on('web-contents-created', (_e, wc) => {
   const type = wc.getType();
@@ -725,6 +727,14 @@ const uiHandle = (ch, fn) => ipcMain.handle(ch, (e, ...a) => { if (!fromUI(e)) t
 uiHandle('ui:paths', () => ({ framePreload: 'file://' + FRAME_PRELOAD.replace(/\\/g, '/'), mainPartition: MAIN_PARTITION, privatePartition: PRIVATE_PARTITION }));
 uiHandle('ui:suggest', (_e, q) => suggest(q));
 uiHandle('ui:resolve-input', (_e, text) => resolveInput(text));
+// File → Open file… (Ctrl+O): any file the browser can show, or a folder
+uiHandle('file:open-dialog', async (e, { folder } = {}) => {
+  const win = BrowserWindow.fromWebContents(e.sender);
+  const r = await dialog.showOpenDialog(win, { title: folder ? 'Open folder' : 'Open file', properties: folder ? ['openDirectory'] : ['openFile', 'multiSelections'],
+    filters: folder ? [] : [{ name: 'Web pages, PDFs, pictures and text', extensions: ['html', 'htm', 'xhtml', 'shtml', 'mhtml', 'pdf', 'svg', 'png', 'jpg', 'jpeg', 'gif', 'webp', 'avif', 'bmp', 'ico', 'txt', 'md', 'json', 'xml', 'csv', 'log', 'js', 'css', 'mp4', 'webm', 'mp3', 'ogg', 'wav', 'm4a'] }, { name: 'All files', extensions: ['*'] }] });
+  if (r.canceled) return [];
+  return r.filePaths.map((f) => pathToFileURL(f).href);
+});
 uiHandle('history:add', (_e, h) => addHistory(h));
 uiHandle('history:meta', (_e, h) => updateHistoryMeta(h));
 uiHandle('history:remove-url', (_e, url) => { history.set('items', history.get('items').filter((h) => h.url !== url)); return true; });
@@ -835,6 +845,12 @@ function resolveInput(text) {
   const t = text.trim();
   if (!t) return null;
   if (/^(https?|noam|about|view-source|file|data):/i.test(t)) return t;
+  // a file or folder on this computer: /home/…, ~/…, C:\…, \\server\share
+  if (/^([a-z]:[\\/]|\\\\|~[\\/]|~$|\/)/i.test(t)) {
+    const u = localToUrl(t);
+    if (u) return u;
+    if (process.platform === 'win32' && (/^[a-z]:[\\/]/i.test(t) || /^\\\\/.test(t))) return pathToFileURL(t).href;
+  }
   if (/^localhost(:\d+)?(\/|$)/i.test(t) || /^\d{1,3}(\.\d{1,3}){3}(:\d+)?(\/|$)/.test(t)) return 'http://' + t;
   if (!/\s/.test(t) && /^[\w-]+(\.[\w-]+)+(:\d+)?(\/.*)?$/.test(t)) {
     const tld = t.split('/')[0].split(':')[0].split('.').pop();
@@ -853,6 +869,7 @@ function appMenu(sender, wcId, x, y) {
     { label: 'New tab', accelerator: 'CmdOrCtrl+T', click: () => send('tab:open', { url: 'noam://newtab/' }) },
     { label: 'New private tab', accelerator: 'CmdOrCtrl+Shift+N', click: () => send('tab:open', { url: 'noam://newtab/', private: true }) },
     { label: 'New window', accelerator: 'CmdOrCtrl+N', click: () => createWindow() },
+    { label: 'Open file…', accelerator: 'CmdOrCtrl+O', click: () => send('shortcut', { key: 'o', ctrl: true }) },
     { type: 'separator' },
     { label: 'History', accelerator: 'CmdOrCtrl+H', click: () => send('tab:open', { url: 'noam://history/' }) },
     { label: 'Downloads', accelerator: 'CmdOrCtrl+J', click: () => send('tab:open', { url: 'noam://downloads/' }) },
@@ -1013,11 +1030,41 @@ pageHandle('data:clear', async (_e, what = {}) => {
 });
 
 // ---------- app lifecycle ----------
-function urlsFromArgv(argv) {
-  return argv.slice(1).filter((a) => /^(https?:|file:)/i.test(a) || (/\.(html?|pdf|svg|xhtml)$/i.test(a) && fs.existsSync(a))).map((a) => (/^(https?|file):/i.test(a) ? a : 'file:///' + path.resolve(a).replace(/\\/g, '/')));
+// A file or folder on this computer → a file:// address. Handles spaces, #, %, Hebrew and other letters, ~ for your
+// home folder, and paths relative to the folder the app was opened from.
+function localToUrl(p, cwd) {
+  if (typeof p !== 'string' || !p) return null;
+  let f = p.trim().replace(/^"(.*)"$/, '$1');
+  if (/^~([\\/]|$)/.test(f)) f = path.join(os.homedir(), f.slice(1));
+  if (!path.isAbsolute(f)) { if (!cwd) return null; f = path.resolve(cwd, f); }
+  try { if (!fs.existsSync(f)) return null; } catch { return null; }
+  return pathToFileURL(f).href;
 }
-app.on('second-instance', (_e, argv) => {
-  const urls = urlsFromArgv(argv);
+function urlsFromArgv(argv, cwd) {
+  // skip the program itself (and, when run from source, the app folder) and any --switches
+  const args = argv.slice(app.isPackaged ? 1 : 2).filter((a) => a && !/^-/.test(a));
+  const out = [];
+  for (const a of args) {
+    if (/^(https?|file):/i.test(a)) out.push(a);
+    else { const u = localToUrl(a, cwd || process.cwd()); if (u) out.push(u); }
+  }
+  return out;
+}
+// open addresses in the existing window, or a new one (also used by macOS "Open With" and default-browser links)
+let pendingOpen = null;
+function openUrls(urls) {
+  if (!urls.length) return;
+  if (!app.isReady() || pendingOpen) { (pendingOpen = pendingOpen || []).push(...urls); return; }
+  const w = mainWindow;
+  if (w && !w.isDestroyed()) { if (w.isMinimized()) w.restore(); w.show(); w.focus(); for (const u of urls) w.webContents.send('tab:open', { url: u }); }
+  else createWindow({ urls });
+}
+app.on('will-finish-launching', () => {
+  app.on('open-file', (e, file) => { e.preventDefault(); const u = localToUrl(file); if (u) openUrls([u]); });
+  app.on('open-url', (e, u) => { e.preventDefault(); if (/^(https?|file):/i.test(u)) openUrls([u]); });
+});
+app.on('second-instance', (_e, argv, cwd) => {
+  const urls = urlsFromArgv(argv, cwd);
   const w = mainWindow;
   if (w && !w.isDestroyed()) {
     if (w.isMinimized()) w.restore();
@@ -1038,6 +1085,7 @@ app.whenReady().then(async () => {
         { label: 'New Window', accelerator: 'Cmd+N', click: () => createWindow() },
         { label: 'New Private Tab', accelerator: 'Cmd+Shift+N', click: () => send('shortcut', { key: 'n', ctrl: true, shift: true }) },
         { label: 'Reopen Closed Tab', accelerator: 'Cmd+Shift+T', click: () => send('shortcut', { key: 't', ctrl: true, shift: true }) },
+        { label: 'Open File…', accelerator: 'Cmd+O', click: () => send('shortcut', { key: 'o', ctrl: true }) },
         { type: 'separator' },
         { label: 'Close Tab', accelerator: 'Cmd+W', click: () => send('shortcut', { key: 'w', ctrl: true }) },
       ] },
@@ -1082,6 +1130,7 @@ app.whenReady().then(async () => {
   try { await require('./extensions')({ settings, uiHandle, pageHandle, broadcast, broadcastPages, getSession: () => mainSession(), hostWindowOf, menuExtras }); } catch (e) { console.error('extensions', e); }
   try { readIndex = require('./readindex')({ settings, userData, uiHandle, pageHandle, privatePartition: PRIVATE_PARTITION, session, getHistory: () => history.get('items'), isForgotten: (h) => forgetSites().some((f) => h === f || h.endsWith('.' + f)) }); } catch (e) { console.error('read index', e); }
   try { require('./extras26')({ settings, uiHandle, pageHandle, privatePartition: PRIVATE_PARTITION, mainSession, containerSessions: () => (settings.get('containers') || []).filter((c) => /^[\w-]{1,40}$/.test(c.id)).map((c) => session.fromPartition('persist:noam-c-' + c.id)), readIndex, hostWindowOf }); } catch (e) { console.error('extras 2.6', e); }
+  try { require('./folders')({ pageHandle }); } catch (e) { console.error('folders', e); }
   try { require('./highlights')({ Store, userData, pageHandle, broadcastPages, privatePartition: PRIVATE_PARTITION, menuExtras }); } catch (e) { console.error('highlights', e); }
   let chatApi = null;
   try { chatApi = require('./chat')({ userData, uiHandle, iconPath, broadcast }); } catch (e) { console.error('chat', e); }
@@ -1102,7 +1151,8 @@ app.whenReady().then(async () => {
   });
 
   if (settings.get('vpn').autoConnect) vpn.connect();
-  createWindow({ urls: urlsFromArgv(process.argv), restore: true });
+  const startUrls = [...urlsFromArgv(process.argv), ...(pendingOpen || [])]; pendingOpen = null;
+  createWindow({ urls: startUrls, restore: true });
   setTimeout(() => { try { fillBookmarkIcons(); } catch {} }, 4000);
 
   setInterval(() => broadcast('stats:update', statsSummary()), 5000);

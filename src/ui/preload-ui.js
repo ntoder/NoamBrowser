@@ -1,7 +1,7 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
 const INVOKE = new Set([
-  'ui:paths', 'ui:suggest', 'ui:resolve-input', 'history:add', 'history:meta', 'session:save', 'bookmarks:toggle', 'bookmarks:list',
+  'ui:paths', 'ui:suggest', 'ui:resolve-input', 'file:open-dialog', 'history:add', 'history:meta', 'session:save', 'bookmarks:toggle', 'bookmarks:list',
   'shields:tab', 'shields:toggle-site', 'shields:forget-site', 'vpn:toggle', 'vpn:status', 'vpn:new-identity', 'vpn:set', 'settings:get',
   'settings:set', 'stats:get', 'downloads:list', 'downloads:action', 'private:clear', 'window:new', 'window:control', 'window:set-fullscreen',
   'page:zoom', 'page:save', 'page:menu', 'page:screenshot', 'shell:show', 'webview:prepare',

@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Folder</title><link rel="stylesheet" href="pages.css"><link rel="stylesheet" href="assets/themes.css">
+<style>
+  .page { max-width: 980px; }
+  .crumbs { display: flex; flex-wrap: wrap; align-items: center; gap: 2px; font-size: 14px; margin: 0 0 14px; direction: ltr; }
+  .crumbs button { background: none; border: 0; color: var(--accent); font: inherit; font-weight: 650; cursor: pointer; padding: 3px 6px; border-radius: 6px; }
+  .crumbs button:hover { background: var(--surface-2); } .crumbs span { color: var(--muted); }
+  .bar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; } .bar input.field { flex: 1; min-width: 180px; }
+  .bar label { display: flex; gap: 6px; align-items: center; font-size: 13px; color: var(--muted); }
+  table { width: 100%; border-collapse: collapse; background: var(--surface); border: 1px solid var(--line); border-radius: 16px; overflow: hidden; }
+  th { text-align: left; font-size: 12px; color: var(--muted); font-weight: 700; padding: 10px 14px; border-bottom: 1px solid var(--line); cursor: pointer; user-select: none; white-space: nowrap; }
+  th.r, td.r { text-align: right; }
+  td { padding: 8px 14px; border-bottom: 1px solid var(--line); font-size: 14px; } tr:last-child td { border-bottom: 0; }
+  tbody tr { cursor: pointer; } tbody tr:hover, tbody tr.sel { background: var(--surface-2); }
+  td.n { display: flex; gap: 10px; align-items: center; min-width: 0; } td.n b { font-weight: 600; overflow-wrap: anywhere; } td.n .ic { width: 22px; text-align: center; flex: none; }
+  tr.hid td.n b { opacity: .6; }
+  td.m { color: var(--muted); white-space: nowrap; font-size: 13px; }
+  .empty, .err { text-align: center; color: var(--muted); padding: 40px 20px; } .err { color: #c2185b; }
+</style></head>
+<body>
+<div class="page">
+  <div class="page-head"><h1 id="title">📁 Folder</h1><button class="btn" id="up">⬆️ Up one folder</button></div>
+  <div class="crumbs" id="crumbs"></div>
+  <div class="bar"><input class="field" id="q" placeholder="Find in this folder"><label><input type="checkbox" id="hidden"> Show hidden files</label></div>
+  <div id="list"></div>
+</div>
+<script src="assets/apply-theme.js"></script>
+<script src="common.js"></script>
+<script src="folder.js"></script>
+</body>
+</html>

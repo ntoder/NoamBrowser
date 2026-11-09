@@ -403,6 +403,40 @@ fetch('/player').then(r=>r.text()).then(t=>{window.r3=Object.keys(JSON.parse(t))
     });
     return;
   }
+  if (process.env.NOAM_TEST_FILES) {
+    const DIR = '/tmp/noam-files/My Files שלום #1';
+    const win = [...windows][0]; const ui = win.webContents; const js = (c) => ui.executeJavaScript(c);
+    const shot = async (n) => { await sleep(600); const img = await win.webContents.capturePage(); fs.writeFileSync(path.join(OUT, n + '.png'), img.toPNG()); };
+    let downloads = []; require('electron').session.fromPartition('persist:noam').on('will-download', (_e, item) => { downloads.push(item.getFilename()); item.cancel(); });
+    const tabs = () => js(`JSON.stringify(state.tabs.map((t) => ({ url: t.url, title: t.title, id: t.wcId })))`).then(JSON.parse);
+    const inspect = async (label) => {
+      await sleep(2500);
+      const t = (await tabs()).pop(); const wc = t && t.id && webContents.fromId(t.id);
+      let text = ''; try { text = wc ? await wc.executeJavaScript('(document.body && document.body.innerText || document.contentType || "").slice(0, 60)') : ''; } catch (e) { text = 'ERR ' + e.message; }
+      log('RESULT', label, '| url:', t && t.url, '| title:', t && t.title, '| shows:', JSON.stringify(text), '| downloads:', JSON.stringify(downloads)); downloads = [];
+      return { t, wc };
+    };
+    (async () => {
+      await sleep(3500); win.show();
+      const files = ['page one.html', 'notes.txt', 'pic.png', 'data.json', 'shape.svg', 'doc.pdf'];
+      for (const f of files) { app.emit('second-instance', {}, ['electron', '.', path.join(DIR, f)], DIR); await inspect('cmdline ' + f); }
+      app.emit('second-instance', {}, ['electron', '.', 'file://' + encodeURI(path.join(DIR, 'notes.txt')).replace(/#/g, '%23')], '/'); await inspect('cmdline file-url notes.txt');
+      app.emit('second-instance', {}, ['electron', '.', 'notes.txt'], DIR); await inspect('cmdline relative notes.txt');
+      app.emit('second-instance', {}, ['electron', '.', DIR], DIR); { const { wc } = await inspect('cmdline folder'); await sleep(1500); const t2 = (await tabs()).pop(); const w2 = webContents.fromId(t2.id); log('RESULT folder page', t2.url.slice(0, 40), '| title:', t2.title, '|', await w2.executeJavaScript('document.querySelectorAll("tbody tr").length + " rows: " + [...document.querySelectorAll("tbody b")].map((b) => b.textContent).join(", ")').catch((e) => e.message)); log('RESULT address bar shows', await js('urlInput.value')); await shot('files-folder');
+        await w2.executeJavaScript('[...document.querySelectorAll("tbody tr")].find((r) => r.textContent.includes("notes.txt")).click()'); await sleep(1500); log('RESULT click file in folder →', w2.getURL().slice(-20), '| address bar:', await js('urlInput.value'), '| tab:', (await tabs()).pop().title);
+        await w2.executeJavaScript('history.back()').catch(() => {}); await sleep(1200); log('RESULT back →', w2.getURL().slice(0, 30)); }
+      app.emit('open-file', { preventDefault() {} }, path.join(DIR, 'page one.html')); await inspect('mac open-file');
+      app.emit('open-url', { preventDefault() {} }, 'https://example.com/'); await sleep(500); log('RESULT mac open-url tabs', JSON.stringify((await tabs()).slice(-1).map((t) => t.url)));
+      for (const typed of [path.join(DIR, 'page one.html'), '~/../../tmp/noam-files', 'C:\\Users\\noam\\file.html']) log('RESULT typed', JSON.stringify(typed), '→', await js(`nb.invoke('ui:resolve-input', ${JSON.stringify(typed)})`));
+      // a link between two local pages
+      await js(`newTab({ url: ${JSON.stringify(require('url').pathToFileURL(path.join(DIR, 'page one.html')).href)} })`);
+      const { wc } = await inspect('typed-url page');
+      if (wc) { await wc.executeJavaScript('document.querySelector("a").click()'); await sleep(1500); log('RESULT relative link →', wc.getURL(), wc.getTitle()); }
+      await js(`newTab({ url: ${JSON.stringify(require('url').pathToFileURL(path.join(DIR, 'doc.pdf')).href)} })`); await inspect('pdf in tab'); await shot('files-pdf');
+      log('DONE'); setTimeout(() => app.quit(), 1000);
+    })();
+    return;
+  }
   if (process.env.NOAM_TEST_WEB) {
     const ROLE = process.env.NOAM_TEST_WEB, SH = '/tmp/noam-web-share';
     fs.mkdirSync(SH, { recursive: true });
