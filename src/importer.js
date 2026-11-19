@@ -85,38 +85,82 @@ function detect() {
   return found;
 }
 
+// Folders inside folders are written as one path, "School › Math", the way NoamBrowser stores them.
+const SEP = ' › ';
+// Chrome's own top-level folders: the bookmarks bar goes on NoamBrowser's bar, the others become folders
+const ROOT_FOLDER = { bookmark_bar: '', other: 'Other bookmarks', synced: 'Mobile bookmarks' };
 function readBookmarks(dir) {
-  const out = []; const seen = new Set();
+  const out = []; const seen = new Set(); const folders = []; const bar = [];
+  const addFolder = (f) => { if (f && !folders.includes(f)) folders.push(f); };
   const walk = (node, folder) => {
     if (!node) return;
-    if (node.type === 'url' && /^https?:/i.test(node.url || '') && !seen.has(node.url)) { seen.add(node.url); out.push({ url: node.url, title: node.name || node.url, folder }); }
-    for (const ch of node.children || []) walk(ch, node.type === 'folder' && node.name && !ROOT_NAMES.has(node.name) ? node.name : folder);
+    for (const ch of node.children || []) {
+      if (ch.type === 'url') {
+        if (!/^(https?|file|noam):/i.test(ch.url || '')) continue;
+        const key = folder + '\n' + ch.url; if (seen.has(key)) continue; seen.add(key);
+        out.push({ url: ch.url, title: ch.name || ch.url, folder });
+        if (folder === '') bar.push('u:' + ch.url);
+      } else if (ch.type === 'folder') {
+        const name = String(ch.name || 'Folder').replace(/ › /g, ' > ').trim() || 'Folder';
+        const f = folder ? folder + SEP + name : name;
+        addFolder(f); if (folder === '' && !bar.includes('f:' + f)) bar.push('f:' + f);
+        walk(ch, f);
+      }
+    }
   };
   let read = 0;
-  for (const f of BOOKMARK_FILES) {
-    let data; try { data = JSON.parse(fs.readFileSync(path.join(dir, f), 'utf8')); read++; } catch { continue; }
-    for (const k of Object.keys(data.roots || {})) if (data.roots[k] && typeof data.roots[k] === 'object') walk(data.roots[k], '');
+  for (const file of BOOKMARK_FILES) {
+    let data; try { data = JSON.parse(fs.readFileSync(path.join(dir, file), 'utf8')); read++; } catch { continue; }
+    const roots = data.roots || {};
+    for (const k of ['bookmark_bar', 'other', 'synced', ...Object.keys(roots).filter((x) => !(x in ROOT_FOLDER))]) {
+      const r = roots[k]; if (!r || typeof r !== 'object' || !(r.children || []).length) continue;
+      const base = k in ROOT_FOLDER ? ROOT_FOLDER[k] : String(r.name || k);
+      if (base) { addFolder(base); if (!bar.includes('f:' + base)) bar.push('f:' + base); }
+      walk(r, base);
+    }
   }
   if (!read && hasBookmarks(dir)) throw new Error('Couldn’t read that browser’s bookmarks file.');
+  out.folders = folders; out.bar = bar;
   return out;
 }
 const ROOT_NAMES = new Set(['Bookmarks bar', 'Bookmarks Bar', 'Other bookmarks', 'Other Bookmarks', 'Mobile bookmarks', 'Favorites bar', 'Other favorites', 'Speed Dials', 'Trash']);
 
 // A bookmarks file exported from any browser ("Netscape bookmark file" HTML)
 function parseBookmarksHtml(html) {
-  const out = []; const seen = new Set(); const stack = []; let pending = null;
+  // Chrome, Edge and Firefox "Export bookmarks" files. The toolbar folder (PERSONAL_TOOLBAR_FOLDER) goes on the
+  // bookmarks bar; loose bookmarks at the top go into "Other bookmarks"; folders inside folders are kept.
+  const out = []; const seen = new Set(); const folders = []; const bar = [];
+  const stack = []; let pending = null;
   const dec = (t) => String(t || '').replace(/<[^>]+>/g, '').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;|&#x27;/g, "'").replace(/&#(\d+);/g, (_, n) => String.fromCodePoint(+n)).trim();
+  const addFolder = (f) => { if (f && !folders.includes(f)) folders.push(f); };
   const re = /<(\/?)(dl|h3|a)\b([^>]*)>([\s\S]*?)(?=<)/gi; let m;
   while ((m = re.exec(html))) {
     const [, close, tag, attrs, text] = m; const t = tag.toLowerCase();
-    if (t === 'h3' && !close) pending = dec(text);
-    else if (t === 'dl') { if (close) stack.pop(); else { stack.push(pending && !ROOT_NAMES.has(pending) ? pending : stack[stack.length - 1] || ''); pending = null; } }
-    else if (t === 'a' && !close) {
+    if (t === 'h3' && !close) pending = { name: dec(text).replace(/ › /g, ' > ') || 'Folder', toolbar: /PERSONAL_TOOLBAR_FOLDER\s*=\s*"?true/i.test(attrs), unfiled: /UNFILED_BOOKMARKS_FOLDER\s*=\s*"?true/i.test(attrs) };
+    else if (t === 'dl') {
+      if (close) { stack.pop(); continue; }
+      if (!stack.length) { stack.push(null); pending = null; continue; } // the file's top level
+      const parent = stack[stack.length - 1];
+      let f;
+      if (pending && pending.toolbar) f = '';
+      else if (pending && pending.unfiled && parent === null) f = 'Other bookmarks';
+      else { const name = pending ? pending.name : 'Folder'; f = parent ? parent + SEP + name : name; }
+      if (f) { addFolder(f); if (parent === '' || parent === null) { if (!bar.includes('f:' + f)) bar.push('f:' + f); } }
+      stack.push(f); pending = null;
+    } else if (t === 'a' && !close) {
       const href = (attrs.match(/href\s*=\s*"([^"]*)"/i) || attrs.match(/href\s*=\s*'([^']*)'/i) || [])[1];
       const url = dec(href);
-      if (/^https?:/i.test(url) && !seen.has(url)) { seen.add(url); out.push({ url, title: dec(text) || url, folder: stack[stack.length - 1] || '' }); }
+      if (!/^(https?|file):/i.test(url)) continue;
+      let folder = stack.length ? stack[stack.length - 1] : '';
+      if (folder === null) { folder = 'Other bookmarks'; addFolder(folder); if (!bar.includes('f:' + folder)) bar.push('f:' + folder); }
+      const key = folder + '\n' + url; if (seen.has(key)) continue; seen.add(key);
+      out.push({ url, title: dec(text) || url, folder });
+      if (folder === '') bar.push('u:' + url);
     }
   }
+  // top-level folders from the file, in order; "Other bookmarks" last, like Chrome
+  const ob = bar.indexOf('f:Other bookmarks'); if (ob >= 0) { bar.splice(ob, 1); bar.push('f:Other bookmarks'); }
+  out.folders = folders; out.bar = bar;
   return out;
 }
 

@@ -92,7 +92,16 @@
     renderOutputs();
   }
 
-  $('#default').onclick = async () => { await noam.invoke('default-browser:set'); $('#default').textContent = 'Choose NoamBrowser in Windows settings'; };
+  // default browser: shows whether it already is, and what to do next on each system
+  const paintDefault = (st) => { const b = $('#default'); if (st && st.isDefault) { b.textContent = '✅ It’s your default'; b.disabled = true; } };
+  noam.invoke('default-browser:status').then(paintDefault).catch(() => {});
+  $('#default').onclick = async () => {
+    const r = await noam.invoke('default-browser:set').catch(() => null); const b = $('#default');
+    if (r && r.how === 'windows') { b.textContent = 'In the window that opened: click NoamBrowser → Set default'; }
+    else if (r && r.how === 'mac') { b.textContent = 'Click “Use NoamBrowser” in the box macOS shows'; }
+    else if (r && r.isDefault) paintDefault(r); else b.textContent = 'Done. Check your system settings';
+    setTimeout(() => noam.invoke('default-browser:status').then(paintDefault).catch(() => {}), 8000);
+  };
 
   // filter lists
   const fi = async () => { const i = await noam.invoke('filters:info'); $('#filter-info').textContent = `${i.lists.length} lists · ${i.source === 'updated' ? 'updated' : 'built in'} ${i.built ? new Date(i.built).toLocaleDateString() : ''}`; };

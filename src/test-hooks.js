@@ -403,6 +403,92 @@ fetch('/player').then(r=>r.text()).then(t=>{window.r3=Object.keys(JSON.parse(t))
     });
     return;
   }
+  if (process.env.NOAM_TEST_PROMPT) {
+    const win = [...windows][0]; const ui = win.webContents; const js = (c) => ui.executeJavaScript(c);
+    (async () => {
+      await sleep(3500); win.show();
+      require('http').createServer((_q, r) => { r.setHeader('content-type', 'text/html'); r.end('<!doctype html><title>Prompt test</title><h1>Hi</h1>'); }).listen(8766, '127.0.0.1');
+      await js(`newTab({ url: 'http://127.0.0.1:8766/' })`); await sleep(2000);
+      const wc = webContents.fromId(await js('state.active.wcId'));
+      log('RESULT prompt type', await wc.executeJavaScript('typeof window.prompt + " " + window.prompt.name'));
+      let p = wc.executeJavaScript(`JSON.stringify(prompt('What is your name?', 'Noam'))`); await sleep(1200);
+      log('RESULT box', await js(`document.querySelector('.pp-msg') && document.querySelector('.pp-site').textContent + ' ' + document.querySelector('.pp-msg').textContent + ' [' + document.querySelector('.ask input').value + ']'`));
+      const img = await win.webContents.capturePage(); fs.writeFileSync(path.join(OUT, 'prompt.png'), img.toPNG());
+      await js(`document.querySelector('.ask input').value = 'Noam Toder'; document.querySelector('.ask [data-a=ok]').click()`);
+      log('RESULT answer', await p);
+      p = wc.executeJavaScript(`JSON.stringify(prompt('Cancel me'))`); await sleep(1000);
+      await js(`document.querySelector('.ask [data-a=no]').click()`); log('RESULT cancel', await p);
+      p = wc.executeJavaScript(`JSON.stringify(prompt('Empty OK'))`); await sleep(1000);
+      await js(`document.querySelector('.ask [data-a=ok]').click()`); log('RESULT empty', await p);
+      log('DONE'); setTimeout(() => app.quit(), 800);
+    })();
+    return;
+  }
+  if (process.env.NOAM_TEST_SHARE) {
+    const win = [...windows][0]; const ui = win.webContents; const js = (c) => ui.executeJavaScript(c);
+    const shot = async (n) => { await sleep(500); const img = await win.webContents.capturePage(); fs.writeFileSync(path.join(OUT, n + '.png'), img.toPNG()); };
+    (async () => {
+      settings.set('defaultBrowser', { launches: 5 });
+      await sleep(3500); win.show();
+      require('http').createServer((_q, r) => { r.setHeader('content-type', 'text/html'); r.end('<!doctype html><title>Share test</title><h1>Video call</h1>'); }).listen(8765, '127.0.0.1');
+      await js(`newTab({ url: 'http://127.0.0.1:8765/' })`); await sleep(2500);
+      const wc = webContents.fromId(await js('state.active.wcId')); log('RESULT page', wc.getURL(), wc.getTitle());
+      const ask = () => wc.executeJavaScript(`navigator.mediaDevices.getDisplayMedia({ video: true }).then((s) => 'GOT ' + s.getVideoTracks().map((t) => t.label + ' ' + t.readyState).join(','), (e) => 'ERR ' + e.name)`, true);
+      // 1) cancel
+      let p = ask(); p.then((x) => log('RESULT first ask →', x)); await sleep(2500);
+      await shot('ss-00-after-ask'); log('RESULT perm bars', await js(`[...document.querySelectorAll('.infobar:not([hidden]), .ask')].map((x) => x.textContent.trim().slice(0, 80)).join(' | ')`));
+      log('RESULT picker shown', await js(`!!document.querySelector('.ss-ask')`), await js(`document.querySelector('.ss-box h3') && document.querySelector('.ss-box h3').textContent`));
+      log('RESULT sources', await js(`[...document.querySelectorAll('.ss-item')].map((b) => b.textContent.trim()).join(' | ')`));
+      await shot('ss-01-picker');
+      await js(`document.querySelector('.ss-ask [data-a=no]') && document.querySelector('.ss-ask [data-a=no]').click()`); log('RESULT after cancel', await Promise.race([p, sleep(3000).then(() => 'still waiting')]));
+      // 2) share the screen
+      p = ask(); for (let k = 0; k < 20 && !(await js(`!!document.querySelector('.ss-item')`)); k++) await sleep(500);
+      if (await js(`!!document.querySelector('.ss-item')`)) { await js(`document.querySelector('.ss-item').click(); document.querySelector('.ss-ask [data-a=ok]').click()`); log('RESULT after share', await p); }
+      else { log('RESULT no screens on this test machine'); await js(`document.querySelector('.ss-ask [data-a=no]').click()`); await p; }
+      log('RESULT default status', JSON.stringify(await js(`nb.invoke('default-browser:status')`)));
+      await sleep(7000); log('RESULT default bar shown', await js(`!!document.querySelector('.def-bar')`)); await shot('ss-02-default-bar');
+      await js(`document.querySelector('.def-bar [data-a=later]').click()`); log('RESULT asks again after Not now', JSON.stringify(await js(`nb.invoke('default-browser:status')`)));
+      log('DONE'); setTimeout(() => app.quit(), 1000);
+    })();
+    return;
+  }
+  if (process.env.NOAM_TEST_BMIMP) {
+    const win = [...windows][0]; const ui = win.webContents; const js = (c) => ui.executeJavaScript(c);
+    const shot = async (n) => { await sleep(500); const img = await win.webContents.capturePage(); fs.writeFileSync(path.join(OUT, n + '.png'), img.toPNG()); };
+    (async () => {
+      await sleep(3500); win.show();
+      await js(`nb.invoke('settings:set', { showBookmarksBar: true }).then((s) => { state.settings = s; applyTheme(); })`);
+      await js(`nb.invoke('bm:add', { url: 'https://old-flat.example/', title: 'Old flat one', folder: '' })`); await sleep(500);
+      await js(`newTab({ url: 'noam://settings/' })`); await sleep(2500);
+      const pg = webContents.fromId(await js('state.active.wcId'));
+      const key = await pg.executeJavaScript(`noam.invoke('import:detect').then((d) => d[0] && d[0].key)`);
+      log('RESULT import', JSON.stringify(await pg.executeJavaScript(`noam.invoke('import:run', { key: ${JSON.stringify(key)}, bookmarks: true, history: false, replace: true })`)));
+      await sleep(1200);
+      log('RESULT bar order', JSON.stringify(await js(`[...document.querySelectorAll('#bookmarks-bar .bm-strip > .bm')].map((x) => x.textContent.trim())`)));
+      log('RESULT old flat one gone', await js(`!state.bookmarks.some((b) => b.title === 'Old flat one')`));
+      log('RESULT gmail twice', await js(`state.bookmarks.filter((b) => b.url === 'https://mail.google.com/').map((b) => b.folder || 'bar').join(' + ')`));
+      log('RESULT backups', fs.readdirSync(app.getPath('userData')).filter((f) => f.startsWith('bookmarks-backup')).length);
+      await shot('bm-01-bar');
+      await js(`[...document.querySelectorAll('#bookmarks-bar .bm-folder')].find((x) => x.dataset.folder === 'School').click()`); await sleep(500);
+      log('RESULT School dropdown', JSON.stringify(await js(`[...document.querySelectorAll('.bm-drop .bd-row')].map((x) => x.textContent.trim())`)));
+      await shot('bm-02-school');
+      await js(`[...document.querySelectorAll('.bm-drop .bd-folder')].find((x) => x.textContent.includes('Math')).click()`); await sleep(400);
+      log('RESULT Math dropdown', JSON.stringify(await js(`[document.querySelector('.bm-drop .bd-head b').textContent, ...[...document.querySelectorAll('.bm-drop .bd-row')].map((x) => x.textContent.trim())]`)));
+      await shot('bm-03-math');
+      await js(`document.querySelector('.bm-drop .bd-head button').click()`); await sleep(300);
+      log('RESULT back to', await js(`document.querySelector('.bm-drop .bd-head b').textContent`));
+      // reorder: put Work before Gmail, then rename School and delete Other bookmarks › Old stuff
+      await js(`nb.invoke('bm:bar-place', { token: 'f:Work', before: 'b:' + state.bookmarks.find((b) => b.title === 'Gmail').id })`); await sleep(600);
+      await js(`nb.invoke('bm:folder-rename', { from: 'School', to: 'Studies' })`); await sleep(600);
+      await js(`nb.invoke('bm:folder-delete', { name: 'Other bookmarks › Old stuff' })`); await sleep(600);
+      log('RESULT after edits bar', JSON.stringify(await js(`[...document.querySelectorAll('#bookmarks-bar .bm-strip > .bm')].map((x) => x.textContent.trim())`)));
+      log('RESULT renamed paths', JSON.stringify(await js(`[...new Set(state.bookmarks.map((b) => b.folder).filter(Boolean))]`)));
+      // importing again without replace adds nothing new
+      log('RESULT import again', JSON.stringify(await pg.executeJavaScript(`noam.invoke('import:run', { key: ${JSON.stringify(key)}, bookmarks: true, history: false })`)));
+      log('DONE'); setTimeout(() => app.quit(), 1000);
+    })();
+    return;
+  }
   if (process.env.NOAM_TEST_FILES) {
     const DIR = '/tmp/noam-files/My Files שלום #1';
     const win = [...windows][0]; const ui = win.webContents; const js = (c) => ui.executeJavaScript(c);

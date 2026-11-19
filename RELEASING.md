@@ -1,3 +1,12 @@
+# Releasing NoamBrowser
+
+**The easy way (3.2+):** bump `version` in package.json, update RELEASE_NOTES.md, push to main, then on GitHub open
+**Actions → Build NoamBrowser → Run workflow**. GitHub builds Windows, Mac and Linux on real machines (VMP-signed for
+Netflix when the EVS_ACCOUNT_NAME / EVS_PASSWD secrets are set) and creates a **draft release** with all files.
+Open Releases, check it, click **Publish**. Installed copies update themselves.
+
+---
+
 # Publishing a NoamBrowser update
 
 Every copy of NoamBrowser checks `github.com/ntoder/NoamBrowser/releases/latest`

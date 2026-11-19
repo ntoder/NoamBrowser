@@ -236,6 +236,14 @@ if (cfg.youtube) {
   });
 }
 
+// window.prompt(): Electron has none, so NoamBrowser shows the box and the page waits for the answer
+try {
+  contextBridge.exposeInMainWorld('__noamPrompt', (message, value) => { try { return ipcRenderer.sendSync('noam:prompt', { message: String(message ?? ''), value: value == null ? '' : String(value) }); } catch { return null; } });
+  const promptShim = () => { const ask = window.__noamPrompt; if (typeof ask !== 'function') return; const prompt = function prompt(message, value) { return ask(message === undefined ? '' : String(message), value === undefined ? '' : String(value)); }; try { Object.defineProperty(window, 'prompt', { value: prompt, writable: true, configurable: true }); } catch { window.prompt = prompt; } };
+  if (contextBridge.executeInMainWorld) contextBridge.executeInMainWorld({ func: promptShim, args: [] });
+  else webFrame.executeJavaScript(`(${promptShim.toString()})()`);
+} catch {}
+
 if (cfg.googleAuth) {
   try {
     if (contextBridge.executeInMainWorld) contextBridge.executeInMainWorld({ func: firefoxIdentity, args: [cfg.firefoxUA] });
@@ -571,7 +579,7 @@ if (cfg.internal && location.protocol === 'noam:' && window.top === window) {
     'settings:get', 'settings:set', 'stats:get', 'history:list', 'history:delete', 'history:clear', 'bookmarks:list', 'bookmarks:remove',
     'bookmarks:add', 'bookmarks:update', 'bookmarks:folders', 'bookmarks:folder-new', 'downloads:list', 'downloads:open', 'downloads:show', 'downloads:cancel', 'downloads:pause', 'downloads:resume', 'downloads:clear', 'topsites:get',
     'data:clear', 'filters:info', 'filters:update', 'vpn:status', 'vpn:toggle', 'vpn:new-identity', 'shields:sites', 'shields:site-set', 'app:info',
-    'search:engines', 'appearance:wallpaper', 'permissions:list', 'permissions:reset', 'tab:navigate', 'default-browser:set',
+    'search:engines', 'appearance:wallpaper', 'permissions:list', 'permissions:reset', 'tab:navigate', 'default-browser:set', 'default-browser:status',
     'reader:get', 'passwords:list', 'passwords:reveal', 'passwords:remove', 'passwords:update', 'passwords:export', 'passwords:import',
     'passwords:never-remove', 'passwords:clear-clipboard-later', 'import:detect', 'import:run', 'import:file', 'import:passwords-help',
     'sync:status', 'sync:enable', 'sync:disable', 'sync:now', 'sync:choose-folder', 'update:status', 'update:check', 'update:install',

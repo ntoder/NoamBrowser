@@ -151,26 +151,48 @@ module.exports = function setupFeatures(ctx) {
 
   // ------------------------------------------------------------ import
   pageHandle('import:detect', () => importer.detect());
-  const addBookmarks = (list) => {
-    let n = 0; if (!list.length) return 0;
-    const items = bookmarks.get('items'); const have = new Set(items.map((b) => b.url));
-    for (const b of list) if (!have.has(b.url)) { items.push({ id: crypto.randomUUID(), url: b.url, title: b.title, favicon: '', added: Date.now(), folder: b.folder || '' }); have.add(b.url); n++; }
-    bookmarks.set('items', items); broadcast('bookmarks:changed', items); broadcastPages('bookmarks', items);
+  // Adds imported bookmarks with their folders (folders inside folders too) and the order of the bookmarks bar.
+  // replace: NoamBrowser's bookmarks become exactly the other browser's (the old ones are saved to a backup file).
+  const addBookmarks = (list, { replace } = {}) => {
+    if (!list.length) return 0;
+    let items = bookmarks.get('items');
+    if (replace) {
+      try { fs.writeFileSync(path.join(userData, `bookmarks-backup-${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.json`), JSON.stringify({ items, folders: bookmarks.get('folders') || [], barOrder: bookmarks.get('barOrder') || [] }, null, 1)); } catch (e) { console.error('bookmark backup', e); }
+      const keep = new Set(list.map((b) => b.url)); const tomb = bookmarks.get('tombstones') || [];
+      for (const b of items) if (!keep.has(b.url)) tomb.push({ url: b.url, id: b.id, t: Date.now() });
+      bookmarks.set('tombstones', tomb.slice(-2000));
+      items = []; bookmarks.set('folders', []); bookmarks.set('barOrder', []);
+    }
+    const key = (folder, url) => (folder || '') + '\n' + url;
+    const ids = new Map(items.map((b) => [key(b.folder, b.url), b.id])); let n = 0;
+    for (const b of list) {
+      const k = key(b.folder, b.url); if (ids.has(k)) continue;
+      const it = { id: crypto.randomUUID(), url: b.url, title: b.title, favicon: '', added: Date.now(), folder: b.folder || '' };
+      items.push(it); ids.set(k, it.id); n++;
+    }
+    const fl = bookmarks.get('folders') || []; for (const f of list.folders || []) if (!fl.includes(f)) fl.push(f); bookmarks.set('folders', fl);
+    if (list.bar) {
+      const order = bookmarks.get('barOrder') || [];
+      for (const t of list.bar) { const tok = t.startsWith('u:') ? (ids.has(key('', t.slice(2))) ? 'b:' + ids.get(key('', t.slice(2))) : null) : t; if (tok && !order.includes(tok)) order.push(tok); }
+      bookmarks.set('barOrder', order);
+    }
+    bookmarks.set('layoutUpdated', Date.now());
+    bookmarks.set('items', items); broadcast('bookmarks:changed', items); broadcastPages('bookmarks', items); broadcast('bookmarks:folders', fl);
     return n;
   };
-  pageHandle('import:file', async (e) => {
+  pageHandle('import:file', async (e, opts = {}) => {
     const win = BrowserWindow.fromWebContents(e.sender.hostWebContents || e.sender) || undefined;
     const r = await dialog.showOpenDialog(win, { title: 'Pick the bookmarks file you exported', properties: ['openFile'], filters: [{ name: 'Bookmarks file', extensions: ['html', 'htm'] }] });
     if (r.canceled || !r.filePaths[0]) return null;
     let html = ''; try { html = fs.readFileSync(r.filePaths[0], 'utf8'); } catch { throw new Error('Couldn’t open that file.'); }
     const list = importer.parseBookmarksHtml(html);
     if (!list.length) throw new Error('No bookmarks found in that file. Is it a bookmarks file exported from a browser?');
-    const n = addBookmarks(list); sync.touch();
+    const n = addBookmarks(list, { replace: !!opts.replace }); sync.touch();
     return { found: list.length, bookmarks: n };
   });
-  pageHandle('import:run', (_e, { key, bookmarks: doB, history: doH }) => {
+  pageHandle('import:run', (_e, { key, bookmarks: doB, history: doH, replace }) => {
     const data = importer.run(key, { bookmarks: doB, history: doH });
-    let nb = addBookmarks(data.bookmarks), nh = 0;
+    let nb = addBookmarks(data.bookmarks, { replace: !!replace }), nh = 0;
     if (data.history.length) {
       const items = history.get('items'); const byUrl = new Map(items.map((h) => [h.url, h]));
       for (const h of data.history) {
@@ -193,7 +215,7 @@ module.exports = function setupFeatures(ctx) {
   const sync = { touch: () => setTimeout(() => syncer.run().catch(() => {}), 1500) };
   syncer.on('status', (s) => broadcastPages('sync', s));
   syncer.on('merged', (r) => {
-    if (r.bookmarks) broadcast('bookmarks:changed', bookmarks.get('items'));
+    if (r.bookmarks) { broadcast('bookmarks:changed', bookmarks.get('items')); broadcastPages('bookmarks', bookmarks.get('items')); broadcast('bookmarks:folders', bookmarks.get('folders') || []); }
     if (r.settings) { applyThemeToWindows(); const pub = publicSettings(); broadcast('settings:changed', pub); broadcastPages('settings', pub); }
   });
   pageHandle('sync:status', () => ({ ...syncer.status, ...syncer.publicCfg() }));

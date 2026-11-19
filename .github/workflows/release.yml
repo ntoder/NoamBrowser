@@ -1,0 +1,88 @@
+# Builds NoamBrowser on real Windows, Mac and Linux computers and puts every file in a draft GitHub release.
+# Start it from the Actions tab → "Build NoamBrowser" → Run workflow (or by pushing a tag like v3.2.0).
+# Netflix/Spotify/Disney+ need the app VMP-signed by castlabs EVS: add the repository secrets EVS_ACCOUNT_NAME and
+# EVS_PASSWD (Settings → Secrets and variables → Actions). Without them the build still works, just unsigned.
+name: Build NoamBrowser
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+permissions:
+  contents: write
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            cmd: npx electron-builder --win --x64 --publish never
+            files: |
+              dist/*.exe
+              dist/*.exe.blockmap
+              dist/latest.yml
+          - os: macos-latest
+            cmd: npx electron-builder --mac --publish never && bash scripts/mac-finish.sh
+            files: |
+              dist/*-mac.zip
+              dist/latest-mac.yml
+          - os: ubuntu-latest
+            cmd: npx electron-builder --linux --publish never
+            files: |
+              dist/*.AppImage
+              dist/*.deb
+              dist/latest-linux.yml
+    runs-on: ${{ matrix.os }}
+    env:
+      EVS_ACCOUNT_NAME: ${{ secrets.EVS_ACCOUNT_NAME }}
+      EVS_PASSWD: ${{ secrets.EVS_PASSWD }}
+      NOAM_REQUIRE_VMP: ${{ secrets.EVS_ACCOUNT_NAME != '' && matrix.os != 'ubuntu-latest' && '1' || '' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install
+        shell: bash
+        run: |
+          npm ci
+          python -m pip install --upgrade castlabs-evs
+      - name: Log in to castlabs EVS (for Netflix, Spotify, Disney+)
+        if: env.EVS_ACCOUNT_NAME != '' && matrix.os != 'ubuntu-latest'
+        shell: bash
+        run: python -m castlabs_evs.account -n reauth -A "$EVS_ACCOUNT_NAME" -P "$EVS_PASSWD"
+      - name: Build
+        shell: bash
+        env:
+          PYTHON: python
+        run: ${{ matrix.cmd }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: noambrowser-${{ matrix.os }}
+          path: ${{ matrix.files }}
+          if-no-files-found: error
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: out
+          merge-multiple: true
+      - name: Create the draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          V=$(node -p "require('./package.json').version")
+          ls -la out
+          if gh release view "v$V" >/dev/null 2>&1; then
+            gh release upload "v$V" out/* --clobber
+          else
+            gh release create "v$V" out/* --draft --target "$GITHUB_SHA" --title "NoamBrowser $V" --notes-file RELEASE_NOTES.md
+          fi
+          echo "Draft release v$V is ready: open Releases and click Publish." >> "$GITHUB_STEP_SUMMARY"

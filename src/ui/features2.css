@@ -334,3 +334,20 @@ textarea.nc-in { font: 600 12px ui-monospace, monospace; }
 .nc-warn { width: 100%; color: #b45309 !important; margin: 4px 0 0 !important; }
 .nc-big { font-size: 34px; }
 .nc-more { margin: 4px 0 8px; } .nc-more > summary { cursor: pointer; margin: 0 10px; padding: 8px 12px; border-radius: 10px; color: var(--muted); font-size: 12.5px; list-style: none; } .nc-more > summary::before { content: '▸ '; } .nc-more[open] > summary::before { content: '▾ '; } .nc-more > summary:hover { background: var(--surface-2); }
+
+/* 3.2: screen-sharing picker */
+.ss-box { width: min(720px, calc(100vw - 40px)); }
+.ss-box h3 { margin: 0 0 4px; } .ss-sub { margin: 0 0 12px; color: var(--muted); font-size: 13px; }
+.ss-tabs { display: inline-flex; gap: 4px; padding: 4px; border-radius: 12px; background: var(--surface-2); margin-bottom: 12px; }
+.ss-tabs button { border: 0; background: none; color: var(--muted); font: inherit; font-weight: 700; font-size: 13px; padding: 7px 14px; border-radius: 9px; cursor: pointer; }
+.ss-tabs button.on { background: var(--surface); color: var(--text); box-shadow: 0 1px 4px rgba(0,0,0,.12); }
+.ss-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; max-height: 50vh; overflow: auto; padding: 2px; }
+.ss-item { border: 2px solid transparent; background: var(--surface-2); border-radius: 12px; padding: 8px; cursor: pointer; text-align: left; color: var(--text); font: inherit; display: flex; flex-direction: column; gap: 6px; }
+.ss-item:hover { border-color: var(--line); } .ss-item.on { border-color: var(--accent); background: var(--accent-soft, var(--surface-2)); }
+.ss-thumb { aspect-ratio: 16 / 10; border-radius: 8px; overflow: hidden; background: #000; display: grid; place-items: center; }
+.ss-thumb img { width: 100%; height: 100%; object-fit: contain; } .ss-thumb i { font-size: 30px; font-style: normal; }
+.ss-name { display: flex; gap: 6px; align-items: center; font-size: 12.5px; font-weight: 600; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.ss-name img { width: 16px; height: 16px; flex: none; }
+.ss-audio { display: flex; gap: 8px; align-items: center; margin-top: 12px; font-size: 13px; }
+.ss-none { color: var(--muted); font-size: 13px; }
+.def-bar { top: auto; bottom: 16px; }

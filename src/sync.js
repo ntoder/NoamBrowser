@@ -106,6 +106,8 @@ class Sync extends EventEmitter {
       settings: s,
       bookmarks: this.bookmarks.get('items'),
       bookmarkTombstones: this.bookmarks.get('tombstones') || [],
+      // the bookmarks bar order and the order of folders
+      bookmarkLayout: { t: this.bookmarks.get('layoutUpdated') || 0, folders: this.bookmarks.get('folders') || [], bar: this.bookmarks.get('barOrder') || [] },
       passwords: c.passwords ? this.passwords.items : undefined,
       extras: this.extra ? this.extra.snapshot() : undefined,
     };
@@ -113,19 +115,30 @@ class Sync extends EventEmitter {
 
   merge(remote) {
     let changed = false;
-    // bookmarks: union by url, newest edit wins, deletions win if newer than the add
+    // bookmarks: the same bookmark (same id, or same folder + address) is matched up; the newest edit wins (name,
+    // folder, address); a deletion wins if it's newer. The same link in two folders stays two bookmarks.
     const local = this.bookmarks.get('items');
-    const tomb = new Map((this.bookmarks.get('tombstones') || []).map((t) => [t.url, t.t]));
-    for (const t of remote.bookmarkTombstones || []) if ((tomb.get(t.url) || 0) < t.t) { tomb.set(t.url, t.t); changed = true; }
-    const byUrl = new Map(local.map((b) => [b.url, b]));
+    const tkey = (t) => (t.id ? 'id:' + t.id : 'url:' + t.url);
+    const tomb = new Map((this.bookmarks.get('tombstones') || []).map((t) => [tkey(t), t]));
+    for (const t of remote.bookmarkTombstones || []) { const k = tkey(t); if (!tomb.has(k) || tomb.get(k).t < t.t) { tomb.set(k, t); changed = true; } }
+    const fu = (b) => (b.folder || '') + '\n' + b.url;
+    const all = local.map((b) => ({ ...b }));
+    const byId = new Map(all.filter((b) => b.id).map((b) => [b.id, b])); const byFu = new Map(all.map((b) => [fu(b), b]));
+    const when = (b) => b.updated || b.added || 0;
     for (const rb of remote.bookmarks || []) {
-      const lb = byUrl.get(rb.url);
-      if (!lb) { byUrl.set(rb.url, { ...rb }); changed = true; }
-      else if ((rb.updated || rb.added || 0) > (lb.updated || lb.added || 0) && rb.title !== lb.title) { lb.title = rb.title; lb.updated = rb.updated; changed = true; }
+      const lb = (rb.id && byId.get(rb.id)) || byFu.get(fu(rb));
+      if (!lb) { const n = { ...rb }; all.push(n); if (n.id) byId.set(n.id, n); byFu.set(fu(n), n); changed = true; continue; }
+      if (when(rb) > when(lb) && (rb.title !== lb.title || (rb.folder || '') !== (lb.folder || '') || rb.url !== lb.url)) {
+        byFu.delete(fu(lb)); Object.assign(lb, { title: rb.title, folder: rb.folder || '', url: rb.url, updated: rb.updated }); byFu.set(fu(lb), lb); changed = true;
+      }
     }
-    const merged = [...byUrl.values()].filter((b) => !(tomb.get(b.url) > (b.updated || b.added || 0)));
+    const dead = (b) => { const a = b.id && tomb.get('id:' + b.id), u = tomb.get('url:' + b.url); return Math.max(a ? a.t : 0, u ? u.t : 0) > when(b); };
+    // the same bookmark twice (from two older copies) is kept once
+    const seen = new Set(); const merged = all.filter((b) => { if (dead(b)) return false; const k = b.id || fu(b); if (seen.has(k)) return false; seen.add(k); return true; });
     if (merged.length !== local.length) changed = true;
-    if (changed) { this.bookmarks.set('items', merged); this.bookmarks.set('tombstones', [...tomb].map(([url, t]) => ({ url, t })).slice(-2000)); }
+    if (changed) { this.bookmarks.set('items', merged); this.bookmarks.set('tombstones', [...tomb.values()].sort((a, b) => a.t - b.t).slice(-2000)); }
+    const L = remote.bookmarkLayout;
+    if (L && L.t > (this.bookmarks.get('layoutUpdated') || 0)) { this.bookmarks.set('folders', Array.isArray(L.folders) ? L.folders : []); this.bookmarks.set('barOrder', Array.isArray(L.bar) ? L.bar : []); this.bookmarks.set('layoutUpdated', L.t); changed = true; }
     // settings: whole-snapshot, newest wins
     let settingsChanged = false;
     if ((remote.settingsUpdated || 0) > (this.cfg().settingsUpdated || 0) && remote.settings) {

@@ -3,6 +3,8 @@
 A private, fast web browser for Windows, macOS and Linux.
 
 - **Shields** — blocks ads, trackers, malware sites, cookie banners and YouTube ads; upgrades to HTTPS; blocks cross-site cookies and fingerprinting; strips tracking tags from links.
+- **Streaming 🎬 (new in 3.2)** — Netflix, Spotify, Disney+ and other protected video (Widevine, via castlabs’ Electron for Content Security). Windows and Mac builds are VMP-signed by castlabs EVS in GitHub Actions — see [.github/workflows/release.yml](.github/workflows/release.yml).
+- **Video calls 🖥️ (new in 3.2)** — share your screen or a window in Meet, Zoom, Discord and Teams with a preview picker (and your computer’s sound on Windows); USB / serial devices (micro:bit, Arduino) for web editors.
 - **Built-in VPN** — free Cloudflare WARP (WireGuard) with a kill switch, or your own SOCKS5/HTTP proxy.
 - **Private by design** — no telemetry, no account, no AI services, encrypted DNS.
 - **NoamBrowser Account 👤 (new in 3.0)** — sign in on any computer and everything syncs: bookmarks (with folders), passwords, settings and themes, history, and NoamChat (your chat identity, friends, groups and messages). Zero-knowledge: your password is turned into keys on your own computer and everything is encrypted before upload, so the server can’t read anything. NoamChat messages to offline friends wait (encrypted) in their account mailbox. The server is a free Cloudflare Worker — see [server/README.md](server/README.md).

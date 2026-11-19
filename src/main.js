@@ -1,6 +1,6 @@
 // NoamBrowser — main process.
 const {
-  app, BrowserWindow, session, ipcMain, protocol, Menu, clipboard, shell, dialog, webContents, nativeTheme, net, nativeImage, systemPreferences,
+  app, BrowserWindow, session, ipcMain, protocol, Menu, clipboard, shell, dialog, webContents, nativeTheme, net, nativeImage, systemPreferences, desktopCapturer,
 } = require('electron');
 const path = require('path');
 const fs = require('fs');
@@ -222,9 +222,11 @@ function prepareSession(ses) {
   setupNoamProtocol(ses);
   shields.attach(ses, { framePreload: FRAME_PRELOAD });
   ses.setPermissionRequestHandler(permissionRequest);
+  ses.setDisplayMediaRequestHandler(displayMediaRequest);
+  if (devicesApi) devicesApi.attach(ses);
   ses.setPermissionCheckHandler((wc, permission, origin) => {
     if (permission === 'notifications' && focusApi && focusApi.holding()) return false;
-    if (['fullscreen', 'clipboard-sanitized-write', 'pointerLock', 'background-sync', 'accessibility-events'].includes(permission)) return true;
+    if (['fullscreen', 'clipboard-sanitized-write', 'pointerLock', 'background-sync', 'accessibility-events', 'display-capture', 'serial', 'usb', 'hid'].includes(permission)) return true;
     const p = settings.get('permissions')[originOf(origin)];
     return p && p[permission] === 'allow';
   });
@@ -241,11 +243,36 @@ function privateSession() { return prepareSession(session.fromPartition(PRIVATE_
 
 function originOf(u) { try { return new URL(u).origin; } catch { return u || ''; } }
 
+// ---------- screen sharing (Google Meet, Zoom, Discord, Teams…) ----------
+// A site asks to share your screen → NoamBrowser shows its own picker with live previews of your screens and
+// windows; nothing is shared until you pick one. On Windows you can also share your computer's sound.
+const screenPicks = new Map();
+let devicesApi = null;
+function displayMediaRequest(request, callback) {
+  let wc = null; try { wc = webContents.fromFrame(request.frame); } catch {}
+  const host = wc && wc.hostWebContents ? wc.hostWebContents : wc;
+  const win = host && BrowserWindow.fromWebContents(host);
+  if (!win || win.isDestroyed()) return callback({});
+  desktopCapturer.getSources({ types: ['screen', 'window'], thumbnailSize: { width: 320, height: 200 }, fetchWindowIcons: true }).then((sources) => {
+    const id = Math.random().toString(36).slice(2);
+    const done = (src, audio) => { const p = screenPicks.get(id); if (!p) return; screenPicks.delete(id); clearTimeout(p.timer); const s = src && sources.find((x) => x.id === src); try { p.callback(s ? { video: s, ...(audio && process.platform === 'win32' ? { audio: 'loopback' } : {}) } : {}); } catch {} };
+    screenPicks.set(id, { callback, done, timer: setTimeout(() => done(null), 120000) });
+    win.webContents.send('screenshare:pick', {
+      id, site: originOf(request.securityOrigin || (wc && wc.getURL()) || ''), audio: process.platform === 'win32' && !!request.audioRequested,
+      sources: sources.filter((x) => !/^NoamBrowser$/.test(x.name) || x.id.startsWith('screen:')).map((x, i) => ({ id: x.id, name: x.id.startsWith('screen:') ? (sources.filter((y) => y.id.startsWith('screen:')).length > 1 ? `Screen ${i + 1}` : 'Entire screen') : x.name, screen: x.id.startsWith('screen:'), thumb: x.thumbnail && !x.thumbnail.isEmpty() ? x.thumbnail.toDataURL() : '', icon: x.appIcon && !x.appIcon.isEmpty() ? x.appIcon.toDataURL() : '' })),
+    });
+  }).catch((e) => { console.error('screen share', e); callback({}); });
+}
+setImmediate(() => uiHandle('screenshare:answer', (_e, { id, source, audio }) => { const p = screenPicks.get(id); if (p) p.done(source || null, !!audio); return true; }));
+
 // ---------- permissions ----------
 const ASKABLE = new Set(['media', 'geolocation', 'notifications', 'midi', 'midiSysex', 'idle-detection', 'display-capture', 'window-management', 'storage-access', 'top-level-storage-access', 'speaker-selection', 'keyboardLock']);
 function permissionRequest(wc, permission, callback, details) {
   if (permission === 'notifications' && focusApi && focusApi.holding()) return callback(false);
   if (['fullscreen', 'clipboard-sanitized-write', 'pointerLock'].includes(permission)) return callback(true);
+  // screen sharing asks you in NoamBrowser's own picker (displayMediaRequest), so no second question here
+  if (permission === 'display-capture') return callback(true);
+  if (permission === 'media' && details && Array.isArray(details.mediaTypes) && !details.mediaTypes.length) return callback(true); // getDisplayMedia: the picker asks
   if (permission === 'openExternal') {
     const ext = details && details.externalURL;
     if (!ext) return callback(false);
@@ -742,7 +769,7 @@ uiHandle('session:save', (_e, tabs) => { settings.set('session', tabs.filter((t)
 uiHandle('bookmarks:toggle', (_e, b) => {
   const items = bookmarks.get('items');
   const i = items.findIndex((x) => x.url === b.url);
-  if (i >= 0) { items.splice(i, 1); tombstone(b.url); } else items.push({ id: crypto.randomUUID(), url: b.url, title: b.title || b.url, favicon: b.favicon || '', added: Date.now() });
+  if (i >= 0) { const [gone] = items.splice(i, 1); tombstone(gone.url, gone.id); } else items.push({ id: crypto.randomUUID(), url: b.url, title: b.title || b.url, favicon: b.favicon || '', added: Date.now() });
   bookmarks.set('items', items); features && features.syncTouch();
   broadcast('bookmarks:changed', items); broadcastPages('bookmarks', items);
   return i < 0;
@@ -946,27 +973,48 @@ pageHandle('history:list', (_e, { q = '', offset = 0, limit = 200 } = {}) => {
 pageHandle('history:delete', (_e, urls) => { const set = new Set(urls); history.set('items', history.get('items').filter((h) => !set.has(h.url))); return true; });
 pageHandle('history:clear', () => { history.set('items', []); return true; });
 pageHandle('bookmarks:list', () => bookmarks.get('items'));
-function tombstone(url) { const t = bookmarks.get('tombstones') || []; t.push({ url, t: Date.now() }); bookmarks.set('tombstones', t.slice(-2000)); }
+function tombstone(url, id) { const t = bookmarks.get('tombstones') || []; t.push(id ? { url, id, t: Date.now() } : { url, t: Date.now() }); bookmarks.set('tombstones', t.slice(-2000)); }
 // ---------- bookmarks bar: edit, folders, order, icons ----------
 const bmFolders = () => bookmarks.get('folders') || [];
 const bmChanged = (items) => { bookmarks.set('items', items); features && features.syncTouch(); broadcast('bookmarks:changed', items); broadcastPages('bookmarks', items); broadcast('bookmarks:folders', bmFolders()); return items; };
 const bmFolderList = () => { const set = [...bmFolders()]; for (const b of bookmarks.get('items')) if (b.folder && !set.includes(b.folder)) set.push(b.folder); return set; };
+// Folders inside folders are stored as a path: "School › Math". The bar mixes top-level folders and
+// bookmarks in your own order, kept in 'barOrder' as tokens: "f:<folder>" and "b:<bookmark id>".
+const BM_SEP = ' › ';
+const bmTop = (f) => !!f && !f.includes(BM_SEP);
+function bmBarOrder() {
+  const items = bookmarks.get('items'); const tops = bmFolderList().filter(bmTop);
+  const ids = new Set(items.filter((b) => !b.folder).map((b) => b.id));
+  const have = new Set(); const out = [];
+  for (const t of bookmarks.get('barOrder') || []) { if (have.has(t)) continue; if ((t.startsWith('f:') && tops.includes(t.slice(2))) || (t.startsWith('b:') && ids.has(t.slice(2)))) { out.push(t); have.add(t); } }
+  // anything not placed yet: folders before loose bookmarks (how the bar always looked), new ones at the end
+  const firstB = out.findIndex((t) => t.startsWith('b:'));
+  const newF = tops.map((f) => 'f:' + f).filter((t) => !have.has(t));
+  if (newF.length) out.splice(firstB < 0 ? out.length : firstB, 0, ...newF);
+  for (const b of items) if (!b.folder && !have.has('b:' + b.id)) out.push('b:' + b.id);
+  return out;
+}
+function bmPlace(token, before) { const l = bmBarOrder().filter((t) => t !== token); const k = before ? l.indexOf(before) : -1; if (k >= 0) l.splice(k, 0, token); else l.push(token); bookmarks.set('barOrder', l); bookmarks.set('layoutUpdated', Date.now()); broadcast('bookmarks:folders', bmFolderList()); return l; }
+uiHandle('bm:bar-order', () => bmBarOrder());
+uiHandle('bm:bar-place', (_e, { token, before }) => bmPlace(String(token || ''), before || null));
 uiHandle('bm:folders', () => bmFolderList());
 pageHandle('bookmarks:folders', () => bmFolderList());
-pageHandle('bookmarks:folder-new', (_e, name) => { name = String(name || '').trim().slice(0, 60); if (name && !bmFolderList().includes(name)) bookmarks.set('folders', [...bmFolders(), name]); broadcast('bookmarks:folders', bmFolderList()); return bmFolderList(); });
+pageHandle('bookmarks:folder-new', (_e, name) => { bookmarks.set('layoutUpdated', Date.now()); name = String(name || '').trim().slice(0, 60); if (name && !bmFolderList().includes(name)) bookmarks.set('folders', [...bmFolders(), name]); broadcast('bookmarks:folders', bmFolderList()); return bmFolderList(); });
 uiHandle('bm:add', (_e, b) => { if (!/^(https?|noam):/.test(b.url || '')) return null; const items = bookmarks.get('items'); if (items.some((x) => x.url === b.url && (x.folder || '') === (b.folder || ''))) return items; items.push({ id: crypto.randomUUID(), url: b.url, title: (b.title || b.url).slice(0, 300), favicon: b.favicon || favFor(b.url), added: Date.now(), folder: b.folder || '' }); return bmChanged(items); });
 uiHandle('bm:update', (_e, b) => { const items = bookmarks.get('items'); const x = items.find((i) => i.id === b.id); if (x) { if (b.title != null) x.title = String(b.title).slice(0, 300); if (b.url && /^(https?|noam):/.test(b.url)) x.url = b.url; if (b.folder != null) x.folder = b.folder; x.updated = Date.now(); } return bmChanged(items); });
-uiHandle('bm:remove', (_e, ids) => { const set = new Set([].concat(ids)); const items = bookmarks.get('items'); for (const b of items) if (set.has(b.id)) tombstone(b.url); return bmChanged(items.filter((b) => !set.has(b.id))); });
+uiHandle('bm:remove', (_e, ids) => { const set = new Set([].concat(ids)); const items = bookmarks.get('items'); for (const b of items) if (set.has(b.id)) tombstone(b.url, b.id); return bmChanged(items.filter((b) => !set.has(b.id))); });
 uiHandle('bm:move', (_e, { id, beforeId, folder }) => {
   const items = bookmarks.get('items'); const i = items.findIndex((b) => b.id === id); if (i < 0) return items;
   const [b] = items.splice(i, 1); if (folder != null) b.folder = folder; b.updated = Date.now();
   const j = beforeId ? items.findIndex((x) => x.id === beforeId) : -1; if (j >= 0) items.splice(j, 0, b); else items.push(b);
-  return bmChanged(items);
+  const out = bmChanged(items);
+  if (!b.folder) bmPlace('b:' + b.id, beforeId ? 'b:' + beforeId : null);
+  return out;
 });
-uiHandle('bm:folder-new', (_e, name) => { name = String(name || '').trim().slice(0, 60); if (!name) return bmFolderList(); const f = bmFolders(); if (!bmFolderList().includes(name)) bookmarks.set('folders', [...f, name]); broadcast('bookmarks:folders', bmFolderList()); return bmFolderList(); });
-uiHandle('bm:folder-rename', (_e, { from, to }) => { to = String(to || '').trim().slice(0, 60); if (!to || to === from) return bmFolderList(); bookmarks.set('folders', bmFolderList().map((f) => (f === from ? to : f)).filter((f, i, a) => a.indexOf(f) === i)); const items = bookmarks.get('items'); for (const b of items) if (b.folder === from) { b.folder = to; b.updated = Date.now(); } bmChanged(items); return bmFolderList(); });
-uiHandle('bm:folder-delete', (_e, { name, keep }) => { const items = bookmarks.get('items'); let out = items; if (keep) { for (const b of items) if (b.folder === name) { b.folder = ''; b.updated = Date.now(); } } else { for (const b of items) if (b.folder === name) tombstone(b.url); out = items.filter((b) => b.folder !== name); } bookmarks.set('folders', bmFolderList().filter((f) => f !== name)); bmChanged(out); return bmFolderList(); });
-uiHandle('bm:folder-move', (_e, { name, before }) => { const l = bmFolderList().filter((f) => f !== name); const j = before ? l.indexOf(before) : -1; if (j >= 0) l.splice(j, 0, name); else l.push(name); bookmarks.set('folders', l); broadcast('bookmarks:folders', l); return l; });
+uiHandle('bm:folder-new', (_e, name) => { bookmarks.set('layoutUpdated', Date.now()); name = String(name || '').trim().slice(0, 60); if (!name) return bmFolderList(); const f = bmFolders(); if (!bmFolderList().includes(name)) bookmarks.set('folders', [...f, name]); broadcast('bookmarks:folders', bmFolderList()); return bmFolderList(); });
+uiHandle('bm:folder-rename', (_e, { from, to }) => { bookmarks.set('layoutUpdated', Date.now()); to = String(to || '').trim().slice(0, 60); if (!to || to === from) return bmFolderList(); const parent = from.includes(BM_SEP) ? from.slice(0, from.lastIndexOf(BM_SEP) + BM_SEP.length) : ''; if (parent && !to.startsWith(parent)) to = parent + to.replace(/ › /g, ' > '); const ren = (f) => (f === from ? to : f && f.startsWith(from + BM_SEP) ? to + f.slice(from.length) : f); bookmarks.set('barOrder', (bookmarks.get('barOrder') || []).map((t) => (t === 'f:' + from ? 'f:' + to : t))); bookmarks.set('folders', bmFolderList().map(ren).filter((f, i, a) => a.indexOf(f) === i)); const items = bookmarks.get('items'); for (const b of items) if (b.folder && ren(b.folder) !== b.folder) { b.folder = ren(b.folder); b.updated = Date.now(); } bmChanged(items); return bmFolderList(); });
+uiHandle('bm:folder-delete', (_e, { name, keep }) => { bookmarks.set('layoutUpdated', Date.now()); const inIt = (f) => f === name || (f || '').startsWith(name + BM_SEP); const up = name.includes(BM_SEP) ? name.slice(0, name.lastIndexOf(BM_SEP)) : ''; const items = bookmarks.get('items'); let out = items; if (keep) { for (const b of items) if (b.folder === name) { b.folder = up; b.updated = Date.now(); } } else { for (const b of items) if (inIt(b.folder)) tombstone(b.url, b.id); out = items.filter((b) => !inIt(b.folder)); } bookmarks.set('folders', bmFolderList().filter((f) => (keep ? f !== name : !inIt(f)))); bmChanged(out); return bmFolderList(); });
+uiHandle('bm:folder-move', (_e, { name, before }) => { bookmarks.set('layoutUpdated', Date.now()); const l = bmFolderList().filter((f) => f !== name); const j = before ? l.indexOf(before) : -1; if (j >= 0) l.splice(j, 0, name); else l.push(name); bookmarks.set('folders', l); if (bmTop(name)) bmPlace('f:' + name, before && bmTop(before) ? 'f:' + before : null); broadcast('bookmarks:folders', l); return l; });
 // icons: imported bookmarks have none, so borrow the site's icon from your history
 function favFor(url) {
   let host = ''; try { host = new URL(url).hostname; } catch { return ''; }
@@ -978,7 +1026,7 @@ function fillBookmarkIcons() {
   for (const b of items) if (!b.favicon) { const f = favFor(b.url); if (f) { b.favicon = f; n++; } }
   if (n) { bookmarks.set('items', items); broadcast('bookmarks:changed', items); }
 }
-pageHandle('bookmarks:remove', (_e, id) => { const gone = bookmarks.get('items').find((b) => b.id === id); if (gone) tombstone(gone.url); const items = bookmarks.get('items').filter((b) => b.id !== id); bookmarks.set('items', items); features && features.syncTouch(); broadcast('bookmarks:changed', items); return items; });
+pageHandle('bookmarks:remove', (_e, id) => { const gone = bookmarks.get('items').find((b) => b.id === id); if (gone) tombstone(gone.url, gone.id); const items = bookmarks.get('items').filter((b) => b.id !== id); bookmarks.set('items', items); features && features.syncTouch(); broadcast('bookmarks:changed', items); return items; });
 pageHandle('bookmarks:add', (_e, b) => { const items = bookmarks.get('items'); if (!/^(https?|noam):/.test(b.url)) throw new Error('Only web addresses can be bookmarked'); items.push({ id: crypto.randomUUID(), url: b.url, title: b.title || b.url, favicon: favFor(b.url), added: Date.now(), folder: b.folder || '' }); bookmarks.set('items', items); broadcast('bookmarks:changed', items); features && features.syncTouch(); return items; });
 pageHandle('bookmarks:update', (_e, b) => { const items = bookmarks.get('items'); const x = items.find((i) => i.id === b.id); if (x) { if (b.title != null) x.title = b.title; if (b.url) x.url = b.url; if (b.folder != null) x.folder = String(b.folder).slice(0, 60); x.updated = Date.now(); } bookmarks.set('items', items); features && features.syncTouch(); broadcast('bookmarks:changed', items); return items; });
 pageHandle('downloads:list', () => allDownloads());
@@ -1013,11 +1061,6 @@ pageHandle('permissions:list', () => settings.get('permissions'));
 pageHandle('permissions:reset', (_e, origin) => { const p = settings.get('permissions'); if (origin) delete p[origin]; else for (const k of Object.keys(p)) delete p[k]; settings.set('permissions', p); return p; });
 pageHandle('app:info', () => ({ version: app.getVersion(), chrome: process.versions.chrome, electron: process.versions.electron, userData, platform: process.platform }));
 pageHandle('tab:navigate', (e, url) => { const r = resolveInput(url); if (r) e.sender.loadURL(r); });
-pageHandle('default-browser:set', () => {
-  app.setAsDefaultProtocolClient('http'); app.setAsDefaultProtocolClient('https');
-  if (process.platform === 'win32') shell.openExternal('ms-settings:defaultapps');
-  return true;
-});
 pageHandle('data:clear', async (_e, what = {}) => {
   const ses = mainSession();
   if (what.history) history.set('items', []);
@@ -1075,6 +1118,13 @@ app.on('second-instance', (_e, argv, cwd) => {
 });
 
 app.whenReady().then(async () => {
+  try { devicesApi = require('./devices')({ uiHandle }); } catch (e) { console.error('devices', e); }
+  // Netflix, Spotify, Disney+…: this build of Electron (castlabs) can play protected video. Google's Widevine
+  // module is downloaded once in the background; the browser doesn't wait more than a moment for it.
+  try {
+    const { components } = require('electron');
+    if (components && components.whenReady) await Promise.race([components.whenReady().then(() => console.log('Widevine ready', JSON.stringify(components.status()))).catch((e) => console.error('Widevine', e && e.message)), new Promise((r) => setTimeout(r, 2500))]);
+  } catch (e) { console.error('Widevine', e.message); }
   if (process.platform === 'darwin') {
     // macOS needs a real menu bar for Cmd+C/V/Q and window management to work.
     const send = (ch, d) => { const w = BrowserWindow.getFocusedWindow(); if (w && windows.has(w)) w.webContents.send(ch, d); };
@@ -1130,6 +1180,7 @@ app.whenReady().then(async () => {
   try { await require('./extensions')({ settings, uiHandle, pageHandle, broadcast, broadcastPages, getSession: () => mainSession(), hostWindowOf, menuExtras }); } catch (e) { console.error('extensions', e); }
   try { readIndex = require('./readindex')({ settings, userData, uiHandle, pageHandle, privatePartition: PRIVATE_PARTITION, session, getHistory: () => history.get('items'), isForgotten: (h) => forgetSites().some((f) => h === f || h.endsWith('.' + f)) }); } catch (e) { console.error('read index', e); }
   try { require('./extras26')({ settings, uiHandle, pageHandle, privatePartition: PRIVATE_PARTITION, mainSession, containerSessions: () => (settings.get('containers') || []).filter((c) => /^[\w-]{1,40}$/.test(c.id)).map((c) => session.fromPartition('persist:noam-c-' + c.id)), readIndex, hostWindowOf }); } catch (e) { console.error('extras 2.6', e); }
+  try { require('./defaultbrowser')({ settings, uiHandle, pageHandle }); } catch (e) { console.error('default browser', e); }
   try { require('./folders')({ pageHandle }); } catch (e) { console.error('folders', e); }
   try { require('./highlights')({ Store, userData, pageHandle, broadcastPages, privatePartition: PRIVATE_PARTITION, menuExtras }); } catch (e) { console.error('highlights', e); }
   let chatApi = null;

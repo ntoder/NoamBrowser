@@ -8,7 +8,8 @@ files=()
 for dir in mac-arm64 mac; do
   [ -d "$dir/NoamBrowser.app" ] || continue
   arch=$([ "$dir" = mac ] && echo x64 || echo arm64)
-  rcodesign sign "$dir/NoamBrowser.app" >/dev/null
+  if command -v rcodesign >/dev/null; then rcodesign sign "$dir/NoamBrowser.app" >/dev/null
+  else codesign --force --deep --sign - "$dir/NoamBrowser.app"; fi
   name="NoamBrowser-$VERSION-$arch-mac.zip"
   (cd "$dir" && rm -f "../$name" && zip -qry "../$name" NoamBrowser.app)
   files+=("$name")

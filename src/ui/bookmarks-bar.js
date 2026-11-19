@@ -2,7 +2,11 @@
 // folder, drop links onto the bar, and right-click to edit, move or delete.
 'use strict';
 (() => {
-  let folders = [];
+  let folders = [], barOrder = [];
+  // folders inside folders are paths: "School › Math"
+  const SEP = ' › ';
+  const leaf = (f) => (f.includes(SEP) ? f.slice(f.lastIndexOf(SEP) + SEP.length) : f);
+  const parentOf = (f) => (f.includes(SEP) ? f.slice(0, f.lastIndexOf(SEP)) : '');
   const bar = $('#bookmarks-bar');
   const host = (u) => { try { return new URL(u).hostname.replace(/^www\./, ''); } catch { return u || ''; } };
   // site icon: the saved one, or the site's own favicon.ico, or a globe
@@ -17,7 +21,20 @@
   }
   const open = (b, e) => { if (e && (e.ctrlKey || e.metaKey || e.button === 1)) newTab({ url: b.url, background: true }); else if (e && e.shiftKey) newTab({ url: b.url }); else state.active ? state.active.navigate(b.url) : newTab({ url: b.url }); };
   const inFolder = (name) => state.bookmarks.filter((b) => (b.folder || '') === name);
-  const allFolders = () => { const l = [...folders]; for (const b of state.bookmarks) if (b.folder && !l.includes(b.folder)) l.push(b.folder); return l; };
+  const allFolders = () => { const l = [...folders]; for (const b of state.bookmarks) if (b.folder && !l.includes(b.folder)) l.push(b.folder); for (const f of [...l]) { let p = parentOf(f); while (p) { if (!l.includes(p)) l.push(p); p = parentOf(p); } } return l; };
+  const subFolders = (name) => allFolders().filter((f) => parentOf(f) === name);
+  const deepCount = (name) => state.bookmarks.filter((b) => b.folder === name || (b.folder || '').startsWith(name + SEP)).length;
+  // the bar: top-level folders and loose bookmarks, in your order (same rules as the main process)
+  function barItems() {
+    const tops = allFolders().filter((f) => !f.includes(SEP)); const loose = state.bookmarks.filter((b) => !b.folder);
+    const byId = new Map(loose.map((b) => [b.id, b])); const have = new Set(); const out = [];
+    for (const t of barOrder) { if (have.has(t)) continue; if (t.startsWith('f:') && tops.includes(t.slice(2))) { out.push({ folder: t.slice(2) }); have.add(t); } else if (t.startsWith('b:') && byId.has(t.slice(2))) { out.push({ b: byId.get(t.slice(2)) }); have.add(t); } }
+    const firstB = out.findIndex((x) => x.b); const newF = tops.filter((f) => !have.has('f:' + f)).map((f) => ({ folder: f }));
+    if (newF.length) out.splice(firstB < 0 ? out.length : firstB, 0, ...newF);
+    for (const b of loose) if (!have.has('b:' + b.id)) out.push({ b });
+    return out;
+  }
+  const refreshOrder = async () => { barOrder = await nb.invoke('bm:bar-order').catch(() => barOrder); };
 
   // ---------------------------------------------------------------- right-click menus
   async function bookmarkMenu(b, x, y) {
@@ -40,16 +57,17 @@
     else if (id === 'del') { const copy = { ...b }; await nb.invoke('bm:remove', [b.id]); undoToast(`Deleted “${b.title || host(b.url)}”`, () => nb.invoke('bm:add', copy)); }
   }
   async function folderMenu(name, x, y) {
-    const n = inFolder(name).length;
+    const n = deepCount(name);
     const id = await popup([
       { id: 'all', label: `Open all (${n})`, enabled: n > 0 }, { id: 'allwin', label: 'Open all in a new tab group', enabled: n > 1 },
-      { type: 'separator' }, { id: 'rename', label: 'Rename folder…' }, { id: 'new', label: 'New folder…' },
-      { type: 'separator' }, { id: 'keep', label: '🗑️ Delete folder (keep its bookmarks on the bar)', enabled: n > 0 }, { id: 'del', label: n ? `🗑️ Delete folder and its ${n} bookmark${n === 1 ? '' : 's'}` : '🗑️ Delete folder' },
+      { type: 'separator' }, { id: 'rename', label: 'Rename folder…' }, { id: 'new', label: 'New folder…' }, { id: 'sub', label: 'New folder inside…' },
+      { type: 'separator' }, { id: 'keep', label: parentOf(name) ? '🗑️ Delete folder (move its bookmarks up)' : '🗑️ Delete folder (keep its bookmarks on the bar)', enabled: inFolder(name).length > 0 }, { id: 'del', label: n ? `🗑️ Delete folder and its ${n} bookmark${n === 1 ? '' : 's'}` : '🗑️ Delete folder' },
     ], x, y);
     if (!id) return;
     if (id === 'all') openAll(name);
     else if (id === 'allwin') openAll(name, true);
-    else if (id === 'rename') { const t = await askText('Folder name', name); if (t) folders = await nb.invoke('bm:folder-rename', { from: name, to: t }); }
+    else if (id === 'rename') { const t = await askText('Folder name', leaf(name)); if (t) { folders = await nb.invoke('bm:folder-rename', { from: name, to: parentOf(name) ? parentOf(name) + SEP + t.trim() : t }); await refreshOrder(); } }
+    else if (id === 'sub') { const t = await askText('New folder inside ' + leaf(name), '', 'e.g. Homework'); if (t) folders = await nb.invoke('bm:folder-new', name + SEP + t.trim().replace(/ › /g, ' > ')); }
     else if (id === 'new') newFolder();
     else if (id === 'keep') folders = await nb.invoke('bm:folder-delete', { name, keep: true });
     else if (id === 'del') { const items = inFolder(name).map((b) => ({ ...b })); folders = await nb.invoke('bm:folder-delete', { name }); undoToast(`Deleted folder “${name}”`, async () => { await nb.invoke('bm:folder-new', name); for (const b of items) await nb.invoke('bm:add', b); }); }
@@ -92,18 +110,34 @@
   function showDrop(anchor, kind, payload) {
     if (dropFor === anchor && !drop.hidden) { closeDrop(); return; }
     closeDrop(); dropFor = anchor; anchor.classList.add('open'); drop.innerHTML = '';
-    if (kind === 'folder') {
-      const list = inFolder(payload);
-      const head = document.createElement('div'); head.className = 'bd-head'; head.innerHTML = `<b>📁 ${esc(payload)}</b>`;
-      if (list.length) { const a = document.createElement('button'); a.textContent = `Open all (${list.length})`; a.onclick = () => { closeDrop(); openAll(payload); }; head.append(a); }
-      drop.append(head);
-      list.forEach((b) => drop.append(row(b)));
-      if (!list.length) { const e = document.createElement('div'); e.className = 'bd-empty'; e.textContent = 'Empty folder. Drag bookmarks here, or right-click a bookmark → Move to.'; drop.append(e); }
-      drop.ondragover = (e) => { if (e.dataTransfer.types.includes('noam/bm')) e.preventDefault(); };
-      drop.ondrop = async (e) => { const id = e.dataTransfer.getData('noam/bm'); if (id) { e.preventDefault(); await nb.invoke('bm:update', { id, folder: payload }); } };
-    } else if (kind === 'overflow') {
+    if (kind === 'folder') fillFolder(payload);
+    else if (kind === 'overflow') {
       payload.forEach((x) => drop.append(x.folder != null ? folderRow(x.folder) : row(x.b)));
     } else if (kind === 'all') {
+      allMenu();
+    }
+    drop.hidden = false;
+    const r = anchor.getBoundingClientRect(); const w = drop.offsetWidth;
+    drop.style.top = r.bottom + 4 + 'px'; drop.style.left = Math.max(8, Math.min(window.innerWidth - w - 8, kind === 'all' || kind === 'overflow' ? r.right - w : r.left)) + 'px';
+  }
+  // a folder's contents: its folders first, then its bookmarks. A folder inside opens in the same box, with ‹ Back.
+  function fillFolder(payload) {
+    drop.innerHTML = '';
+    {
+      const list = inFolder(payload); const subs = subFolders(payload);
+      const head = document.createElement('div'); head.className = 'bd-head';
+      if (parentOf(payload)) { const back = document.createElement('button'); back.textContent = '‹'; back.title = 'Back to ' + leaf(parentOf(payload)); back.onclick = (e) => { e.stopPropagation(); fillFolder(parentOf(payload)); }; head.append(back); }
+      const bt = document.createElement('b'); bt.textContent = '📁 ' + leaf(payload); head.append(bt);
+      if (list.length) { const a = document.createElement('button'); a.textContent = `Open all (${list.length})`; a.onclick = () => { closeDrop(); openAll(payload); }; head.append(a); }
+      drop.append(head);
+      subs.forEach((f) => drop.append(folderRow(f, true)));
+      list.forEach((b) => drop.append(row(b)));
+      if (!list.length && !subs.length) { const e = document.createElement('div'); e.className = 'bd-empty'; e.textContent = 'Empty folder. Drag bookmarks here, or right-click a bookmark → Move to.'; drop.append(e); }
+      drop.ondragover = (e) => { if (e.dataTransfer.types.includes('noam/bm')) e.preventDefault(); };
+      drop.ondrop = async (e) => { const id = e.dataTransfer.getData('noam/bm'); if (id) { e.preventDefault(); await nb.invoke('bm:update', { id, folder: payload }); } };
+    }
+  }
+  function allMenu() {
       const box = document.createElement('div'); box.className = 'bd-search'; box.innerHTML = `<input placeholder="Search bookmarks" spellcheck="false">`; drop.append(box);
       const listEl = document.createElement('div'); drop.append(listEl);
       const fill = (q) => {
@@ -128,15 +162,14 @@
       foot.querySelector('[data-a=manage]').onclick = () => { closeDrop(); newTab({ url: 'noam://bookmarks/' }); };
       drop.append(foot);
       setTimeout(() => inp.focus(), 0);
-    }
-    drop.hidden = false;
-    const r = anchor.getBoundingClientRect(); const w = drop.offsetWidth;
-    drop.style.top = r.bottom + 4 + 'px'; drop.style.left = Math.max(8, Math.min(window.innerWidth - w - 8, kind === 'all' || kind === 'overflow' ? r.right - w : r.left)) + 'px';
-  }
-  function folderRow(name) {
+      }
+  function folderRow(name, inPlace) {
     const r = document.createElement('div'); r.className = 'bd-row bd-folder';
-    r.innerHTML = `<span class="bm-ic">📁</span><span>${esc(name)}</span><i>▸</i>`;
-    r.onclick = (e) => { e.stopPropagation(); showDrop(r, 'folder', name); };
+    r.innerHTML = `<span class="bm-ic">📁</span><span>${esc(inPlace ? leaf(name) : name)}</span><i>▸</i>`;
+    r.onclick = (e) => { e.stopPropagation(); if (inPlace || !drop.hidden) fillFolder(name); else showDrop(r, 'folder', name); };
+    r.ondragover = (e) => { if (e.dataTransfer.types.includes('noam/bm')) { e.preventDefault(); r.classList.add('drop-into'); } };
+    r.ondragleave = () => r.classList.remove('drop-into');
+    r.ondrop = async (e) => { const id = e.dataTransfer.getData('noam/bm'); if (id) { e.preventDefault(); e.stopPropagation(); await nb.invoke('bm:update', { id, folder: name }); toast(`Moved into 📁 ${leaf(name)}`); } };
     r.oncontextmenu = (e) => { e.preventDefault(); folderMenu(name, e.clientX, e.clientY); };
     return r;
   }
@@ -156,11 +189,11 @@
     a.ondragend = () => { dragId = null; $$('.bm.drop-before').forEach((x) => x.classList.remove('drop-before')); };
     a.ondragover = (e) => { if (dragId || dragFolder || e.dataTransfer.types.includes('text/uri-list')) { e.preventDefault(); $$('.bm.drop-before').forEach((x) => x.classList.remove('drop-before')); a.classList.add('drop-before'); } };
     a.ondragleave = () => a.classList.remove('drop-before');
-    a.ondrop = async (e) => { e.preventDefault(); e.stopPropagation(); a.classList.remove('drop-before'); const id = e.dataTransfer.getData('noam/bm'); if (id && id !== b.id) await nb.invoke('bm:move', { id, beforeId: b.id, folder: '' }); else if (!id) addDropped(e, b.id); };
+    a.ondrop = async (e) => { e.preventDefault(); e.stopPropagation(); a.classList.remove('drop-before'); const id = e.dataTransfer.getData('noam/bm'), f = e.dataTransfer.getData('noam/folder'); if (id && id !== b.id) { await nb.invoke('bm:move', { id, beforeId: b.id, folder: '' }); await refreshOrder(); render(); } else if (f) { barOrder = await nb.invoke('bm:bar-place', { token: 'f:' + f, before: 'b:' + b.id }); render(); } else if (!id) addDropped(e, b.id); };
     return a;
   }
   function folderChip(name) {
-    const a = document.createElement('button'); a.className = 'bm bm-folder'; a.title = `${name} (${inFolder(name).length})`; a.draggable = true;
+    const a = document.createElement('button'); a.className = 'bm bm-folder'; a.title = `${name} (${deepCount(name)})`; a.draggable = true; a.dataset.folder = name;
     a.innerHTML = `<span class="bm-ic">📁</span><span>${esc(name)}</span>`;
     a.onclick = (e) => { e.stopPropagation(); showDrop(a, 'folder', name); };
     a.oncontextmenu = (e) => { e.preventDefault(); e.stopPropagation(); folderMenu(name, e.clientX, e.clientY); };
@@ -172,7 +205,7 @@
       e.preventDefault(); e.stopPropagation(); a.classList.remove('drop-into');
       const id = e.dataTransfer.getData('noam/bm'), f = e.dataTransfer.getData('noam/folder');
       if (id) { await nb.invoke('bm:update', { id, folder: name }); toast(`Moved into 📁 ${name}`); }
-      else if (f && f !== name) { folders = await nb.invoke('bm:folder-move', { name: f, before: name }); render(); }
+      else if (f && f !== name) { folders = await nb.invoke('bm:folder-move', { name: f, before: name }); await refreshOrder(); render(); }
       else if (!f) addDropped(e, null, name);
     };
     return a;
@@ -185,20 +218,18 @@
     if (beforeId && items) { const last = items[items.length - 1]; await nb.invoke('bm:move', { id: last.id, beforeId, folder }); }
     toast('⭐ Bookmarked');
   }
-  bar.ondragover = (e) => { if (dragId || e.dataTransfer.types.includes('text/uri-list')) e.preventDefault(); };
-  bar.ondrop = async (e) => { e.preventDefault(); const id = e.dataTransfer.getData('noam/bm'); if (id) await nb.invoke('bm:move', { id, beforeId: null, folder: '' }); else addDropped(e, null); };
+  bar.ondragover = (e) => { if (dragId || dragFolder || e.dataTransfer.types.includes('text/uri-list')) e.preventDefault(); };
+  bar.ondrop = async (e) => { e.preventDefault(); const id = e.dataTransfer.getData('noam/bm'), f = e.dataTransfer.getData('noam/folder'); if (id) { await nb.invoke('bm:move', { id, beforeId: null, folder: '' }); await refreshOrder(); render(); } else if (f) { barOrder = await nb.invoke('bm:bar-place', { token: 'f:' + f, before: null }); render(); } else addDropped(e, null); };
   bar.oncontextmenu = (e) => { if (e.target === bar || e.target.classList.contains('bm-hint') || e.target.classList.contains('bm-space')) { e.preventDefault(); barMenu(e.clientX, e.clientY); } };
 
   let overflowBtn, allBtn;
   function render() {
     closeDrop();
     bar.innerHTML = '';
-    const fl = allFolders();
-    const loose = state.bookmarks.filter((b) => !b.folder);
+    const fl = allFolders(); const order = barItems();
     const strip = document.createElement('div'); strip.className = 'bm-strip';
-    fl.forEach((f) => strip.append(folderChip(f)));
-    loose.forEach((b) => strip.append(chip(b)));
-    if (!fl.length && !loose.length) { const h = document.createElement('span'); h.className = 'bm-hint'; h.textContent = 'Bookmarks you add with the ☆ star appear here. Drag links here too.'; strip.append(h); }
+    order.forEach((x) => strip.append(x.folder != null ? folderChip(x.folder) : chip(x.b)));
+    if (!order.length) { const h = document.createElement('span'); h.className = 'bm-hint'; h.textContent = 'Bookmarks you add with the ☆ star appear here. Drag links here too.'; strip.append(h); }
     bar.append(strip);
     overflowBtn = document.createElement('button'); overflowBtn.className = 'bm bm-more'; overflowBtn.title = 'More bookmarks'; overflowBtn.textContent = '»'; overflowBtn.hidden = true;
     const sp = document.createElement('span'); sp.className = 'bm-space';
@@ -221,11 +252,11 @@
     for (const k of kids) { if (k.offsetLeft + k.offsetWidth > limit) { k.hidden = true; hidden.push(k); } }
     if (!hidden.length) return;
     overflowBtn.hidden = false;
-    overflowBtn.onclick = (e) => { e.stopPropagation(); showDrop(overflowBtn, 'overflow', hidden.map((k) => (k.classList.contains('bm-folder') ? { folder: k.querySelector('span:last-child').textContent } : { b: state.bookmarks.find((b) => b.id === k.dataset.id) })).filter((x) => x.folder != null || x.b)); };
+    overflowBtn.onclick = (e) => { e.stopPropagation(); showDrop(overflowBtn, 'overflow', hidden.map((k) => (k.classList.contains('bm-folder') ? { folder: k.dataset.folder } : { b: state.bookmarks.find((b) => b.id === k.dataset.id) })).filter((x) => x.folder != null || x.b)); };
   }
   window.renderBookmarks = render;
-  nb.on('bookmarks:folders', (f) => { folders = f; render(); });
-  const _init = hooks.init; hooks.init = async (i) => { if (_init) await _init(i); folders = await nb.invoke('bm:folders').catch(() => []); render(); };
+  nb.on('bookmarks:folders', async (f) => { folders = f; await refreshOrder(); render(); });
+  const _init = hooks.init; hooks.init = async (i) => { if (_init) await _init(i); folders = await nb.invoke('bm:folders').catch(() => []); await refreshOrder(); render(); };
   const _cmds = commands;
   commands = function () { return [..._cmds(), CMD('allbm', 'All bookmarks 📚', '', () => { if (!state.settings.showBookmarksBar) newTab({ url: 'noam://bookmarks/' }); else showDrop(allBtn, 'all'); }, 'star'), CMD('bmfolder', 'New bookmarks folder', '', newFolder, 'star')]; };
 })();
