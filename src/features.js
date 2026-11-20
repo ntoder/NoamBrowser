@@ -190,7 +190,32 @@ module.exports = function setupFeatures(ctx) {
     const n = addBookmarks(list, { replace: !!opts.replace }); sync.touch();
     return { found: list.length, bookmarks: n };
   });
-  pageHandle('import:run', (_e, { key, bookmarks: doB, history: doH, replace }) => {
+  // what would come over from that browser (nothing is changed yet)
+  pageHandle('import:preview', (_e, key) => {
+    const data = importer.run(key, { bookmarks: true, history: true });
+    let extras = { search: null, homepage: null, restore: null, startupUrls: [], tabs: [], extensions: [] };
+    try { extras = importer.extras(key); } catch (e) { data.errors.push(e.message); }
+    return { bookmarks: data.bookmarks.length, folders: (data.bookmarks.folders || []).length, bar: (data.bookmarks.bar || []).length, history: data.history.length, errors: data.errors, ...extras };
+  });
+  // bring everything the person ticked: bookmarks, history, search engine, home page, open tabs
+  pageHandle('import:apply', (e, o = {}) => {
+    const r = importRun(o);
+    const ex = (() => { try { return importer.extras(o.key); } catch { return null; } })();
+    if (ex) {
+      if (o.search && ex.search && ex.search.id) { settings.set('searchEngine', ex.search.id); r.search = ex.search.name; }
+      if (o.homepage && ex.homepage) { settings.set('homepage', ex.homepage); r.homepage = ex.homepage; }
+      if (o.startup && ex.restore) { settings.set('restoreTabs', true); r.restore = true; }
+      if (o.tabs) {
+        const urls = (ex.tabs.length ? ex.tabs.map((t) => t.url) : ex.startupUrls).slice(0, 60);
+        const win = BrowserWindow.fromWebContents(e.sender.hostWebContents || e.sender);
+        if (win) for (const url of urls) win.webContents.send('tab:open', { url, background: true });
+        r.tabs = urls.length;
+      }
+      if (r.search || r.homepage) { const pub = publicSettings(); broadcast('settings:changed', pub); broadcastPages('settings', pub); }
+    }
+    return r;
+  });
+  const importRun = ({ key, bookmarks: doB, history: doH, replace }) => {
     const data = importer.run(key, { bookmarks: doB, history: doH });
     let nb = addBookmarks(data.bookmarks, { replace: !!replace }), nh = 0;
     if (data.history.length) {
@@ -205,7 +230,8 @@ module.exports = function setupFeatures(ctx) {
     }
     sync.touch();
     return { bookmarks: nb, history: nh, found: data.bookmarks.length, errors: data.errors };
-  });
+  };
+  pageHandle('import:run', (_e, o) => importRun(o));
   pageHandle('import:passwords-help', () => ({
     steps: 'In Chrome, Edge or Brave: open Settings → Passwords (Password Manager) → Settings → Export passwords. Save the CSV, then use “Import from CSV” on NoamBrowser’s Passwords page. Delete the CSV afterwards.',
   }));

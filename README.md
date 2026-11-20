@@ -3,6 +3,7 @@
 A private, fast web browser for Windows, macOS and Linux.
 
 - **Shields** — blocks ads, trackers, malware sites, cookie banners and YouTube ads; upgrades to HTTPS; blocks cross-site cookies and fingerprinting; strips tracking tags from links.
+- **Switch guide 👋 (new in 3.3)** — `noam://switch` brings bookmarks (exact folders and bar order), history, search engine, home page, open tabs and extensions over from Chrome, Edge, Brave, Vivaldi, Opera, Firefox, Waterfox, LibreWolf and Zen; step-by-step password export; Chrome/Firefox shortcuts; optional “Simple look”.
 - **Streaming 🎬 (new in 3.2)** — Netflix, Spotify, Disney+ and other protected video (Widevine, via castlabs’ Electron for Content Security). Windows and Mac builds are VMP-signed by castlabs EVS in GitHub Actions — see [.github/workflows/release.yml](.github/workflows/release.yml).
 - **Video calls 🖥️ (new in 3.2)** — share your screen or a window in Meet, Zoom, Discord and Teams with a preview picker (and your computer’s sound on Windows); USB / serial devices (micro:bit, Arduino) for web editors.
 - **Built-in VPN** — free Cloudflare WARP (WireGuard) with a kill switch, or your own SOCKS5/HTTP proxy.

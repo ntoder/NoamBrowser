@@ -351,3 +351,8 @@ textarea.nc-in { font: 600 12px ui-monospace, monospace; }
 .ss-audio { display: flex; gap: 8px; align-items: center; margin-top: 12px; font-size: 13px; }
 .ss-none { color: var(--muted); font-size: 13px; }
 .def-bar { top: auto; bottom: 16px; }
+
+/* Simple look (Settings → General, or the Switch guide): a calmer toolbar like Chrome or Firefox */
+body.simple-look #rail, body.simple-look #rpanel,
+body.simple-look #focus-btn, body.simple-look #bl-btn, body.simple-look #shot-btn, body.simple-look #pip-btn,
+body.simple-look #price-btn, body.simple-look #rl-btn, body.simple-look #share-btn, body.simple-look #vpn-label { display: none !important; }

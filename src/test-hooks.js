@@ -452,6 +452,59 @@ fetch('/player').then(r=>r.text()).then(t=>{window.r3=Object.keys(JSON.parse(t))
     })();
     return;
   }
+  if (process.env.NOAM_TEST_SWITCH) {
+    const win = [...windows][0]; const ui = win.webContents; const js = (c) => ui.executeJavaScript(c);
+    const shot = async (n) => { await sleep(700); const img = await win.webContents.capturePage(); fs.writeFileSync(path.join(OUT, n + '.png'), img.toPNG()); };
+    (async () => {
+      await sleep(4000); win.show();
+      log('RESULT first tab', await js('state.tabs[0] && state.tabs[0].url'));
+      const pg = () => webContents.fromId(state_active());
+      let wcid = await js('state.active.wcId'); const P = webContents.fromId(wcid); const pj = (c) => P.executeJavaScript(c);
+      function state_active() { return wcid; }
+      await sleep(1500); await shot('sw-01-pick');
+      log('RESULT browsers', await pj(`[...document.querySelectorAll('#pick b')].map((b) => b.textContent).join(', ')`));
+      await pj(`[...document.querySelectorAll('#pick button')].find((b) => b.textContent.includes('Firefox')).click()`); await sleep(2500);
+      log('RESULT options', JSON.stringify(await pj(`[...document.querySelectorAll('.opt')].map((o) => (o.querySelector('input').checked ? '[x] ' : '[ ] ') + o.querySelector('b').textContent)`)));
+      await shot('sw-02-what');
+      const tabsBefore = await js('state.tabs.length');
+      await pj(`document.querySelector('#go').click()`); await sleep(3000);
+      log('RESULT tabs opened', (await js('state.tabs.length')) - tabsBefore, JSON.stringify(await js('state.tabs.slice(-2).map((t) => t.url)')));
+      log('RESULT done list', JSON.stringify(await pj(`[...document.querySelectorAll('.res li')].map((l) => l.textContent)`)));
+      const s = await js(`nb.invoke('settings:get')`);
+      log('RESULT settings', s.searchEngine, s.homepage, s.restoreTabs);
+      log('RESULT bookmarks', JSON.stringify(await js(`state.bookmarks.map((b) => (b.folder || 'bar') + ':' + b.title)`)));
+      log('RESULT bar', JSON.stringify(await js(`[...document.querySelectorAll('#bookmarks-bar .bm-strip > .bm')].map((x) => x.textContent.trim())`)));
+      await js(`activate(state.tabs.find((t) => t.wcId === ${wcid}))`); await sleep(500);
+      await shot('sw-03-passwords');
+      await pj(`document.querySelector('#next').click()`); await sleep(800);
+      log('RESULT extensions', JSON.stringify(await pj(`[...document.querySelectorAll('.ext')].map((e) => e.innerText.replace(/\\n+/g, ' | '))`)));
+      await shot('sw-04-ext');
+      await pj(`document.querySelector('#next').click()`); await sleep(800);
+      await pj(`document.querySelector('[data-k=simpleLook]').click()`); await sleep(800);
+      log('RESULT simple look', await js(`document.body.classList.contains('simple-look') + ' rail hidden: ' + (getComputedStyle(document.querySelector('#rail')).display === 'none')`));
+      await shot('sw-05-yours');
+      await pj(`document.querySelector('#next').click()`); await sleep(800);
+      await shot('sw-06-map');
+      // shortcuts
+      const n0 = await js('state.tabs.length');
+      await js(`shortcut({ key: 'P', ctrl: true, shift: true })`); await sleep(500);
+      log('RESULT Ctrl+Shift+P private', await js('state.active.private'));
+      await js(`shortcut({ key: 'O', ctrl: true, shift: true })`); await sleep(800);
+      log('RESULT Ctrl+Shift+O', await js('state.active.url'));
+      await js(`shortcut({ key: 'Delete', ctrl: true, shift: true })`); await sleep(800);
+      log('RESULT Ctrl+Shift+Delete', await js('state.active.url'));
+      await js(`shortcut({ key: 'Y', ctrl: true, shift: true })`); await sleep(800);
+      log('RESULT Ctrl+Shift+Y', await js('state.active.url'));
+      await js(`shortcut({ key: 'H', ctrl: true, shift: true })`); await sleep(800);
+      log('RESULT Ctrl+Shift+H', await js('state.active.url'), 'tabs added', (await js('state.tabs.length')) - n0);
+      // Chrome import also gives its search engine and extensions
+      const keys = await pj(`noam.invoke('import:detect').then((d) => d.map((x) => x.key))`);
+      const ck = keys.find((k) => k.startsWith('chrome'));
+      log('RESULT chrome preview', JSON.stringify(await pj(`noam.invoke('import:preview', ${JSON.stringify(ck)}).then((p) => ({ b: p.bookmarks, search: p.search, home: p.homepage, ext: p.extensions.map((e) => e.name + (e.note ? ' (built in)' : '')) }))`)));
+      log('DONE'); setTimeout(() => app.quit(), 1000);
+    })();
+    return;
+  }
   if (process.env.NOAM_TEST_BMIMP) {
     const win = [...windows][0]; const ui = win.webContents; const js = (c) => ui.executeJavaScript(c);
     const shot = async (n) => { await sleep(500); const img = await win.webContents.capturePage(); fs.writeFileSync(path.join(OUT, n + '.png'), img.toPNG()); };

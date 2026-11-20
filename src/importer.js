@@ -73,10 +73,11 @@ function profilesIn(root) {
 
 function detect() {
   const found = [];
+  try { found.push(...require('./importer2').detectFirefox()); } catch (e) { console.error('firefox detect', e.message); }
   for (const [id, label, root] of roots()) {
     for (const p of profilesIn(root)) {
       found.push({
-        key: id + '|' + p.dir, browser: label, profile: p.name,
+        key: id + '|' + p.dir, kind: 'chromium', browser: label, profile: p.name,
         bookmarks: hasBookmarks(p.dir),
         history: fs.existsSync(path.join(p.dir, 'History')),
       });
@@ -194,9 +195,18 @@ function run(key, { bookmarks: doB = true, history: doH = true } = {}) {
   const dir = key.split('|').slice(1).join('|');
   if (!detect().some((d) => d.key === key)) throw new Error('That browser profile is no longer available.');
   const out = { bookmarks: [], history: [], errors: [] };
-  if (doB) { try { out.bookmarks = readBookmarks(dir); } catch (e) { out.errors.push(e.message); } }
-  if (doH) { try { out.history = readHistory(dir); } catch (e) { out.errors.push(e.message); } }
+  const ff = isFirefox(key), X = require('./importer2');
+  if (doB) { try { out.bookmarks = ff ? X.readFirefoxBookmarks(dir) : readBookmarks(dir); } catch (e) { out.errors.push(e.message); } }
+  if (doH) { try { out.history = ff ? X.readFirefoxHistory(dir) : readHistory(dir); } catch (e) { out.errors.push(e.message); } }
   return out;
 }
+const isFirefox = (key) => /^(firefox|waterfox|librewolf|zen)/.test(key);
+// search engine, home page, open tabs and extensions of that browser profile
+function extras(key) {
+  const dir = key.split('|').slice(1).join('|');
+  if (!detect().some((d) => d.key === key)) throw new Error('That browser profile is no longer available.');
+  const X = require('./importer2');
+  return isFirefox(key) ? X.firefoxExtras(dir) : X.chromeExtras(dir);
+}
 
-module.exports = { detect, run, parseBookmarksHtml };
+module.exports = { detect, run, extras, parseBookmarksHtml };

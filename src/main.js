@@ -69,6 +69,7 @@ const SEARCH_ENGINES = {
   bing: { name: 'Bing', url: 'https://www.bing.com/search?q=%s' },
 };
 
+const firstRun = !fs.existsSync(path.join(userData, 'settings.json')) && !process.env.NOAM_NO_WELCOME && (!process.env.NOAM_TEST || !!process.env.NOAM_TEST_SWITCH);
 const settings = new Store(userData, 'settings', {
   searchEngine: 'duckduckgo',
   homepage: 'noam://newtab/',
@@ -77,6 +78,7 @@ const settings = new Store(userData, 'settings', {
   appearance: { preset: 'default', customAccent: '', tabStyle: 'rounded', density: 'comfortable', radius: 100, font: 'manrope', animations: 'full', liquidGlass: false, glassStrength: 60, wallpaper: 'aurora', wallpaperDim: 30 },
   showBookmarksBar: true,
   restoreTabs: true,
+  simpleLook: false,
   clearOnExit: false,
   askDownloadLocation: false,
   downloadDir: '',
@@ -496,6 +498,8 @@ function createWindow({ urls = [], privateTab = false, restore = false } = {}) {
   win.once('ready-to-show', () => win.show());
   win.webContents.once('did-finish-load', () => {
     let initial = urls.map((u) => ({ url: u }));
+    // brand-new install: start with the “Switch to NoamBrowser” guide (bring bookmarks, passwords, tabs… from Chrome or Firefox)
+    if (firstRun && !settings.get('switchShown')) { settings.set('switchShown', true); initial.unshift({ url: 'noam://switch/' }); }
     if (restore && settings.get('restoreTabs') && settings.get('session').length) initial = settings.get('session').concat(initial);
     win.webContents.send('init', {
       tabs: initial.length ? initial : [{ url: 'noam://newtab/' }],
@@ -586,7 +590,7 @@ app.on('web-contents-created', (_e, wc) => {
     const key = input.key.toLowerCase();
     const mod = input.control || input.meta;
     const isF = /^f(5|6|9|11|12)$/.test(key) || key === 'escape' && false;
-    if ((mod && SHORTCUT_KEYS.has(key)) || (mod && input.shift && (key === 'i' || key === 'c' || key === 'p' || key === 'a' || key === 'b')) || isF || (input.alt && (key === 'arrowleft' || key === 'arrowright' || key === 'home'))) {
+    if ((mod && SHORTCUT_KEYS.has(key)) || (mod && input.shift && (key === 'i' || key === 'c' || key === 'p' || key === 'a' || key === 'b' || key === 'y' || key === 'delete')) || isF || (input.alt && (key === 'arrowleft' || key === 'arrowright' || key === 'home' || (process.platform !== 'darwin' && !mod && (key === 'f' || key === 'e'))))) {
       const win = hostWindowOf(wc);
       if (!win || type !== 'webview') return;
       event.preventDefault();
@@ -850,7 +854,7 @@ function downloadAction(id, action) {
 }
 
 function setSettings(patch) {
-  const allowed = ['searchEngine', 'homepage', 'theme', 'accent', 'showBookmarksBar', 'restoreTabs', 'clearOnExit', 'askDownloadLocation', 'downloadDir', 'newTabShowStats', 'newTabShowTopSites', 'dns', 'shields', 'vpn', 'appearance', 'passwords', 'translate', 'updates', 'tabs', 'forceDarkAll', 'gestures', 'media', 'widgets', 'sidePanel', 'downloads', 'blueLight', 'zmanimAlerts', 'screenTime', 'focus', 'dictionary', 'perf', 'containers', 'chat', 'ai'];
+  const allowed = ['searchEngine', 'homepage', 'theme', 'accent', 'showBookmarksBar', 'restoreTabs', 'simpleLook', 'clearOnExit', 'askDownloadLocation', 'downloadDir', 'newTabShowStats', 'newTabShowTopSites', 'dns', 'shields', 'vpn', 'appearance', 'passwords', 'translate', 'updates', 'tabs', 'forceDarkAll', 'gestures', 'media', 'widgets', 'sidePanel', 'downloads', 'blueLight', 'zmanimAlerts', 'screenTime', 'focus', 'dictionary', 'perf', 'containers', 'chat', 'ai'];
   for (const [k, v] of Object.entries(patch || {})) {
     if (!allowed.includes(k)) continue;
     if (['shields', 'vpn', 'appearance', 'passwords', 'translate', 'updates', 'tabs', 'gestures', 'media', 'widgets', 'sidePanel', 'downloads', 'blueLight', 'zmanimAlerts', 'screenTime', 'focus', 'dictionary', 'perf', 'chat', 'ai'].includes(k) && v && typeof v === 'object' && !Array.isArray(v)) settings.set(k, { ...(settings.get(k) || {}), ...v });
@@ -900,7 +904,8 @@ function appMenu(sender, wcId, x, y) {
     { type: 'separator' },
     { label: 'History', accelerator: 'CmdOrCtrl+H', click: () => send('tab:open', { url: 'noam://history/' }) },
     { label: 'Downloads', accelerator: 'CmdOrCtrl+J', click: () => send('tab:open', { url: 'noam://downloads/' }) },
-    { label: 'Bookmarks', click: () => send('tab:open', { url: 'noam://bookmarks/' }) },
+    { label: 'Bookmarks', accelerator: 'CmdOrCtrl+Shift+O', click: () => send('tab:open', { url: 'noam://bookmarks/' }) },
+    { label: 'Switch from Chrome or Firefox…', click: () => send('tab:open', { url: 'noam://switch/' }) },
     { label: 'Passwords', click: () => send('tab:open', { url: 'noam://passwords/' }) },
     { label: 'Focus timer 🍅', accelerator: 'CmdOrCtrl+Shift+F', click: () => send('shortcut', { key: 'focus' }) },
     { label: 'Focus progress', click: () => send('tab:open', { url: 'noam://focus/' }) },

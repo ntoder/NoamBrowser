@@ -36,6 +36,7 @@ function applyTheme() {
   const s = state.settings;
   window.applyNoamTheme(s);
   document.body.classList.toggle('no-bookmarks', !s.showBookmarksBar);
+  document.body.classList.toggle('simple-look', !!s.simpleLook); // looks like Chrome / Firefox: fewer buttons, no side rail
   requestAnimationFrame(layoutTabs);
 }
 function replay(el, cls, ms) { el.classList.remove(cls); void el.offsetWidth; el.classList.add(cls); clearTimeout(el['_t' + cls]); el['_t' + cls] = setTimeout(() => el.classList.remove(cls), ms); }
@@ -706,6 +707,15 @@ async function shortcut({ key, ctrl, shift, alt }) {
   if (ctrl) {
     if (key === 't' && shift) { const c = state.closed.pop(); if (c) newTab({ url: c.url, index: Math.min(c.index, state.tabs.length) }); return true; }
     if (key === 't') { newTab({ url: NEWTAB }); return true; }
+    // the same shortcuts as Chrome and Firefox, so people switching don't have to relearn anything
+    if (shift && key === 'p') { newTab({ url: NEWTAB, private: true }); return true; } // Firefox: private window
+    if (shift && key === 'delete') { newTab({ url: 'noam://settings/#privacy' }); return true; }
+    if (shift && key === 'o') { newTab({ url: 'noam://bookmarks/' }); return true; }
+    if (shift && key === 'w') { nb.invoke('window:control', 'close'); return true; }
+    if (shift && (key === 'i' || key === 'j' || key === 'c')) { if (t) t.wv.isDevToolsOpened() ? t.wv.closeDevTools() : t.wv.openDevTools(); return true; }
+    if (shift && key === 'h') { newTab({ url: 'noam://history/' }); return true; }
+    if (shift && key === 'y') { newTab({ url: 'noam://downloads/' }); return true; }
+    if (alt && key === 'o') { nb.invoke('file:open-dialog', { folder: true }).then((urls) => (urls || []).forEach((url) => newTab({ url, private: t?.private }))); return true; }
     if (key === 'o') { nb.invoke('file:open-dialog', { folder: shift }).then((urls) => (urls || []).forEach((url) => newTab({ url, private: t?.private }))); return true; }
     if (key === 'n' && shift) { newTab({ url: NEWTAB, private: true }); return true; }
     if (key === 'n') { nb.invoke('window:new'); return true; }
@@ -734,6 +744,7 @@ async function shortcut({ key, ctrl, shift, alt }) {
   if (alt && key === 'arrowright') { t?.wv.goForward(); return true; }
   if (alt && key === 'home') { t?.navigate(state.settings.homepage || NEWTAB); return true; }
   if (alt && key === 'd') { focusOmnibox(); return true; }
+  if (alt && !ctrl && (key === 'f' || key === 'e') && !document.body.classList.contains('mac')) { $('#menu-btn').click(); return true; } // Chrome's Alt+F / Alt+E menu
   if (key === 'f5') { if (t) ctrl ? t.wv.reloadIgnoringCache() : reloadTab(t); return true; }
   if (key === 'f6') { focusOmnibox(); return true; }
   if (key === 'f11') { nb.invoke('window:control', 'fullscreen'); return true; }
