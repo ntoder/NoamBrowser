@@ -180,7 +180,7 @@
         <textarea id="nc-text" rows="1" placeholder="Message${isG ? ' the group' : ''}…" maxlength="8000"></textarea><button class="nc-send" id="nc-send" title="Send (Enter)">➤</button><input type="file" id="nc-file" accept="image/*" hidden></div>`;
     const list = main.querySelector('#nc-msgs'); list.scrollTop = list.scrollHeight;
     main.querySelector('#nc-back').onclick = () => go('list');
-    main.querySelector('#nc-more').onclick = (e) => convMenu(key, e.clientX, e.clientY);
+    main.querySelector('#nc-more').onclick = (e) => { const r = e.currentTarget.getBoundingClientRect(); convMenu(key, r.right - 210, r.bottom + 4); }; // under the ⋯ button (also when opened with the keyboard)
     const ta = main.querySelector('#nc-text'); ta.value = draft[key] || '';
     const grow = () => { ta.style.height = 'auto'; ta.style.height = Math.min(120, ta.scrollHeight) + 'px'; ta.style.overflowY = ta.scrollHeight > 120 ? 'auto' : 'hidden'; }; grow();
     let lastType = 0;
@@ -248,7 +248,7 @@
   }
   const _rr = renderRail; window.renderRail = function () { _rr(); paintBadge(); };
   let rT = null;
-  const rerender = () => { clearTimeout(rT); rT = setTimeout(() => { paintBadge(); if (body && body.isConnected && body.querySelector('.nc') && view.tab === 'chats') { const ta = body.querySelector('#nc-text'); const focus = ta && document.activeElement === ta; const sel = ta && ta.selectionStart; const scroll = body.querySelector('#nc-msgs'); const atBottom = !scroll || scroll.scrollHeight - scroll.scrollTop - scroll.clientHeight < 60; const prevTop = scroll && scroll.scrollTop; if (body.querySelector('input:focus:not(#nc-text), textarea:focus:not(#nc-text)')) return; render(); const ta2 = body.querySelector('#nc-text'); if (ta2 && focus) { ta2.focus(); try { ta2.setSelectionRange(sel, sel); } catch {} } const s2 = body.querySelector('#nc-msgs'); if (s2 && !atBottom) s2.scrollTop = prevTop; } }, 60); };
+  const rerender = () => { clearTimeout(rT); rT = setTimeout(() => { paintBadge(); if (body && body.isConnected && body.querySelector('.nc') && view.tab === 'chats') { const ta = body.querySelector('#nc-text'); const focus = ta && document.activeElement === ta; const sel = ta && ta.selectionStart; const scroll = body.querySelector('#nc-msgs'); const atBottom = !scroll || scroll.scrollHeight - scroll.scrollTop - scroll.clientHeight < 60; const prevTop = scroll && scroll.scrollTop; const emoOpen = !!body.querySelector('#nc-emo:not([hidden])'); if (body.querySelector('input:focus:not(#nc-text), textarea:focus:not(#nc-text)')) return; render(); const ta2 = body.querySelector('#nc-text'); if (ta2 && focus) { ta2.focus(); try { ta2.setSelectionRange(sel, sel); } catch {} } const s2 = body.querySelector('#nc-msgs'); if (s2 && !atBottom) s2.scrollTop = prevTop; if (emoOpen && body.querySelector('#nc-emo')) body.querySelector('#nc-emo').hidden = false; } }, 60); };
   C.on('change', rerender); C.on('typing', rerender); C.on('presence', rerender);
   setInterval(() => { if (view.screen === 'conv' && body && body.isConnected) rerender(); }, 15000);
   window.renderChatPanel = (el) => { view.screen = view.screen || 'list'; render(el); };

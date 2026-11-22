@@ -1,3 +1,9 @@
+# NoamBrowser 3.3.1 🔧 NoamChat fixes
+
+- **NoamChat menus work properly again.** An open chat kept redrawing itself over and over, which made the ⋯ menu, right-click menu and emoji picker jump or close by themselves. It also used extra battery.
+- The ⋯ menu now opens right under its button.
+- The emoji picker stays open when a message or "online" update arrives.
+
 # NoamBrowser 3.3 👋 Switching from Chrome or Firefox is easy now
 
 ## 👋 New: the Switch guide
