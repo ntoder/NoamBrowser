@@ -1,3 +1,9 @@
+# NoamBrowser 3.3.2 🍎 Mac full screen fix
+
+- **On a Mac, full screen keeps your tabs and toolbar**, like Safari and Chrome. Before, the tabs disappeared when you clicked the green button.
+- Videos in full screen still fill the whole screen.
+- On Windows and Linux, F11 still hides the tabs like Chrome does. Press F11 again to get them back.
+
 # NoamBrowser 3.3.1 🔧 NoamChat fixes
 
 - **NoamChat menus work properly again.** An open chat kept redrawing itself over and over, which made the ⋯ menu, right-click menu and emoji picker jump or close by themselves. It also used extra battery.

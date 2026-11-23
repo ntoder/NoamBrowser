@@ -289,7 +289,11 @@ body.private-active #url { color: #F3E8FF; }
 
 /* html5 fullscreen video */
 body.html-fs #titlebar, body.html-fs #toolbar, body.html-fs #bookmarks-bar { display: none; }
-body.win-fs #titlebar { display: none; }
+/* F11 on Windows/Linux hides the tabs like Chrome does. On a Mac, full screen (green button / Ctrl+Cmd+F)
+   keeps the tabs and toolbar like Safari and Chrome; only the space for the hidden traffic lights goes away. */
+body.win-fs:not(.mac) #titlebar { display: none; }
+body.mac.win-fs #titlebar { padding-left: 10px; }
+body.vtabs.mac.win-fs #toolbar { padding-left: 10px; }
 body.win-fs #wc-space { display: none; }
 
 /* ---------- bookmarks bar 2.6.2: folders, all bookmarks, overflow ---------- */
