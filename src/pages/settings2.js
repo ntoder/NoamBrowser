@@ -96,15 +96,15 @@
   function renderUpd(u) {
     if (!u) return;
     const d = $('#upd-detail'); const title = $('#upd-title');
-    $('#upd-install').hidden = !(u.status === 'ready' || (u.status === 'available' && !u.canAutoInstall));
+    $('#upd-install').hidden = !(u.status === 'ready' || u.status === 'available');
     $('#upd-install').textContent = u.status === 'ready' ? 'Restart to update' : 'Download update';
     const map = {
       unconfigured: 'Updates aren’t set up in this build.',
       dev: 'Updates are off while running from source.',
       idle: 'NoamBrowser checks for new versions every few hours.',
       checking: 'Checking for updates…',
-      current: `You’re up to date (version ${u.version}).`,
-      available: `Version ${u.available} is available.` + (u.canAutoInstall ? ' Downloading…' : ' Click Download update to get it.'),
+      current: `You’re up to date (version ${u.version}).` + (u.hint ? ' ' + u.hint : ''),
+      available: `Version ${u.available} is available. Click Download update to get it.` + (u.hint ? ' ' + u.hint : ''),
       downloading: `Downloading version ${u.available || ''}… ${u.progress || 0}%`,
       ready: `Version ${u.available} is ready. Restart NoamBrowser to finish updating.`,
       error: 'Update check failed: ' + (u.error || 'unknown error'),

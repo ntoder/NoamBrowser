@@ -1,3 +1,9 @@
+# NoamBrowser 3.3.3 🍎 One-click updates on Mac
+
+- **Macs now update themselves**, like Windows. NoamBrowser downloads the new version in the background and checks it isn't damaged. When it's ready, click **Restart to update** in Settings → About. It swaps in the new version and opens again with your tabs.
+- This works when NoamBrowser is in your **Applications** folder. If it's somewhere else, Settings tells you to move it there.
+- You need to install this version once by hand (download it and drag it into Applications). After that, updates are one click.
+
 # NoamBrowser 3.3.2 🍎 Mac full screen fix
 
 - **On a Mac, full screen keeps your tabs and toolbar**, like Safari and Chrome. Before, the tabs disappeared when you clicked the green button.
